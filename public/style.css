@@ -223,10 +223,11 @@ video.media::-webkit-media-controls-time-remaining-display { display: none; }
   font-variant-numeric: tabular-nums;
 }
 
-/* Plein écran : la vidéo occupe tout l'écran, les contrôles flottent en bas. */
-.player:fullscreen { position: relative; }
-.player:fullscreen video { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; }
-.player:fullscreen .controls {
+/* Plein écran « cinéma » : la vidéo occupe tout l'écran, les contrôles flottent en bas,
+   l'en-tête et la liste glissent par-dessus quand la souris approche du bord. */
+body.cinema .player { position: fixed; inset: 0; z-index: 1; }
+body.cinema video { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; }
+body.cinema .controls {
   position: absolute;
   left: 0;
   right: 0;
@@ -234,8 +235,24 @@ video.media::-webkit-media-controls-time-remaining-display { display: none; }
   background: rgba(0, 0, 0, 0.6);
   transition: opacity 0.3s;
 }
-.player.idle { cursor: none; }
-.player.idle .controls { opacity: 0; pointer-events: none; }
+body.cinema header, body.cinema aside {
+  position: fixed;
+  z-index: 2;
+  transition: transform 0.25s, opacity 0.25s;
+  opacity: 0;
+  pointer-events: none;
+}
+body.cinema header { top: 0; left: 0; right: 0; background: rgba(27, 27, 27, 0.92); transform: translateY(-100%); }
+body.cinema aside {
+  top: var(--header-height, 50px);
+  bottom: 0;
+  left: 0;
+  background: rgba(27, 27, 27, 0.92);
+  transform: translateX(-100%);
+}
+body.cinema.reveal-top header, body.cinema.reveal-left aside { opacity: 1; pointer-events: auto; transform: none; }
+body.cinema.idle { cursor: none; }
+body.cinema.idle .controls { opacity: 0; pointer-events: none; }
 #seek input { flex: 1; padding: 0; accent-color: #2f6fd6; }
 #seek select { width: auto; max-width: 260px; padding: 4px 6px; }
 

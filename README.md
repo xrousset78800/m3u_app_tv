@@ -10,7 +10,8 @@ guide des programmes et replay, dans le navigateur.
 - **TV** : chaînes en direct (HLS), guide des programmes par jour et replay quand la chaîne le permet.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes.
-- Vrai plein écran (bouton ou touche `F`, double-clic sur la vidéo).
+- Vrai plein écran (bouton ou touche `F`, double-clic sur la vidéo) : les onglets et la liste
+  restent accessibles en approchant la souris du bord haut ou gauche.
 - Catalogue et guide stockés dans une base SQLite locale : l'interface reste rapide,
   même avec des dizaines de milliers d'entrées.
 

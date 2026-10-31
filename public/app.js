@@ -203,27 +203,49 @@ audioSelect.addEventListener('change', () => {
   startMediaAt(position());
 });
 
-// Plein écran sur tout le lecteur (vidéo + barre de position + piste audio).
+// Plein écran « cinéma » : toute la fenêtre passe en plein écran, la vidéo occupe l'écran,
+// et l'en-tête (onglets) et la liste glissent par-dessus quand la souris approche d'un bord.
 const player = $('player');
+const header = document.querySelector('header');
+const aside = document.querySelector('aside');
+const EDGE = 60;
 let idleTimer;
 
 function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen();
-  else player.requestFullscreen().catch((err) => setStatus(`Plein écran refusé : ${err.message}`, true));
+  else if (!player.closest('main').hidden) {
+    document.body.style.setProperty('--header-height', `${header.offsetHeight}px`);
+    document.documentElement.requestFullscreen().catch((err) => setStatus(`Plein écran refusé : ${err.message}`, true));
+  }
 }
 
-// En plein écran, les contrôles s'effacent après 3 s sans mouvement de souris.
-function wakeControls() {
-  player.classList.remove('idle');
+// Champ de la liste en cours d'utilisation (recherche, catégorie) : la liste reste affichée.
+const editingAside = () => aside.contains(document.activeElement) && ['INPUT', 'SELECT'].includes(document.activeElement.tagName);
+
+// Contrôles, en-tête et liste s'effacent après 3 s sans mouvement de souris,
+// sauf si la souris est posée sur l'en-tête ou la liste.
+function wakeControls(e) {
+  const body = document.body;
+  body.classList.remove('idle');
   clearTimeout(idleTimer);
-  if (document.fullscreenElement) idleTimer = setTimeout(() => player.classList.add('idle'), 3000);
+  if (!document.fullscreenElement) return;
+  if (e) {
+    body.classList.toggle('reveal-top', e.clientY < EDGE || header.contains(e.target));
+    body.classList.toggle('reveal-left', (e.clientX < EDGE && e.clientY > EDGE) || aside.contains(e.target) || editingAside());
+  }
+  if (!header.contains(e?.target) && !aside.contains(e?.target)) {
+    idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
+  }
 }
 
 $('fullscreen').onclick = toggleFullscreen;
 video.addEventListener('dblclick', toggleFullscreen);
-player.addEventListener('mousemove', wakeControls);
+document.addEventListener('mousemove', wakeControls);
 document.addEventListener('fullscreenchange', () => {
-  $('fullscreen').textContent = document.fullscreenElement ? '✕ Quitter' : '⛶ Plein écran';
+  const on = Boolean(document.fullscreenElement);
+  document.body.classList.toggle('cinema', on);
+  if (!on) document.body.classList.remove('reveal-top', 'reveal-left');
+  $('fullscreen').textContent = on ? '✕ Quitter' : '⛶ Plein écran';
   wakeControls();
 });
 document.addEventListener('keydown', (e) => {
@@ -538,6 +560,8 @@ async function loadList(append = false) {
     li.onclick = () => {
       list.querySelector('.active')?.classList.remove('active');
       li.classList.add('active');
+      // Film ou série : la fiche (lecture, épisodes) s'affiche sous le lecteur, on sort du plein écran.
+      if (currentType !== 'live' && document.fullscreenElement) document.exitFullscreen();
       handlers[currentType](item);
     };
     return li;
