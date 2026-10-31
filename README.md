@@ -16,8 +16,10 @@ guide des programmes et replay, dans le navigateur.
 
 ## Installer l'appli (Windows)
 
-Lancer `TV-Setup-<version>.exe` : l'appli s'installe sans droits administrateur
-et crée un raccourci **TV** sur le bureau et dans le menu Démarrer.
+Télécharger `TV-Setup-<version>.exe` depuis la
+[dernière Release](https://github.com/xrousset78800/m3u_app_tv/releases/latest) et le lancer :
+l'appli s'installe sans droits administrateur et crée un raccourci **TV** sur le bureau
+et dans le menu Démarrer. Elle se met ensuite à jour toute seule.
 
 L'installateur n'est pas signé : au premier lancement, Windows affiche
 « Windows a protégé votre ordinateur ». Cliquer sur **Informations complémentaires**
@@ -45,6 +47,20 @@ npm run dist    # fabrique l'installateur dans dist/
 
 En développement, les données sont à la racine du projet avec `npm start`,
 et dans `%APPDATA%\TV` (comme l'appli installée) avec `npm run app`.
+
+### Publier une version
+
+```bash
+npm run release
+```
+
+Augmente la version (1.0.0 → 1.0.1), crée le commit et le tag `v1.0.1`, et pousse le tout.
+GitHub Actions fabrique alors l'installateur et le publie dans une Release (quelques minutes,
+suivi dans l'onglet *Actions*). Les applis installées détectent la nouvelle version au lancement,
+la téléchargent en arrière-plan et proposent de redémarrer pour l'installer.
+
+Pour une version plus importante : `npm version minor` (1.1.0) ou `npm version major` (2.0.0),
+puis `git push --follow-tags`.
 
 ## Connexion
 
