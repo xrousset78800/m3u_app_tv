@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TV</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <nav id="tabs">
+      <button data-type="guide">Programme</button>
+      <button data-type="live">TV</button>
+      <button data-type="vod">Films</button>
+      <button data-type="series">Séries</button>
+    </nav>
+    <span id="sync-info"></span>
+    <button id="sync" class="secondary">Mettre à jour le catalogue</button>
+  </header>
+
+  <section id="onboarding" hidden>
+    <h1>Bienvenue</h1>
+    <p id="onboarding-text"></p>
+    <button id="import">Importer le catalogue</button>
+  </section>
+
+  <div id="app" hidden>
+    <section id="guide" hidden>
+      <div class="guide-bar">
+        <select id="guide-category"></select>
+        <div id="guide-times" class="days"></div>
+      </div>
+      <div id="guide-list"></div>
+    </section>
+
+    <aside>
+      <select id="category"></select>
+      <input id="search" type="search" placeholder="Rechercher…">
+      <ul id="list"></ul>
+      <button id="more" class="secondary" hidden>Afficher plus</button>
+    </aside>
+
+    <main>
+      <div id="player" class="player">
+        <video id="video" controls controlslist="nofullscreen" autoplay playsinline></video>
+        <div class="controls">
+          <div id="seek" hidden>
+            <span id="time-current">0:00</span>
+            <input id="seek-bar" type="range" min="0" step="1" value="0">
+            <span id="time-total">0:00</span>
+            <select id="audio-track" title="Piste audio"></select>
+          </div>
+          <button id="fullscreen" class="secondary" title="Plein écran (F)">⛶ Plein écran</button>
+        </div>
+      </div>
+      <div id="status">Choisis une chaîne, un film ou une série.</div>
+      <section id="details"></section>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

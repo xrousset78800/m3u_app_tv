@@ -1,0 +1,22 @@
+# Dépendances
+node_modules/
+
+# Playlists : elles contiennent les identifiants de l'abonnement dans chaque URL
+*.m3u
+*.m3u8
+
+# Identifiants extraits de la playlist
+config.json
+
+# Base locale (recréée par l'import)
+tv.db
+tv.db-*
+
+# Hébergement OVH (non utilisé par l'appli)
+.ovhconfig
+
+# Système / éditeur
+.DS_Store
+Thumbs.db
+.vscode/
+*.log
