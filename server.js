@@ -128,8 +128,16 @@ function mediaUrl(params) {
 
 const routes = [
   ['GET', /^\/api\/status$/, (req, res) => sendJson(res, db.status())],
-  ['POST', /^\/api\/sync$/, async (req, res) => {
-    await db.sync();
+  ['POST', /^\/api\/sync$/, async (req, res, { params }) => {
+    await db.sync(params.get('m3u') || undefined);
+    sendJson(res, db.status());
+  }],
+  ['POST', /^\/api\/logout$/, async (req, res) => {
+    await media.stopActive();
+    db.reset();
+    xtream.forgetConfig();
+    hls.reset();
+    epgCache.clear();
     sendJson(res, db.status());
   }],
   ['GET', /^\/api\/categories$/, (req, res, { params }) => {

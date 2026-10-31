@@ -560,17 +560,19 @@ async function selectType(type, category) {
 // --- Démarrage et import -----------------------------------------------------------
 
 function showSyncInfo(status) {
-  $('sync-info').textContent = status.syncedAt
-    ? `Catalogue du ${new Date(status.syncedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`
-    : '';
+  const date = status.syncedAt &&
+    new Date(status.syncedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  $('sync-info').textContent = date ? `${status.account?.username} @ ${status.account?.server} · catalogue du ${date}` : '';
+  $('sync').hidden = $('logout').hidden = !status.syncedAt;
 }
 
-async function runImport(button) {
+// `m3u` : playlist d'où lire les identifiants (premier import uniquement).
+async function runImport(button, m3u) {
   button.disabled = true;
   const label = button.textContent;
   button.textContent = 'Import en cours…';
   try {
-    const status = await getJson('/api/sync', { method: 'POST' });
+    const status = await getJson(`/api/sync${m3u ? `?m3u=${encodeURIComponent(m3u)}` : ''}`, { method: 'POST' });
     showSyncInfo(status);
     return status;
   } finally {
@@ -605,16 +607,34 @@ async function init() {
     }
   };
 
+  $('logout').onclick = async () => {
+    if (!confirm('Se déconnecter ? Le catalogue et le guide seront effacés, et les identifiants oubliés. La playlist .m3u reste en place.')) return;
+    stopPlayback();
+    try {
+      await getJson('/api/logout', { method: 'POST' });
+      location.reload();
+    } catch (err) {
+      setStatus(`Déconnexion impossible : ${err.message}`, true);
+    }
+  };
+
   if (Object.keys(status.counts).length) return startApp();
 
+  // Écran d'accueil : identifiants déjà connus, ou à lire dans une playlist.
+  const select = $('m3u-file');
+  const fromM3u = !status.configured && status.m3u.length > 0;
   $('onboarding').hidden = false;
-  $('onboarding-text').textContent = status.configured || status.m3u
-    ? 'La base est vide. L\'import lit tes identifiants dans le fichier M3U puis récupère tout le catalogue (chaînes, films, séries) auprès du fournisseur. Ça prend quelques secondes.'
-    : 'Aucun fichier .m3u trouvé à la racine du projet : dépose-le à côté de server.js puis recharge la page.';
-  $('import').hidden = !(status.configured || status.m3u);
+  $('onboarding-text').textContent = status.configured
+    ? `La base est vide. L'import récupère tout le catalogue (chaînes, films, séries, guide) du compte ${status.account.username} sur ${status.account.server}. Ça prend quelques secondes.`
+    : fromM3u
+      ? `La base est vide. L'import lit tes identifiants dans ${status.m3u.length > 1 ? 'la playlist choisie' : status.m3u[0]}, puis récupère tout le catalogue (chaînes, films, séries, guide) auprès du fournisseur. Ça prend quelques secondes.`
+      : 'Aucun fichier .m3u trouvé à la racine du projet : dépose-le à côté de server.js puis recharge la page.';
+  select.replaceChildren(...status.m3u.map((name) => new Option(name)));
+  select.hidden = !fromM3u || status.m3u.length < 2;
+  $('import').hidden = !(status.configured || fromM3u);
   $('import').onclick = async () => {
     try {
-      await runImport($('import'));
+      await runImport($('import'), fromM3u ? select.value : undefined);
       startApp();
     } catch (err) {
       $('onboarding-text').textContent = `Import impossible : ${err.message}`;

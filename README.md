@@ -40,6 +40,11 @@ puis importe chaînes, films, séries et guide des programmes via l'API du fourn
 Ensuite, tout est servi depuis la base. Le bouton **Mettre à jour le catalogue** relance l'import,
 et le guide se rafraîchit seul toutes les 6 heures.
 
+### Changer d'abonnement
+
+**Se déconnecter** vide la base et oublie les identifiants (la playlist reste en place) :
+on revient à l'écran d'accueil. S'il y a plusieurs `.m3u` à la racine, on y choisit laquelle importer.
+
 > `config.json`, `tv.db` et les playlists contiennent ou dérivent des identifiants
 > de l'abonnement : ils sont exclus du dépôt par le `.gitignore`.
 

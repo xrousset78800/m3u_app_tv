@@ -62,6 +62,7 @@ header {
   text-align: center;
   line-height: 1.5;
 }
+#onboarding select { margin-bottom: 16px; }
 
 /* --- Mise en page --- */
 
