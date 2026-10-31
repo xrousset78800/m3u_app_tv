@@ -20,10 +20,27 @@
   </header>
 
   <section id="onboarding" hidden>
-    <h1>Bienvenue</h1>
+    <h1>Connexion</h1>
+    <p class="muted">
+      Renseigne les accès <strong>Xtream Codes</strong> de ton abonnement IPTV (serveur, utilisateur, mot de passe),
+      ou laisse-les se remplir depuis ta playlist.
+    </p>
+
+    <div class="fill-from">
+      <label class="file-button">
+        Choisir un fichier .m3u
+        <input id="m3u-file" type="file" accept=".m3u,.m3u8" hidden>
+      </label>
+      <input id="m3u-link" type="url" placeholder="ou coller le lien de la playlist (http://…/get.php?username=…)">
+    </div>
+
+    <form id="login">
+      <input name="server" placeholder="Serveur (ex. http://exemple.com:8080)" required>
+      <input name="username" placeholder="Utilisateur" autocomplete="username" required>
+      <input name="password" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
+      <button id="import">Se connecter et importer</button>
+    </form>
     <p id="onboarding-text"></p>
-    <select id="m3u-file" hidden></select>
-    <button id="import">Importer le catalogue</button>
   </section>
 
   <div id="app" hidden>

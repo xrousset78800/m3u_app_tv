@@ -100,6 +100,19 @@ function sendJson(res, data) {
   res.end(JSON.stringify(data));
 }
 
+async function readJson(req) {
+  let body = '';
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 10000) throw Object.assign(new Error('Requête trop volumineuse'), { status: 413 });
+  }
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw Object.assign(new Error('JSON invalide'), { status: 400 });
+  }
+}
+
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
 
 function serveStatic(res, pathname) {
@@ -128,8 +141,12 @@ function mediaUrl(params) {
 
 const routes = [
   ['GET', /^\/api\/status$/, (req, res) => sendJson(res, db.status())],
-  ['POST', /^\/api\/sync$/, async (req, res, { params }) => {
-    await db.sync(params.get('m3u') || undefined);
+  ['POST', /^\/api\/login$/, async (req, res) => {
+    await xtream.login(await readJson(req));
+    sendJson(res, db.status());
+  }],
+  ['POST', /^\/api\/sync$/, async (req, res) => {
+    await db.sync();
     sendJson(res, db.status());
   }],
   ['POST', /^\/api\/logout$/, async (req, res) => {

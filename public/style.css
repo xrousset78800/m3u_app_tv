@@ -62,7 +62,16 @@ header {
   text-align: center;
   line-height: 1.5;
 }
-#onboarding select { margin-bottom: 16px; }
+#onboarding .fill-from, #login { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+#onboarding .fill-from { padding-bottom: 20px; border-bottom: 1px solid #333; }
+.file-button {
+  padding: 8px 14px;
+  border: 1px dashed #555;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.file-button:hover { background: #222; }
+#onboarding-text.error { color: #ff7b7b; }
 
 /* --- Mise en page --- */
 

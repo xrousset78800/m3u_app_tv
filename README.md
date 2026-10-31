@@ -17,7 +17,7 @@ guide des programmes et replay, dans le navigateur.
 ## Prérequis
 
 - [Node.js](https://nodejs.org) **22.5 ou plus récent** (utilise le module intégré `node:sqlite`).
-- Un abonnement Xtream Codes et sa playlist `.m3u`.
+- Un abonnement Xtream Codes (ses accès, ou sa playlist `.m3u`).
 
 ffmpeg est fourni par la dépendance `ffmpeg-static`, rien d'autre à installer.
 
@@ -30,22 +30,23 @@ npm start
 
 Puis ouvrir <http://localhost:8080> (port modifiable avec la variable d'environnement `PORT`).
 
-### Premier lancement
+### Connexion
 
-1. Déposer la playlist `.m3u` de l'abonnement à la racine du projet.
-2. Dans l'interface, cliquer sur **Importer le catalogue**.
+Au premier lancement, l'appli demande les accès **Xtream Codes** de l'abonnement :
+adresse du serveur, utilisateur et mot de passe. Pour les remplir automatiquement :
 
-L'appli lit l'adresse du serveur et les identifiants dans la playlist (`config.json`),
-puis importe chaînes, films, séries et guide des programmes via l'API du fournisseur (`tv.db`).
-Ensuite, tout est servi depuis la base. Le bouton **Mettre à jour le catalogue** relance l'import,
+- **Choisir un fichier .m3u** : seul le début du fichier est lu, dans le navigateur, rien n'est envoyé ;
+- ou **coller le lien de la playlist** (`http://serveur/get.php?username=…&password=…`).
+
+Les accès sont vérifiés auprès du fournisseur puis enregistrés dans `config.json`.
+L'appli importe alors chaînes, films, séries et guide des programmes dans `tv.db`,
+et tout est ensuite servi depuis la base. Le bouton **Mettre à jour le catalogue** relance l'import,
 et le guide se rafraîchit seul toutes les 6 heures.
 
-### Changer d'abonnement
+**Se déconnecter** vide la base et oublie les accès : on revient à l'écran de connexion,
+par exemple pour changer d'abonnement.
 
-**Se déconnecter** vide la base et oublie les identifiants (la playlist reste en place) :
-on revient à l'écran d'accueil. S'il y a plusieurs `.m3u` à la racine, on y choisit laquelle importer.
-
-> `config.json`, `tv.db` et les playlists contiennent ou dérivent des identifiants
+> `config.json`, `tv.db` et les playlists contiennent ou dérivent des accès
 > de l'abonnement : ils sont exclus du dépôt par le `.gitignore`.
 
 ## Fonctionnement

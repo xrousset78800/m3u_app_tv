@@ -566,13 +566,12 @@ function showSyncInfo(status) {
   $('sync').hidden = $('logout').hidden = !status.syncedAt;
 }
 
-// `m3u` : playlist d'où lire les identifiants (premier import uniquement).
-async function runImport(button, m3u) {
+async function runImport(button) {
   button.disabled = true;
   const label = button.textContent;
   button.textContent = 'Import en cours…';
   try {
-    const status = await getJson(`/api/sync${m3u ? `?m3u=${encodeURIComponent(m3u)}` : ''}`, { method: 'POST' });
+    const status = await getJson('/api/sync', { method: 'POST' });
     showSyncInfo(status);
     return status;
   } finally {
@@ -608,7 +607,7 @@ async function init() {
   };
 
   $('logout').onclick = async () => {
-    if (!confirm('Se déconnecter ? Le catalogue et le guide seront effacés, et les identifiants oubliés. La playlist .m3u reste en place.')) return;
+    if (!confirm('Se déconnecter ? Le catalogue et le guide seront effacés, et les identifiants oubliés.')) return;
     stopPlayback();
     try {
       await getJson('/api/logout', { method: 'POST' });
@@ -620,24 +619,72 @@ async function init() {
 
   if (Object.keys(status.counts).length) return startApp();
 
-  // Écran d'accueil : identifiants déjà connus, ou à lire dans une playlist.
-  const select = $('m3u-file');
-  const fromM3u = !status.configured && status.m3u.length > 0;
+  showOnboarding();
+}
+
+// --- Écran de connexion --------------------------------------------------------------
+
+// Accès Xtream contenus dans une URL de playlist : lien http://serveur/get.php?username=…&password=…
+// ou URL de flux http://serveur/[live/]utilisateur/motdepasse/123.ts
+function credentialsFromUrl(text) {
+  let url;
+  try {
+    url = new URL(text.trim());
+  } catch {
+    return null;
+  }
+  const username = url.searchParams.get('username');
+  const password = url.searchParams.get('password');
+  if (username && password) return { server: url.origin, username, password };
+  const parts = url.pathname.split('/').filter(Boolean);
+  if (['live', 'movie', 'series', 'timeshift'].includes(parts[0])) parts.shift();
+  if (parts.length >= 3) return { server: url.origin, username: decodeURIComponent(parts[0]), password: decodeURIComponent(parts[1]) };
+  return null;
+}
+
+function showOnboarding() {
+  const form = $('login');
+  const message = (text, isError = false) => {
+    $('onboarding-text').textContent = text;
+    $('onboarding-text').classList.toggle('error', isError);
+  };
+  const fill = (credentials, source) => {
+    if (!credentials) return message(`Aucun accès Xtream trouvé dans ${source}.`, true);
+    for (const [name, value] of Object.entries(credentials)) form.elements[name].value = value;
+    message(`Accès lus dans ${source} : vérifie-les puis connecte-toi.`);
+  };
   $('onboarding').hidden = false;
-  $('onboarding-text').textContent = status.configured
-    ? `La base est vide. L'import récupère tout le catalogue (chaînes, films, séries, guide) du compte ${status.account.username} sur ${status.account.server}. Ça prend quelques secondes.`
-    : fromM3u
-      ? `La base est vide. L'import lit tes identifiants dans ${status.m3u.length > 1 ? 'la playlist choisie' : status.m3u[0]}, puis récupère tout le catalogue (chaînes, films, séries, guide) auprès du fournisseur. Ça prend quelques secondes.`
-      : 'Aucun fichier .m3u trouvé à la racine du projet : dépose-le à côté de server.js puis recharge la page.';
-  select.replaceChildren(...status.m3u.map((name) => new Option(name)));
-  select.hidden = !fromM3u || status.m3u.length < 2;
-  $('import').hidden = !(status.configured || fromM3u);
-  $('import').onclick = async () => {
+
+  // Seul le début de la playlist est lu, dans le navigateur : la première URL de flux suffit.
+  $('m3u-file').onchange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const lines = (await file.slice(0, 256 * 1024).text()).split(/\r?\n/);
+    const credentials = lines.filter((l) => l.startsWith('http')).map(credentialsFromUrl).find(Boolean);
+    fill(credentials, file.name);
+    event.target.value = '';
+  };
+  $('m3u-link').oninput = (event) => event.target.value && fill(credentialsFromUrl(event.target.value), 'le lien');
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    const button = $('import');
+    button.disabled = true;
+    button.textContent = 'Connexion…';
     try {
-      await runImport($('import'), fromM3u ? select.value : undefined);
+      await getJson('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(new FormData(form))),
+      });
+      message('Connecté. Import du catalogue et du guide, ça prend quelques secondes…');
+      await runImport(button);
       startApp();
     } catch (err) {
-      $('onboarding-text').textContent = `Import impossible : ${err.message}`;
+      message(err.message, true);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Se connecter et importer';
     }
   };
 }
