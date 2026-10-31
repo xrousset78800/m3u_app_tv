@@ -1,7 +1,7 @@
 {
   "name": "tv",
   "productName": "TV",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Lecteur IPTV local pour abonnement Xtream Codes : chaînes, films, séries, guide des programmes et replay",
   "author": "xrousset78800",
@@ -53,7 +53,7 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "artifactName": "TV-Setup-${version}.${ext}",
+      "artifactName": "TV-Setup.${ext}",
       "shortcutName": "TV",
       "deleteAppDataOnUninstall": false
     }

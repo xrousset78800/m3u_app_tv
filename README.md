@@ -16,8 +16,8 @@ guide des programmes et replay, dans le navigateur.
 
 ## Installer l'appli (Windows)
 
-Télécharger `TV-Setup-<version>.exe` depuis la
-[dernière Release](https://github.com/xrousset78800/m3u_app_tv/releases/latest) et le lancer :
+**[Télécharger TV pour Windows](https://github.com/xrousset78800/m3u_app_tv/releases/latest/download/TV-Setup.exe)**
+(toujours la dernière version) et lancer le fichier :
 l'appli s'installe sans droits administrateur et crée un raccourci **TV** sur le bureau
 et dans le menu Démarrer. Elle se met ensuite à jour toute seule.
 
