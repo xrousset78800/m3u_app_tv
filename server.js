@@ -194,6 +194,10 @@ const routes = [
     await hls.servePlaylist(res, `replay ${match[1]} ${start}`, xtream.urls.replay(match[1], start, minutes));
   }],
   ['GET', /^\/proxy$/, (req, res, { params }) => hls.serveProxy(res, params.get('u'))],
+  ['GET', /^\/vendor\/hls\.min\.js$/, (req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/javascript' });
+    fs.createReadStream(require.resolve('hls.js/dist/hls.min.js')).pipe(res);
+  }],
 ];
 
 const server = http.createServer(async (req, res) => {
@@ -212,16 +216,33 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  const { counts, syncedAt, configured } = db.status();
-  console.log(syncedAt ? `Catalogue en base (import du ${syncedAt}) :` : 'Base vide : lancer l\'import depuis l\'interface', counts);
-  console.log(`Lecteur prêt : http://localhost:${PORT}`);
+// Démarre le serveur (sur 127.0.0.1 uniquement) et renvoie le port utilisé.
+function start(port = PORT) {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => {
+      const { counts, syncedAt, configured } = db.status();
+      console.log(syncedAt ? `Catalogue en base (import du ${syncedAt}) :` : 'Base vide : lancer l\'import depuis l\'interface', counts);
+      console.log(`Lecteur prêt : http://localhost:${server.address().port}`);
 
-  // Base d'avant le guide des programmes : on réimporte une fois pour lier chaînes et guide.
-  if (db.needsResync && configured && syncedAt) {
-    db.sync().catch((err) => console.error('Import :', err.message));
-  } else {
-    db.refreshEpgIfStale();
-  }
-  setInterval(() => db.refreshEpgIfStale(), 60 * 60 * 1000);
-});
+      // Base d'avant le guide des programmes : on réimporte une fois pour lier chaînes et guide.
+      if (db.needsResync && configured && syncedAt) {
+        db.sync().catch((err) => console.error('Import :', err.message));
+      } else {
+        db.refreshEpgIfStale();
+      }
+      setInterval(() => db.refreshEpgIfStale(), 60 * 60 * 1000).unref();
+      resolve(server.address().port);
+    });
+  });
+}
+
+// Arrêt : ffmpeg est un processus à part, il ne s'arrête pas tout seul avec l'appli.
+function stop() {
+  media.stopActive();
+  server.close();
+}
+
+if (require.main === module) start();
+
+module.exports = { start, stop };

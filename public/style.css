@@ -53,6 +53,13 @@ header {
 #tabs { display: flex; gap: 4px; margin-right: auto; }
 #tabs button { background: transparent; font-weight: 600; }
 #tabs button.active { background: #2d4a7a; }
+#tabs button[data-playing]::after {
+  content: attr(data-playing);
+  margin-left: 7px;
+  color: #7fa8ee;
+  font-size: 0.75em;
+  vertical-align: 1px;
+}
 #sync-info { color: #888; font-size: 0.85em; }
 
 #onboarding {

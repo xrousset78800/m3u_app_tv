@@ -1,6 +1,9 @@
 # Dépendances
 node_modules/
 
+# Installateur généré (npm run dist)
+dist/
+
 # Playlists : elles contiennent les identifiants de l'abonnement dans chaque URL
 *.m3u
 *.m3u8

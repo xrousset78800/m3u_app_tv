@@ -67,7 +67,22 @@ let media = null; // film/épisode en cours : { kind, id, ext, title, key, durat
 let seeking = false;
 let lastSave = 0;
 
+// Onglet d'où vient la lecture en cours : il garde un repère (▶ / ❚❚) quand on navigue ailleurs.
+let playingTab = null;
+
+function markPlayingTab(type) {
+  playingTab = type;
+  const icon = video.paused ? '❚❚' : '▶';
+  document.querySelectorAll('#tabs button').forEach((b) => {
+    if (b.dataset.type === type) b.dataset.playing = icon;
+    else delete b.dataset.playing;
+  });
+}
+video.addEventListener('play', () => markPlayingTab(playingTab));
+video.addEventListener('pause', () => markPlayingTab(playingTab));
+
 function stopPlayback() {
+  markPlayingTab(null);
   if (hls) hls.destroy();
   hls = null;
   media = null;
@@ -80,6 +95,7 @@ function stopPlayback() {
 // Direct et replay : HLS via le proxy du serveur.
 function playHls(src, label) {
   stopPlayback();
+  markPlayingTab(currentType);
   setStatus(`Chargement de ${label}…`);
   if (window.Hls && Hls.isSupported()) {
     hls = new Hls({ liveSyncDurationCount: 3 });
@@ -103,6 +119,7 @@ function playHls(src, label) {
 // Films et épisodes : MP4 produit par ffmpeg, relancé à chaque déplacement.
 async function playMedia(item, start = 0) {
   stopPlayback();
+  markPlayingTab(currentType);
   setStatus(`Analyse de ${item.title}…`);
   const query = new URLSearchParams({ kind: item.kind, id: item.id, ext: item.ext });
   let info;
@@ -537,13 +554,13 @@ async function selectType(type, category) {
   currentType = type;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
 
-  // Le programme occupe tout l'écran : on coupe la lecture en cours (une seule connexion).
+  // Le programme occupe tout l'écran : le lecteur est masqué mais la lecture continue
+  // (l'onglet d'origine garde son repère ▶).
   const isGuide = type === 'guide';
   $('guide').hidden = !isGuide;
   document.querySelector('aside').hidden = isGuide;
   document.querySelector('main').hidden = isGuide;
   if (isGuide) {
-    stopPlayback();
     if (document.fullscreenElement) document.exitFullscreen();
     return showGuide();
   }

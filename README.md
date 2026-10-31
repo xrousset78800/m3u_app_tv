@@ -14,23 +14,39 @@ guide des programmes et replay, dans le navigateur.
 - Catalogue et guide stockés dans une base SQLite locale : l'interface reste rapide,
   même avec des dizaines de milliers d'entrées.
 
-## Prérequis
+## Installer l'appli (Windows)
+
+Lancer `TV-Setup-<version>.exe` : l'appli s'installe sans droits administrateur
+et crée un raccourci **TV** sur le bureau et dans le menu Démarrer.
+
+L'installateur n'est pas signé : au premier lancement, Windows affiche
+« Windows a protégé votre ordinateur ». Cliquer sur **Informations complémentaires**
+puis **Exécuter quand même**.
+
+Les données (accès, base) sont dans `%APPDATA%\TV`.
+
+## Développement
+
+### Prérequis
 
 - [Node.js](https://nodejs.org) **22.5 ou plus récent** (utilise le module intégré `node:sqlite`).
 - Un abonnement Xtream Codes (ses accès, ou sa playlist `.m3u`).
 
 ffmpeg est fourni par la dépendance `ffmpeg-static`, rien d'autre à installer.
 
-## Installation et lancement
+### Lancement
 
 ```bash
 npm install
-npm start
+npm start       # dans le navigateur : http://localhost:8080 (port modifiable avec PORT)
+npm run app     # dans la fenêtre de l'appli (Electron)
+npm run dist    # fabrique l'installateur dans dist/
 ```
 
-Puis ouvrir <http://localhost:8080> (port modifiable avec la variable d'environnement `PORT`).
+En développement, les données sont à la racine du projet avec `npm start`,
+et dans `%APPDATA%\TV` (comme l'appli installée) avec `npm run app`.
 
-### Connexion
+## Connexion
 
 Au premier lancement, l'appli demande les accès **Xtream Codes** de l'abonnement :
 adresse du serveur, utilisateur et mot de passe. Pour les remplir automatiquement :
@@ -61,6 +77,7 @@ L'abonnement n'autorise qu'**une connexion à la fois** : lancer une lecture arr
 ## Structure
 
 ```
+electron/main.js appli de bureau : démarre le serveur et ouvre la fenêtre
 server.js        serveur HTTP : API, proxy HLS, flux convertis, fichiers statiques
 lib/xtream.js    accès au fournisseur (configuration, API, URL de lecture)
 lib/db.js        base SQLite : import du catalogue et du guide, requêtes
