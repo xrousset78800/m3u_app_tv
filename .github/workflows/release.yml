@@ -22,7 +22,23 @@ jobs:
 
       - run: npm ci
 
-      - name: Fabriquer et publier
-        run: npx electron-builder --win --publish always
+      # ffmpeg est téléchargé par le script d'installation de ffmpeg-static, que les
+      # versions récentes de npm peuvent ne plus lancer : sans lui, pas de films ni séries.
+      - name: Vérifier ffmpeg
+        shell: pwsh
+        run: |
+          if (-not (Test-Path node_modules/ffmpeg-static/ffmpeg.exe)) { node node_modules/ffmpeg-static/install.js }
+          if (-not (Test-Path node_modules/ffmpeg-static/ffmpeg.exe)) { throw 'ffmpeg.exe manquant' }
+
+      - name: Fabriquer
+        run: npx electron-builder --win --publish never
+
+      # Release créée en une fois avec ses trois fichiers (installateur, blockmap,
+      # latest.yml lu par les mises à jour automatiques).
+      - name: Publier
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME dist/TV-Setup.exe dist/TV-Setup.exe.blockmap dist/latest.yml `
+            --title ($env:GITHUB_REF_NAME -replace '^v', '') --generate-notes
