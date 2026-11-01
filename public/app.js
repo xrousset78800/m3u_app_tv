@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 const video = $('video');
 const statusEl = $('status');
 const details = $('details');
+const panel = $('panel');
 const list = $('list');
 const categorySelect = $('category');
 const searchInput = $('search');
@@ -14,6 +15,7 @@ const HEVC = video.canPlayType('video/mp4; codecs="hvc1.1.6.L120.90"') ? 1 : 0;
 
 let currentType = 'live';
 let offset = 0;
+let panelHeld = false;
 
 // --- Utilitaires ----------------------------------------------------------------
 
@@ -29,9 +31,17 @@ async function getJson(url, options) {
   return res.json();
 }
 
+// Garde la colonne de droite ouverte sans survol, le temps que l'utilisateur y aille
+// (fiche à lire, erreur à voir). Un clic ailleurs ou un passage de la souris dessus y met fin.
+function holdPanel() {
+  panelHeld = true;
+  document.body.classList.add('reveal-right');
+}
+
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.classList.toggle('error', isError);
+  if (isError) holdPanel();
 }
 
 function formatTime(seconds) {
@@ -209,6 +219,7 @@ const player = $('player');
 const header = document.querySelector('header');
 const aside = document.querySelector('aside');
 const EDGE = 60;
+const EDGE_RIGHT = 16; // étroit : les boutons du lecteur sont juste à côté du bord droit
 let idleTimer;
 
 function toggleFullscreen() {
@@ -222,18 +233,26 @@ function toggleFullscreen() {
 // Champ de la liste en cours d'utilisation (recherche, catégorie) : la liste reste affichée.
 const editingAside = () => aside.contains(document.activeElement) && ['INPUT', 'SELECT'].includes(document.activeElement.tagName);
 
+// La colonne de droite se déplie au bord droit de l'écran, en plein écran ou non.
+function updatePanel(e) {
+  const over = panel.contains(e.target);
+  if (over) panelHeld = false;
+  document.body.classList.toggle('reveal-right', panelHeld || over || e.clientX >= window.innerWidth - EDGE_RIGHT);
+}
+
 // Contrôles, en-tête et liste s'effacent après 3 s sans mouvement de souris,
-// sauf si la souris est posée sur l'en-tête ou la liste.
+// sauf si la souris est posée sur l'en-tête, la liste ou la colonne de droite.
 function wakeControls(e) {
   const body = document.body;
   body.classList.remove('idle');
   clearTimeout(idleTimer);
+  if (e) updatePanel(e);
   if (!document.fullscreenElement) return;
   if (e) {
     body.classList.toggle('reveal-top', e.clientY < EDGE || header.contains(e.target));
     body.classList.toggle('reveal-left', (e.clientX < EDGE && e.clientY > EDGE) || aside.contains(e.target) || editingAside());
   }
-  if (!header.contains(e?.target) && !aside.contains(e?.target)) {
+  if (![header, aside, panel].some((zone) => zone.contains(e?.target))) {
     idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
   }
 }
@@ -241,6 +260,12 @@ function wakeControls(e) {
 $('fullscreen').onclick = toggleFullscreen;
 video.addEventListener('dblclick', toggleFullscreen);
 document.addEventListener('mousemove', wakeControls);
+document.addEventListener('mousedown', (e) => {
+  if (!panel.contains(e.target)) panelHeld = false;
+});
+document.documentElement.addEventListener('mouseleave', () => {
+  if (!panelHeld) document.body.classList.remove('reveal-right');
+});
 document.addEventListener('fullscreenchange', () => {
   const on = Boolean(document.fullscreenElement);
   document.body.classList.toggle('cinema', on);
@@ -318,7 +343,7 @@ async function showChannel(channel, replay) {
         return li;
       }),
     );
-    listEl.querySelector('.current')?.scrollIntoView({ block: 'nearest' });
+    listEl.querySelector('.current')?.scrollIntoView({ block: 'center' });
   }
 
   tabs.append(
@@ -560,8 +585,8 @@ async function loadList(append = false) {
     li.onclick = () => {
       list.querySelector('.active')?.classList.remove('active');
       li.classList.add('active');
-      // Film ou série : la fiche (lecture, épisodes) s'affiche sous le lecteur, on sort du plein écran.
-      if (currentType !== 'live' && document.fullscreenElement) document.exitFullscreen();
+      // Film ou série : rien ne se lance tout seul, la fiche (lecture, épisodes) doit être visible.
+      if (currentType !== 'live') holdPanel();
       handlers[currentType](item);
     };
     return li;

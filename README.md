@@ -12,6 +12,7 @@ guide des programmes et replay, dans le navigateur.
   choix de la piste audio (VF par défaut), enchaînement des épisodes.
 - Vrai plein écran (bouton ou touche `F`, double-clic sur la vidéo) : les onglets et la liste
   restent accessibles en approchant la souris du bord haut ou gauche.
+- La fiche (programme, film, épisodes) est dans une colonne repliée, qui se déplie au bord droit de l'écran.
 - Catalogue et guide stockés dans une base SQLite locale : l'interface reste rapide,
   même avec des dizaines de milliers d'entrées.
 

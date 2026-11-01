@@ -72,17 +72,20 @@ const epgCache = new Map();
 async function epg(id) {
   const cached = epgCache.get(id);
   if (cached && Date.now() - cached.at < 10 * 60 * 1000) return cached.data;
-  const { epg_listings: listings = [] } = await xtream.api('get_simple_data_table', { stream_id: id });
-  const data = listings
-    .map((e) => ({
-      title: decode(e.title),
-      description: decode(e.description),
-      start: Number(e.start_timestamp),
-      end: Number(e.stop_timestamp),
-      replayStart: replayStart(e.start),
-      archive: !!Number(e.has_archive),
-    }))
-    .sort((a, b) => a.start - b.start);
+  const { epg_listings: listings = [] } = await xtream.api('get_simple_data_table', { stream_id: id }).catch(() => ({}));
+  // Le fournisseur renvoie parfois une liste vide : on se rabat sur le guide local.
+  const data = listings.length
+    ? listings
+        .map((e) => ({
+          title: decode(e.title),
+          description: decode(e.description),
+          start: Number(e.start_timestamp),
+          end: Number(e.stop_timestamp),
+          replayStart: replayStart(e.start),
+          archive: !!Number(e.has_archive),
+        }))
+        .sort((a, b) => a.start - b.start)
+    : db.channelProgrammes(id);
   epgCache.set(id, { at: Date.now(), data });
   return data;
 }
