@@ -132,7 +132,8 @@ main {
   bottom: 0;
   z-index: 2;
   width: clamp(300px, 28vw, 440px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background: rgba(27, 27, 27, 0.96);
   border-left: 1px solid #333;
   transition: transform 0.25s, opacity 0.25s;
@@ -208,6 +209,7 @@ main {
 /* --- Lecteur --- */
 
 .player {
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -237,7 +239,22 @@ video.media::-webkit-media-controls-time-remaining-display { display: none; }
   padding: 8px 12px;
   background: #181818;
 }
-#fullscreen { margin-left: auto; padding: 4px 10px; }
+/* Sans barre de position (direct, replay), pas de barre de contrôles vide sous la vidéo. */
+.controls:has(#seek[hidden]) { display: none; }
+
+/* En haut au centre du lecteur, visible quand la souris est sur le lecteur. */
+#fullscreen {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 1;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity 0.3s;
+}
+.player:hover #fullscreen, #fullscreen:focus-visible { opacity: 1; }
 
 #seek {
   flex: 1;
@@ -278,15 +295,22 @@ body.cinema #panel { top: var(--header-height, 50px); }
 body.cinema.reveal-top header, body.cinema.reveal-left aside { opacity: 1; pointer-events: auto; transform: none; }
 body.cinema.idle { cursor: none; }
 body.cinema.idle .controls { opacity: 0; pointer-events: none; }
+/* Sous la zone du bord haut, qui ferait apparaître l'en-tête par-dessus le bouton. */
+body.cinema #fullscreen { top: calc(var(--header-height, 50px) + 12px); }
+body.cinema:not(.idle) #fullscreen { opacity: 1; }
+body.cinema.idle #fullscreen { opacity: 0; pointer-events: none; }
 #seek input { flex: 1; padding: 0; accent-color: #2f6fd6; }
 #seek select { width: auto; max-width: 260px; padding: 4px 6px; }
 
-#status { padding: 8px 14px; color: #aaa; }
+#status { flex-shrink: 0; padding: 8px 14px; color: #aaa; }
 #status.error { color: #ff7b7b; }
 
 /* --- Détails : EPG, film, série --- */
 
-#details { padding: 0 16px 24px; }
+#details { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 24px; }
+/* Programme d'une chaîne : le nom et les jours restent fixes, seule la liste défile. */
+#details:has(> .epg) { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+#details > .epg { flex: 1; min-height: 0; overflow-y: auto; }
 #details h2 { margin: 8px 0; }
 
 .detail-head { display: flex; align-items: center; gap: 12px; }
@@ -305,7 +329,7 @@ body.cinema.idle .controls { opacity: 0; pointer-events: none; }
 .epg li { cursor: pointer; }
 .epg li:hover { background: #1c1c1c; }
 .epg li.past { color: #888; }
-.epg li.current { background: #1c2636; }
+.epg li.current, .epg li.playing, .episodes li.playing { background: #1c2636; }
 .epg .time { width: 48px; flex-shrink: 0; font-variant-numeric: tabular-nums; color: #aaa; }
 .program { flex: 1; min-width: 0; }
 .program p { margin: 4px 0 0; }
@@ -315,11 +339,15 @@ body.cinema.idle .controls { opacity: 0; pointer-events: none; }
 .bar div { height: 100%; background: #2f6fd6; border-radius: 2px; }
 
 .info { display: flex; flex-direction: column; gap: 12px; margin: 12px 0; }
-.info .cover { width: 180px; align-self: center; border-radius: 6px; }
+/* Hauteur réservée : l'affiche chargée après coup ne décale pas la liste déjà placée. */
+.info .cover { width: 180px; aspect-ratio: 2 / 3; object-fit: cover; align-self: center; border-radius: 6px; }
 .info p { line-height: 1.5; }
 .buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .season { width: auto; }
 
 .episodes img { width: 100px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.episodes li { flex-wrap: wrap; }
+/* Boutons sur leur propre ligne : la colonne est trop étroite pour « Reprendre à… » à côté du titre. */
+.episodes .program { flex-basis: calc(100% - 112px); }
 .episodes li.watched { opacity: 0.6; }
 .episodes .description { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

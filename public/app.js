@@ -308,6 +308,7 @@ async function showChannel(channel, replay) {
   const today = new Date().toDateString();
   const tabs = el('div', { className: 'days' });
   const listEl = el('ul', { className: 'epg' });
+  let replaying = replay?.start; // début du replay en cours, sur lequel se place la liste
 
   function renderDay(day) {
     tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.day === day));
@@ -317,7 +318,7 @@ async function showChannel(channel, replay) {
         const canReplay = p.archive && p.start < now;
         const li = el(
           'li',
-          { className: current ? 'current' : p.end < now ? 'past' : '' },
+          { className: `${current ? 'current' : p.end < now ? 'past' : ''}${replaying >= p.start && replaying < p.end ? ' playing' : ''}` },
           el('span', { className: 'time' }, formatHour(p.start)),
           el(
             'div',
@@ -332,6 +333,9 @@ async function showChannel(channel, replay) {
               textContent: current ? '⟲ Depuis le début' : '▶ Revoir',
               onclick: (e) => {
                 e.stopPropagation();
+                replaying = p.start;
+                listEl.querySelector('.playing')?.classList.remove('playing');
+                li.classList.add('playing');
                 playReplay(channel, { ...p, stop: p.end });
               },
             }),
@@ -343,7 +347,7 @@ async function showChannel(channel, replay) {
         return li;
       }),
     );
-    listEl.querySelector('.current')?.scrollIntoView({ block: 'center' });
+    (listEl.querySelector('.playing') || listEl.querySelector('.current'))?.scrollIntoView({ block: 'center' });
   }
 
   tabs.append(
@@ -360,12 +364,21 @@ async function showChannel(channel, replay) {
   details.replaceChildren(
     el('div', { className: 'detail-head' },
       el('h2', {}, channel.name),
-      el('button', { className: 'secondary', textContent: '● Direct', onclick: () => playHls(`/live/${channel.id}.m3u8`, channel.name) }),
+      el('button', {
+        className: 'secondary',
+        textContent: '● Direct',
+        onclick: () => {
+          replaying = null;
+          listEl.querySelector('.playing')?.classList.remove('playing');
+          playHls(`/live/${channel.id}.m3u8`, channel.name);
+        },
+      }),
     ),
     tabs,
     listEl,
   );
-  renderDay(days.includes(today) ? today : days[days.length - 1]);
+  const replayDay = replay && dayKey(replay.start);
+  renderDay(days.includes(replayDay) ? replayDay : days.includes(today) ? today : days[days.length - 1]);
 }
 
 // --- Films -------------------------------------------------------------------------
@@ -435,6 +448,17 @@ async function showSeries(series) {
     if (next) e.item.onEnded = () => playMedia(next.item);
   });
 
+  // Épisode à retrouver : celui en lecture, sinon le dernier commencé (ou sa suite s'il est fini).
+  function resumeEpisode() {
+    const playing = allEpisodes.find((e) => e.item.key === media?.key);
+    if (playing) return playing;
+    const last = allEpisodes.findLastIndex((e) => progress.get(e.item.key)?.position > 30);
+    if (last < 0) return null;
+    const saved = progress.get(allEpisodes[last].item.key);
+    return saved.position >= saved.duration * 0.95 ? allEpisodes[last + 1] || allEpisodes[last] : allEpisodes[last];
+  }
+  const resume = resumeEpisode();
+
   function renderSeason(number) {
     episodesEl.replaceChildren(
       ...allEpisodes.filter((e) => e.season === number).map((e) => {
@@ -442,7 +466,7 @@ async function showSeries(series) {
         const watched = saved && saved.position >= saved.duration * 0.95;
         return el(
           'li',
-          { className: watched ? 'watched' : '' },
+          { className: `${watched ? 'watched' : ''}${e === resume ? ' playing' : ''}` },
           e.image && el('img', { src: e.image, loading: 'lazy', onerror: (ev) => ev.target.remove() }),
           el(
             'div',
@@ -460,8 +484,12 @@ async function showSeries(series) {
   seasonSelect.append(...info.seasons.map((s) => new Option(`Saison ${s.number} (${s.episodes.length} épisodes)`, s.number)));
   seasonSelect.onchange = () => renderSeason(Number(seasonSelect.value));
   details.replaceChildren(infoBlock(info, [seasonSelect]), episodesEl);
-  if (info.seasons.length) renderSeason(info.seasons[0].number);
-  else episodesEl.append(el('li', { className: 'muted' }, 'Aucun épisode disponible.'));
+  if (info.seasons.length) {
+    const season = resume ? resume.season : info.seasons[0].number;
+    seasonSelect.value = season;
+    renderSeason(season);
+    episodesEl.querySelector('.playing')?.scrollIntoView({ block: 'center' });
+  } else episodesEl.append(el('li', { className: 'muted' }, 'Aucun épisode disponible.'));
 }
 
 // --- Programme : grille des chaînes d'une catégorie ----------------------------------
