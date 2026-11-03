@@ -5,7 +5,8 @@ guide des programmes et replay, dans le navigateur.
 
 ## Fonctionnalités
 
-- **Programme** : ce qui passe en ce moment, ce soir ou demain soir, chaîne par chaîne.
+- **Programme** : ce qui passe en ce moment, ce soir ou demain soir, chaîne par chaîne,
+  avec une sélection personnelle de chaînes favorites (étoile).
   Un clic lance le direct, ou le replay d'un programme déjà diffusé.
 - **TV** : chaînes en direct (HLS), guide des programmes par jour et replay quand la chaîne le permet.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,

@@ -9,7 +9,6 @@ const searchInput = $('search');
 const seekBar = $('seek-bar');
 const audioSelect = $('audio-track');
 
-const DEFAULT_LIVE_CATEGORY = 'FRANCE HD';
 // Le navigateur sait-il lire le HEVC ? Sinon le serveur le réencode en H.264.
 const HEVC = video.canPlayType('video/mp4; codecs="hvc1.1.6.L120.90"') ? 1 : 0;
 
@@ -609,10 +608,50 @@ const GUIDE_TIMES = {
 };
 let guideTime = 'now';
 let guideTimer;
+const FAVORITES = 'favorites'; // entrée « Favoris » de la liste des catégories
+
+// Chaînes favorites, propres à ce navigateur.
+const favorites = (() => {
+  try {
+    return new Set(JSON.parse(localStorage.getItem('favorites')));
+  } catch {
+    return new Set();
+  }
+})();
+
+function paintStar(star) {
+  const on = favorites.has(star.dataset.favorite);
+  star.textContent = on ? '★' : '☆';
+  star.title = on ? 'Retirer des favoris' : 'Ajouter aux favoris';
+  star.classList.toggle('on', on);
+  star.setAttribute('aria-pressed', on);
+}
+
+function toggleFavorite(key) {
+  if (!favorites.delete(key)) favorites.add(key);
+  try {
+    localStorage.setItem('favorites', JSON.stringify([...favorites]));
+  } catch {}
+  document.querySelectorAll(`[data-favorite="${key}"]`).forEach(paintStar);
+  if (!$('guide').hidden && $('guide-category').value === FAVORITES) renderGuide();
+}
+
+function favoriteStar(id) {
+  const star = el('button', {
+    className: 'star',
+    onclick: (e) => {
+      e.stopPropagation();
+      toggleFavorite(star.dataset.favorite);
+    },
+  });
+  star.dataset.favorite = id;
+  paintStar(star);
+  return star;
+}
 
 // Ouvre la chaîne dans l'onglet TV, en direct ou en replay d'un programme passé.
 async function watchChannel(channel, replay) {
-  await selectType('live', $('guide-category').value);
+  await selectType('live', channel.category);
   const items = [...list.children];
   const match = items.find((li) => li.dataset.id === String(channel.id));
   match?.classList.add('active');
@@ -646,7 +685,11 @@ function guideCard(channel, programme) {
 async function renderGuide() {
   clearTimeout(guideTimer);
   document.querySelectorAll('#guide-times button').forEach((b) => b.classList.toggle('active', b.dataset.time === guideTime));
-  const query = new URLSearchParams({ category: $('guide-category').value, at: GUIDE_TIMES[guideTime].at() });
+  const category = $('guide-category').value;
+  const showFavorites = category === FAVORITES;
+  const query = new URLSearchParams({ at: GUIDE_TIMES[guideTime].at() });
+  if (showFavorites) query.set('ids', [...favorites].join());
+  else query.set('category', category);
   const channels = await getJson(`/api/guide?${query}`);
 
   $('guide-list').replaceChildren(
@@ -659,13 +702,20 @@ async function renderGuide() {
           { className: 'guide-channel', title: 'Regarder en direct', onclick: () => watchChannel(channel) },
           channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
           el('span', {}, channel.name),
+          favoriteStar(channel.id),
         ),
-        el('div', { className: 'guide-programmes' }, ...channel.programmes.map((p) => guideCard(channel, p))),
+        channel.programmes.length
+          ? el('div', { className: 'guide-programmes' }, ...channel.programmes.map((p) => guideCard(channel, p)))
+          : el('p', { className: 'muted' }, 'Pas de guide des programmes pour cette chaîne.'),
       ),
     ),
   );
   if (!channels.length) {
-    $('guide-list').append(el('p', { className: 'muted' }, 'Pas de guide des programmes pour cette catégorie.'));
+    $('guide-list').append(
+      el('p', { className: 'muted' }, showFavorites
+        ? 'Aucun favori pour l\'instant : choisis une catégorie ci-dessus et clique sur l\'étoile ☆ des chaînes à garder ici.'
+        : 'Pas de guide des programmes pour cette catégorie.'),
+    );
   }
   // "En ce moment" se met à jour tout seul chaque minute.
   if (guideTime === 'now') guideTimer = setTimeout(() => !$('guide').hidden && renderGuide(), 60000);
@@ -675,9 +725,7 @@ async function showGuide() {
   const select = $('guide-category');
   if (!select.options.length) {
     const categories = await getJson('/api/categories?type=live');
-    select.append(...categories.map((c) => new Option(c.name, c.id)));
-    const preferred = categories.find((c) => c.name === DEFAULT_LIVE_CATEGORY);
-    if (preferred) select.value = preferred.id;
+    select.append(new Option('★ Favoris', FAVORITES), ...categories.map((c) => new Option(c.name, c.id)));
     select.onchange = renderGuide;
     $('guide-times').append(
       ...Object.entries(GUIDE_TIMES).map(([key, { label }]) => {
@@ -708,6 +756,7 @@ async function loadList(append = false) {
       item.logo && el('img', { src: item.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
       el('span', {}, item.name),
       item.archiveDays > 0 && el('small', { className: 'badge', title: `Replay ${item.archiveDays} jours` }, 'replay'),
+      currentType === 'live' && favoriteStar(item.id),
     );
     li.dataset.id = item.id;
     li.onclick = () => {
