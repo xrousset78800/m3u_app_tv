@@ -12,8 +12,10 @@ guide des programmes et replay, dans le navigateur.
   guide des programmes par jour et replay quand la chaîne le permet.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
-- Vrai plein écran (bouton ou touche `F`, double-clic sur la vidéo) : les onglets et la liste
-  restent accessibles en approchant la souris du bord haut ou gauche.
+- **Réglages** (⚙) : compte, mise à jour du catalogue, et chaînes, films, séries ou groupes entiers
+  à retirer. Ces choix sont réversibles et conservés quand le catalogue est mis à jour.
+- Vrai plein écran (bouton ou touche `F`, double-clic sur la vidéo) : le menu apparaît quand la souris
+  bouge, et la liste en approchant la souris du bord gauche.
 - La fiche (programme, film, épisodes) est dans une colonne repliée, qui se déplie au bord droit de l'écran.
 - Catalogue et guide stockés dans une base SQLite locale : l'interface reste rapide,
   même avec des dizaines de milliers d'entrées.
@@ -76,10 +78,10 @@ adresse du serveur, utilisateur et mot de passe. Pour les remplir automatiquemen
 
 Les accès sont vérifiés auprès du fournisseur puis enregistrés dans `config.json`.
 L'appli importe alors chaînes, films, séries et guide des programmes dans `tv.db`,
-et tout est ensuite servi depuis la base. Le bouton **Mettre à jour le catalogue** relance l'import,
+et tout est ensuite servi depuis la base. Le bouton **Mettre à jour le catalogue** (⚙) relance l'import,
 et le guide se rafraîchit seul toutes les 6 heures.
 
-**Se déconnecter** vide la base et oublie les accès : on revient à l'écran de connexion,
+**Se déconnecter** (⚙) vide la base et oublie les accès : on revient à l'écran de connexion,
 par exemple pour changer d'abonnement.
 
 > `config.json`, `tv.db` et les playlists contiennent ou dérivent des accès

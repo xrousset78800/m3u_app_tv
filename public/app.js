@@ -297,9 +297,9 @@ $('next').onclick = playNext;
 renderPlaylist();
 
 // Plein écran « cinéma » : toute la fenêtre passe en plein écran, la vidéo occupe l'écran,
-// et l'en-tête (onglets) et la liste glissent par-dessus quand la souris approche d'un bord.
+// le menu flotte dessus tant que la souris bouge et la liste glisse par-dessus au bord gauche.
 const player = $('player');
-const header = document.querySelector('header');
+const menu = $('tabs');
 const aside = document.querySelector('aside');
 const EDGE = 60;
 const EDGE_RIGHT = 16; // étroit : les boutons du lecteur sont juste à côté du bord droit
@@ -308,9 +308,17 @@ let idleTimer;
 function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen();
   else if (!player.closest('main').hidden) {
-    document.body.style.setProperty('--header-height', `${header.offsetHeight}px`);
     document.documentElement.requestFullscreen().catch((err) => setStatus(`Plein écran refusé : ${err.message}`, true));
   }
+}
+
+// Le menu est en tête de la colonne de gauche, ou de la barre des pages sans colonne ;
+// en plein écran il flotte seul, la colonne étant repliée.
+const MENU_HOMES = { guide: '#guide .guide-bar', settings: '#settings .guide-bar' };
+
+function placeMenu() {
+  const home = document.fullscreenElement ? document.body : document.querySelector(MENU_HOMES[currentType] ?? 'aside');
+  home.prepend(menu);
 }
 
 // Champ de la liste en cours d'utilisation (recherche, catégorie) : la liste reste affichée.
@@ -323,8 +331,8 @@ function updatePanel(e) {
   document.body.classList.toggle('reveal-right', panelHeld || over || e.clientX >= window.innerWidth - EDGE_RIGHT);
 }
 
-// Contrôles, en-tête et liste s'effacent après 3 s sans mouvement de souris,
-// sauf si la souris est posée sur l'en-tête, la liste ou la colonne de droite.
+// Contrôles et menu s'effacent après 3 s sans mouvement de souris,
+// sauf si la souris est posée sur le menu, la liste ou la colonne de droite.
 function wakeControls(e) {
   const body = document.body;
   body.classList.remove('idle');
@@ -332,10 +340,9 @@ function wakeControls(e) {
   if (e) updatePanel(e);
   if (!document.fullscreenElement) return;
   if (e) {
-    body.classList.toggle('reveal-top', e.clientY < EDGE || header.contains(e.target));
     body.classList.toggle('reveal-left', (e.clientX < EDGE && e.clientY > EDGE) || aside.contains(e.target) || editingAside());
   }
-  if (![header, aside, panel].some((zone) => zone.contains(e?.target))) {
+  if (![menu, aside, panel].some((zone) => zone.contains(e?.target))) {
     idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
   }
 }
@@ -350,7 +357,7 @@ document.addEventListener('mousedown', (e) => {
 function mouseGone() {
   const body = document.body;
   panelHeld = false;
-  body.classList.remove('reveal-right', 'reveal-top');
+  body.classList.remove('reveal-right');
   body.classList.toggle('reveal-left', editingAside());
   if (document.fullscreenElement) {
     clearTimeout(idleTimer);
@@ -362,7 +369,8 @@ window.addEventListener('blur', mouseGone);
 document.addEventListener('fullscreenchange', () => {
   const on = Boolean(document.fullscreenElement);
   document.body.classList.toggle('cinema', on);
-  if (!on) document.body.classList.remove('reveal-top', 'reveal-left');
+  if (!on) document.body.classList.remove('reveal-left');
+  placeMenu();
   $('fullscreen').textContent = on ? '✕ Quitter' : '⛶ Plein écran';
   wakeControls();
 });
@@ -731,9 +739,13 @@ async function renderGuide() {
 
 async function showGuide() {
   const select = $('guide-category');
-  if (!select.options.length) {
-    const categories = await getJson('/api/categories?type=live');
-    select.append(new Option('★ Favoris', FAVORITES), ...categories.map((c) => new Option(c.name, c.id)));
+  // Relue à chaque fois : des groupes ont pu être retirés dans les réglages.
+  const categories = await getJson('/api/categories?type=live');
+  const chosen = select.value;
+  select.replaceChildren(new Option('★ Favoris', FAVORITES), ...categories.map((c) => new Option(c.name, c.id)));
+  select.value = chosen;
+  if (select.selectedIndex < 0) select.value = FAVORITES;
+  if (!$('guide-times').children.length) {
     select.onchange = renderGuide;
     $('guide-times').append(
       ...Object.entries(GUIDE_TIMES).map(([key, { label }]) => {
@@ -783,7 +795,7 @@ async function loadList(append = false) {
   else {
     list.replaceChildren(...nodes);
     list.scrollTop = 0;
-    if (showFavorites && !nodes.length && !favorites.size) {
+    if (showFavorites && !nodes.length && !searchInput.value.trim()) {
       list.append(el('li', { className: 'muted' }, 'Aucun favori pour l\'instant : clique sur l\'étoile ☆ d\'une chaîne.'));
     }
   }
@@ -796,15 +808,17 @@ async function selectType(type, category) {
   currentType = type;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
 
-  // Le programme occupe tout l'écran : le lecteur est masqué mais la lecture continue
-  // (l'onglet d'origine garde son repère ▶).
-  const isGuide = type === 'guide';
-  $('guide').hidden = !isGuide;
-  document.querySelector('aside').hidden = isGuide;
-  document.querySelector('main').hidden = isGuide;
-  if (isGuide) {
+  // Le programme et les réglages occupent tout l'écran : le lecteur est masqué mais la lecture
+  // continue (l'onglet d'origine garde son repère ▶).
+  const fullPage = type === 'guide' || type === 'settings';
+  $('guide').hidden = type !== 'guide';
+  $('settings').hidden = type !== 'settings';
+  aside.hidden = fullPage;
+  document.querySelector('main').hidden = fullPage;
+  placeMenu();
+  if (fullPage) {
     if (document.fullscreenElement) document.exitFullscreen();
-    return showGuide();
+    return type === 'guide' ? showGuide() : showSettings();
   }
 
   searchInput.value = '';
@@ -819,6 +833,141 @@ async function selectType(type, category) {
   chosenCategory[type] = categorySelect.value;
   await loadList();
   if (category === undefined) searchInput.focus();
+}
+
+// --- Réglages : chaînes et groupes -------------------------------------------------
+
+const MANAGED_TYPES = { live: 'TV', vod: 'Films', series: 'Séries' };
+let managedType = 'live';
+let managedGroup = null; // groupe affiché à droite
+let managedGroups = [];
+let managedOffset = 0;
+
+// Applique le choix, puis réaffiche : le groupe coché ou décoché change aussi la colonne de droite.
+async function setHidden(kind, ids, hidden) {
+  $('manage-note').classList.remove('error');
+  try {
+    await getJson('/api/hidden', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: managedType, kind, ids, hidden }),
+    });
+  } catch (err) {
+    $('manage-note').textContent = `Modification impossible : ${err.message}`;
+    $('manage-note').classList.add('error');
+  }
+  await renderManagedGroups();
+  if (kind === 'category') await renderManagedItems();
+}
+
+function managedCheckbox(item, kind) {
+  return el('input', {
+    type: 'checkbox',
+    checked: !item.hidden,
+    onclick: (e) => e.stopPropagation(),
+    onchange: (e) => {
+      e.target.closest('li').classList.toggle('removed', !e.target.checked);
+      setHidden(kind, [item.id], !e.target.checked);
+    },
+  });
+}
+
+const shownManagedGroups = () => {
+  const filter = $('manage-group-search').value.trim().toLowerCase();
+  return managedGroups.filter((g) => g.name.toLowerCase().includes(filter));
+};
+
+async function renderManagedGroups() {
+  managedGroups = await getJson(`/api/manage/categories?type=${managedType}`);
+  $('manage-groups').replaceChildren(
+    ...shownManagedGroups().map((group) =>
+      el(
+        'li',
+        {
+          className: `${group.id === managedGroup ? 'active' : ''}${group.hidden ? ' removed' : ''}`,
+          title: group.name,
+          onclick: () => {
+            managedGroup = group.id;
+            $('manage-search').value = '';
+            renderManagedGroups();
+            renderManagedItems();
+          },
+        },
+        managedCheckbox(group, 'category'),
+        el('span', {}, group.name),
+        el('small', { className: 'muted' }, group.removed ? `${group.total - group.removed}/${group.total}` : group.total),
+      ),
+    ),
+  );
+}
+
+async function renderManagedItems(append = false) {
+  const q = $('manage-search').value.trim();
+  const box = $('manage-items');
+  if (!append) managedOffset = 0;
+  $('manage-more').hidden = true;
+  if (!q && managedGroup === null) {
+    return box.replaceChildren(el('li', { className: 'muted' }, 'Clique sur un groupe pour voir son contenu, ou lance une recherche.'));
+  }
+  const params = new URLSearchParams({ type: managedType, offset: managedOffset });
+  // La recherche couvre tout le catalogue : on cherche une chaîne sans savoir dans quel groupe elle est.
+  if (q) params.set('q', q);
+  else params.set('category', managedGroup);
+  const items = await getJson(`/api/manage/items?${params}`);
+  managedOffset += items.length;
+  $('manage-more').hidden = items.length < 200;
+
+  const nodes = items.map((item) => {
+    const checkbox = managedCheckbox(item, 'item');
+    checkbox.disabled = Boolean(item.groupHidden);
+    return el(
+      'li',
+      { className: item.hidden || item.groupHidden ? 'removed' : '', title: item.groupHidden ? 'Son groupe est décoché' : item.name },
+      checkbox,
+      item.logo && el('img', { src: item.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
+      el('span', {}, item.name),
+      q && el('small', { className: 'muted' }, managedGroups.find((g) => g.id === item.category)?.name ?? ''),
+    );
+  });
+  if (append) box.append(...nodes);
+  else {
+    box.replaceChildren(...nodes);
+    box.scrollTop = 0;
+    if (!nodes.length) box.append(el('li', { className: 'muted' }, 'Aucun résultat.'));
+  }
+}
+
+function selectManagedType(type) {
+  managedType = type;
+  managedGroup = null;
+  $('manage-search').value = '';
+  $('manage-group-search').value = '';
+  $('manage-types').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
+  return renderManagedGroups().then(() => renderManagedItems());
+}
+
+function showSettings() {
+  if (!$('manage-types').children.length) {
+    $('manage-types').append(
+      ...Object.entries(MANAGED_TYPES).map(([type, label]) => {
+        const button = el('button', { className: 'secondary', textContent: label, onclick: () => selectManagedType(type) });
+        button.dataset.type = type;
+        return button;
+      }),
+    );
+    let timer;
+    $('manage-search').oninput = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => renderManagedItems(), 250);
+    };
+    $('manage-group-search').oninput = renderManagedGroups;
+    $('manage-more').onclick = () => renderManagedItems(true);
+    // Sur les groupes affichés : filtrer d'abord permet de n'en traiter qu'une partie.
+    const setShownGroups = (hidden) => setHidden('category', shownManagedGroups().map((g) => g.id), hidden);
+    $('manage-check').onclick = () => setShownGroups(false);
+    $('manage-uncheck').onclick = () => setShownGroups(true);
+  }
+  return selectManagedType(managedType);
 }
 
 // --- Démarrage et import -----------------------------------------------------------
@@ -870,12 +1019,12 @@ async function init() {
       await runImport($('sync'));
       await selectType(currentType);
     } catch (err) {
-      setStatus(`Import impossible : ${err.message}`, true);
+      $('sync-info').textContent = `Import impossible : ${err.message}`;
     }
   };
 
   $('logout').onclick = async () => {
-    if (!confirm('Se déconnecter ? Le catalogue et le guide seront effacés, et les identifiants oubliés.')) return;
+    if (!confirm('Se déconnecter ? Le catalogue, le guide et les chaînes retirées seront effacés, et les identifiants oubliés.')) return;
     stopPlayback();
     try {
       await getJson('/api/logout', { method: 'POST' });
@@ -883,7 +1032,7 @@ async function init() {
       savePlaylist();
       location.reload();
     } catch (err) {
-      setStatus(`Déconnexion impossible : ${err.message}`, true);
+      $('sync-info').textContent = `Déconnexion impossible : ${err.message}`;
     }
   };
 

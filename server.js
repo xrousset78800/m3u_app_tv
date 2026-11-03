@@ -107,7 +107,7 @@ async function readJson(req) {
   let body = '';
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 10000) throw Object.assign(new Error('Requête trop volumineuse'), { status: 413 });
+    if (body.length > 200000) throw Object.assign(new Error('Requête trop volumineuse'), { status: 413 });
   }
   try {
     return JSON.parse(body);
@@ -174,6 +174,24 @@ const routes = [
     const type = params.get('type');
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
     sendJson(res, db.list({ type, category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset') }));
+  }],
+  ['GET', /^\/api\/manage\/categories$/, (req, res, { params }) => {
+    const type = params.get('type');
+    if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
+    sendJson(res, db.manageCategories(type));
+  }],
+  ['GET', /^\/api\/manage\/items$/, (req, res, { params }) => {
+    const type = params.get('type');
+    if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
+    sendJson(res, db.list({ type, category: params.get('category'), q: params.get('q'), offset: params.get('offset'), includeHidden: true }));
+  }],
+  ['POST', /^\/api\/hidden$/, async (req, res) => {
+    const { type, kind, ids, hidden } = await readJson(req);
+    if (!TYPES.includes(type) || !['category', 'item'].includes(kind) || !Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) {
+      return sendText(res, 400, 'Paramètres invalides');
+    }
+    db.setHidden({ type, kind, ids, hidden: Boolean(hidden) });
+    sendJson(res, { ok: true });
   }],
   ['GET', /^\/api\/guide$/, (req, res, { params }) => {
     const at = Number(params.get('at')) || Math.floor(Date.now() / 1000);

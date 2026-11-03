@@ -7,18 +7,6 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <nav id="tabs">
-      <button data-type="guide">Programme</button>
-      <button data-type="live">TV</button>
-      <button data-type="vod">Films</button>
-      <button data-type="series">Séries</button>
-    </nav>
-    <span id="sync-info"></span>
-    <button id="sync" class="secondary">Mettre à jour le catalogue</button>
-    <button id="logout" class="secondary" title="Vider le catalogue et oublier les identifiants">Se déconnecter</button>
-  </header>
-
   <section id="onboarding" hidden>
     <h1>Connexion</h1>
     <p class="muted">
@@ -52,7 +40,47 @@
       <div id="guide-list"></div>
     </section>
 
+    <section id="settings" hidden>
+      <div class="guide-bar"></div>
+      <div id="settings-content">
+        <h2>Compte</h2>
+        <div class="account">
+          <span id="sync-info"></span>
+          <button id="sync" class="secondary">Mettre à jour le catalogue</button>
+          <button id="logout" class="secondary" title="Vider le catalogue et oublier les identifiants">Se déconnecter</button>
+        </div>
+
+        <h2>Chaînes et groupes</h2>
+        <p id="manage-note" class="muted">
+          Décoche ce que tu ne veux plus voir. Rien n'est définitif : il suffit de recocher, et tes choix sont conservés quand le catalogue est mis à jour.
+        </p>
+        <div id="manage-types" class="days"></div>
+        <div class="manage">
+          <div class="manage-column">
+            <input id="manage-group-search" type="search" placeholder="Filtrer les groupes…">
+            <div class="buttons">
+              <button id="manage-check" class="secondary">Tout cocher</button>
+              <button id="manage-uncheck" class="secondary">Tout décocher</button>
+            </div>
+            <ul id="manage-groups"></ul>
+          </div>
+          <div class="manage-column">
+            <input id="manage-search" type="search" placeholder="Rechercher dans tout le catalogue…">
+            <ul id="manage-items"></ul>
+            <button id="manage-more" class="secondary" hidden>Afficher plus</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <aside>
+      <nav id="tabs">
+        <button data-type="guide">Programme</button>
+        <button data-type="live">TV</button>
+        <button data-type="vod">Films</button>
+        <button data-type="series">Séries</button>
+        <button data-type="settings" title="Réglages : compte, chaînes et groupes">⚙</button>
+      </nav>
       <select id="category"></select>
       <input id="search" type="search" placeholder="Rechercher…">
       <ul id="list"></ul>

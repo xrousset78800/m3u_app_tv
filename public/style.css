@@ -39,20 +39,13 @@ select, input {
 
 .muted { color: #999; }
 
-/* --- En-tête --- */
+/* --- Menu : de simples liens texte --- */
 
-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  background: #1b1b1b;
-  border-bottom: 1px solid #333;
-}
-
-#tabs { display: flex; gap: 4px; margin-right: auto; }
-#tabs button { background: transparent; font-weight: 600; }
-#tabs button.active { background: #2d4a7a; }
+#tabs { flex-shrink: 0; display: flex; align-items: center; gap: 2px; }
+#tabs button { padding: 4px 7px; background: none; color: #aaa; font-weight: 600; }
+#tabs button:hover { color: #fff; }
+#tabs button.active { color: #fff; box-shadow: inset 0 -2px #2f6fd6; border-radius: 0; }
+#tabs button[data-type="settings"] { margin-left: auto; font-size: 1.15em; }
 #tabs button[data-playing]::after {
   content: attr(data-playing);
   margin-left: 7px;
@@ -60,7 +53,6 @@ header {
   font-size: 0.75em;
   vertical-align: 1px;
 }
-#sync-info { color: #888; font-size: 0.85em; }
 
 #onboarding {
   max-width: 520px;
@@ -145,10 +137,11 @@ main {
 
 /* --- Programme --- */
 
-#guide { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#guide, #settings { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
 .guide-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   padding: 10px 16px;
@@ -218,6 +211,30 @@ main {
 .guide-card .action { color: #7fa8ee; }
 .guide-card .description { flex-basis: 100%; max-height: 9em; margin: 4px 0; overflow-y: auto; }
 
+/* --- Réglages --- */
+
+#settings-content { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 16px 16px; }
+#settings-content h2 { margin: 16px 0 8px; font-size: 1.05em; }
+#settings-content p { margin: 0 0 8px; }
+#manage-note.error { color: #ff7b7b; }
+
+.account { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+#sync-info { margin-right: auto; color: #999; }
+
+.manage { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.manage-column { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.manage ul { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.manage li { display: flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 4px; }
+.manage li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.manage li small { flex-shrink: 0; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.manage li img { width: 32px; height: 22px; flex-shrink: 0; object-fit: contain; }
+.manage li.removed span, .manage li.removed img { opacity: 0.45; }
+.manage li.removed span { text-decoration: line-through; }
+#manage-groups li { cursor: pointer; }
+#manage-groups li:hover { background: #2a2a2a; }
+#manage-groups li.active { background: #2d4a7a; }
+.manage input[type="checkbox"] { flex-shrink: 0; width: auto; margin: 0; accent-color: #2f6fd6; }
+
 /* --- Lecteur --- */
 
 .player {
@@ -233,7 +250,7 @@ main {
 video {
   display: block;
   width: 100%;
-  max-height: calc(100vh - 110px); /* en-tête et barre de contrôles */
+  max-height: calc(100vh - 50px); /* barre de contrôles */
   aspect-ratio: 16 / 9;
   background: #000;
 }
@@ -277,7 +294,7 @@ video.media::-webkit-media-controls-time-remaining-display { display: none; }
 }
 
 /* Plein écran « cinéma » : la vidéo occupe tout l'écran, les contrôles flottent en bas,
-   l'en-tête et la liste glissent par-dessus quand la souris approche du bord. */
+   le menu tant que la souris bouge, et la liste glisse par-dessus au bord gauche. */
 body.cinema .player { position: fixed; inset: 0; z-index: 1; }
 body.cinema video { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; }
 body.cinema .controls {
@@ -288,27 +305,33 @@ body.cinema .controls {
   background: rgba(0, 0, 0, 0.6);
   transition: opacity 0.3s;
 }
-body.cinema header, body.cinema aside {
+body.cinema #tabs {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  width: 296px; /* comme dans la colonne, qui peut se déplier dessous */
+  text-shadow: 0 1px 3px #000;
+  transition: opacity 0.3s;
+}
+body.cinema #tabs button { color: #eee; }
+body.cinema.idle #tabs { opacity: 0; pointer-events: none; }
+body.cinema aside {
   position: fixed;
   z-index: 2;
-  transition: transform 0.25s, opacity 0.25s;
-  opacity: 0;
-  pointer-events: none;
-}
-body.cinema header { top: 0; left: 0; right: 0; background: rgba(27, 27, 27, 0.92); transform: translateY(-100%); }
-body.cinema aside {
-  top: var(--header-height, 50px);
+  top: 0;
   bottom: 0;
   left: 0;
+  padding-top: 52px; /* place du menu */
   background: rgba(27, 27, 27, 0.92);
+  opacity: 0;
+  pointer-events: none;
   transform: translateX(-100%);
+  transition: transform 0.25s, opacity 0.25s;
 }
-body.cinema #panel { top: var(--header-height, 50px); }
-body.cinema.reveal-top header, body.cinema.reveal-left aside { opacity: 1; pointer-events: auto; transform: none; }
+body.cinema.reveal-left aside { opacity: 1; pointer-events: auto; transform: none; }
 body.cinema.idle { cursor: none; }
 body.cinema.idle .controls { opacity: 0; pointer-events: none; }
-/* Sous la zone du bord haut, qui ferait apparaître l'en-tête par-dessus le bouton. */
-body.cinema #fullscreen { top: calc(var(--header-height, 50px) + 12px); }
 body.cinema:not(.idle) #fullscreen { opacity: 1; }
 body.cinema.idle #fullscreen { opacity: 0; pointer-events: none; }
 #seek input { flex: 1; padding: 0; accent-color: #2f6fd6; }
