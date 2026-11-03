@@ -355,32 +355,28 @@ const EDGE = 60;
 const EDGE_RIGHT = 16; // étroit : les boutons du lecteur sont juste à côté du bord droit
 const EDGE_BOTTOM = 80;
 let idleTimer;
-let leavingFullscreen = false;
 
 function toggleFullscreen() {
   if (document.fullscreenElement) {
-    leavingFullscreen = true;
     document.exitFullscreen();
   } else if (!player.closest('main').hidden) {
     document.documentElement.requestFullscreen().catch((err) => setStatus(`Plein écran refusé : ${err.message}`, true));
   }
 }
 
-// Le bouton du lecteur met la vidéo seule en plein écran, sans menu ni barre de position :
-// on passe aussitôt en « cinéma », et depuis celui-ci ce même bouton sert à sortir.
-// Vrai si le changement en cours n'est qu'une étape vers un autre état.
-function redirectFullscreen() {
-  const current = document.fullscreenElement;
-  if (current && (leavingFullscreen || (current === video && document.body.classList.contains('cinema')))) {
-    leavingFullscreen = true;
-    document.exitFullscreen();
-    return true;
-  }
-  leavingFullscreen = false;
-  if (current !== video) return false;
-  document.documentElement.requestFullscreen().catch(() => {});
-  return true;
+// Le bouton du lecteur met la vidéo seule en plein écran, sans menu ni barre de position, et le
+// navigateur refuse de corriger ensuite : une zone posée sur lui reçoit le clic à sa place.
+const fullscreenHit = $('fullscreen-hit');
+fullscreenHit.addEventListener('click', toggleFullscreen);
+
+function placeFullscreenHit() {
+  const box = video.getBoundingClientRect();
+  const home = player.getBoundingClientRect();
+  fullscreenHit.style.right = `${home.right - box.right}px`;
+  fullscreenHit.style.bottom = `${home.bottom - box.bottom}px`;
 }
+const playerResized = new ResizeObserver(placeFullscreenHit);
+[player, video, document.querySelector('.controls')].forEach((el) => playerResized.observe(el));
 
 // Le menu est en tête de la colonne de gauche (liste ou programme), ou de la barre des réglages ;
 // en plein écran il flotte seul, la colonne étant repliée.
@@ -477,7 +473,11 @@ function mouseGone() {
 document.documentElement.addEventListener('mouseleave', mouseGone);
 window.addEventListener('blur', mouseGone);
 document.addEventListener('fullscreenchange', () => {
-  if (redirectFullscreen()) return;
+  // Vidéo seule malgré tout (double-clic, menu ⋮ du lecteur) : sans menu ni liste, on n'y reste pas.
+  if (document.fullscreenElement === video) {
+    document.exitFullscreen();
+    return;
+  }
   const on = Boolean(document.fullscreenElement);
   document.body.classList.toggle('cinema', on);
   if (!on) {
@@ -774,11 +774,15 @@ function paintStar(star) {
   star.setAttribute('aria-pressed', on);
 }
 
-function toggleFavorite(key) {
-  if (!favorites.delete(key)) favorites.add(key);
+function saveFavorites() {
   try {
     localStorage.setItem('favorites', JSON.stringify([...favorites]));
   } catch {}
+}
+
+function toggleFavorite(key) {
+  if (!favorites.delete(key)) favorites.add(key);
+  saveFavorites();
   document.querySelectorAll(`[data-favorite="${key}"]`).forEach(paintStar);
   if (!$('guide').hidden && $('guide-category').value === FAVORITES) renderGuide();
   if (currentType === 'live' && categorySelect.value === FAVORITES) {
@@ -799,6 +803,44 @@ function favoriteStar(id) {
   paintStar(star);
   return star;
 }
+
+// Les favoris se réordonnent en les faisant glisser, dans la liste comme dans le programme.
+let draggedFavorite = null;
+
+function sortFavoritesIn(container) {
+  container.addEventListener('dragstart', (e) => {
+    draggedFavorite = e.target.closest('[draggable="true"]');
+    if (!draggedFavorite) return;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedFavorite.dataset.id);
+    e.dataTransfer.setDragImage(draggedFavorite, 20, 20);
+    draggedFavorite.classList.add('dragging');
+  });
+  container.addEventListener('dragover', (e) => {
+    if (!draggedFavorite) return;
+    e.preventDefault();
+    const row = e.target.closest('[draggable="true"]');
+    if (!row || row === draggedFavorite) return;
+    const box = row.getBoundingClientRect();
+    row.before(draggedFavorite);
+    if (e.clientY > box.top + box.height / 2) row.after(draggedFavorite);
+  });
+  container.addEventListener('drop', (e) => e.preventDefault());
+  container.addEventListener('dragend', () => {
+    if (!draggedFavorite) return;
+    draggedFavorite.classList.remove('dragging');
+    draggedFavorite = null;
+    // Ceux qui ne sont pas affichés (page suivante, chaîne retirée) gardent leur ordre, à la suite.
+    const shown = [...container.querySelectorAll('[draggable="true"]')].map((row) => row.dataset.id);
+    const others = [...favorites].filter((id) => !shown.includes(id));
+    favorites.clear();
+    [...shown, ...others].forEach((id) => favorites.add(id));
+    saveFavorites();
+    if (container === $('guide-list')) renderGuide(); // la mise à jour de la minute a pu être sautée
+  });
+}
+sortFavoritesIn(list);
+sortFavoritesIn($('guide-list'));
 
 function guideCard(channel, programme) {
   const now = Date.now() / 1000;
@@ -854,6 +896,7 @@ async function renderGuide() {
           : el('p', { className: 'muted' }, 'Pas de guide des programmes pour cette chaîne.'),
       );
       row.dataset.id = channel.id;
+      row.draggable = showFavorites;
       return row;
     }),
   );
@@ -866,7 +909,7 @@ async function renderGuide() {
     );
   }
   // "En ce moment" se met à jour tout seul chaque minute.
-  if (guideTime === 'now') guideTimer = setTimeout(() => !$('guide').hidden && renderGuide(), 60000);
+  if (guideTime === 'now') guideTimer = setTimeout(() => !$('guide').hidden && !draggedFavorite && renderGuide(), 60000);
 }
 
 async function showGuide() {
@@ -915,6 +958,7 @@ async function loadList(append = false) {
       currentType === 'live' && favoriteStar(item.id),
     );
     li.dataset.id = item.id;
+    li.draggable = showFavorites && !searchInput.value.trim();
     li.onclick = () => {
       list.querySelector('.active')?.classList.remove('active');
       li.classList.add('active');

@@ -312,6 +312,27 @@ video {
   background: #000;
 }
 
+/* Favoris en cours de déplacement */
+[draggable="true"] .guide-channel, #list li[draggable="true"] { cursor: grab; }
+.dragging { opacity: 0.4; }
+
+/* Posée sur le bouton plein écran du lecteur, qui est plus bas sans sa barre de position (films, épisodes).
+   Survolée, elle reprend son icône : les contrôles du lecteur s'effacent quand la souris les quitte. */
+#fullscreen-hit {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 40px;
+  height: 40px;
+  margin: 0 52px 28px 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+video.media ~ #fullscreen-hit { margin-bottom: 4px; }
+#fullscreen-hit:hover {
+  background: #222 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 10V6h4M14 6h4v4M18 14v4h-4M10 18H6v-4'/%3E%3C/svg%3E") center / 22px no-repeat;
+}
+
 /* Films/épisodes : la barre native ne sait pas se déplacer dans le flux converti,
    on la remplace par #seek. */
 video.media::-webkit-media-controls-timeline,

@@ -9,7 +9,8 @@ guide des programmes et replay, dans le navigateur.
   avec une sélection personnelle de chaînes favorites (étoile).
   Il s'affiche à côté du lecteur : un clic lance le direct, ou le replay d'un programme déjà diffusé,
   sans quitter la grille.
-- **TV** : chaînes en direct (HLS), entrée Favoris pour zapper entre ses chaînes,
+- **TV** : chaînes en direct (HLS), entrée Favoris pour zapper entre ses chaînes
+  (à réordonner en les faisant glisser, ici comme dans Programme),
   guide des programmes par jour et replay quand la chaîne le permet.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
