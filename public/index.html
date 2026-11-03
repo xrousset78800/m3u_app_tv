@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Visible dès le premier affichage, et tant que l'appli n'est pas prête à répondre. -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <p id="loading-text">Chargement de vos chaînes…</p>
+  </div>
+
   <section id="onboarding" hidden>
     <h1>Connexion</h1>
     <p class="muted">
@@ -52,7 +58,7 @@
 
         <h2>Chaînes et groupes</h2>
         <p id="manage-note" class="muted">
-          Décoche ce que tu ne veux plus voir. Rien n'est définitif : il suffit de recocher, et tes choix sont conservés quand le catalogue est mis à jour.
+          Décoche ce que tu ne veux plus voir (Maj + clic pour toute une plage). Rien n'est définitif : il suffit de recocher, et tes choix sont conservés quand le catalogue est mis à jour.
         </p>
         <div id="manage-types" class="days"></div>
         <div class="manage">
@@ -75,6 +81,7 @@
 
     <aside>
       <nav id="tabs">
+        <button id="list-toggle" title="Afficher ou masquer la liste (L)">☰</button>
         <button data-type="guide">Programme</button>
         <button data-type="live">TV</button>
         <button data-type="vod">Films</button>

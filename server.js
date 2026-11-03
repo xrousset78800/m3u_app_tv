@@ -10,6 +10,7 @@ const media = require('./lib/media');
 
 const PORT = Number(process.env.PORT) || 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const EPG_REFRESH_DELAY = 15 * 1000;
 
 // --- Fiches détaillées (appel direct à l'API, non stocké) ------------------------
 
@@ -255,7 +256,8 @@ function start(port = PORT) {
       if (db.needsResync && configured && syncedAt) {
         db.sync().catch((err) => console.error('Import :', err.message));
       } else {
-        db.refreshEpgIfStale();
+        // Plus tard : le lancement passe d'abord.
+        setTimeout(() => db.refreshEpgIfStale(), EPG_REFRESH_DELAY).unref();
       }
       setInterval(() => db.refreshEpgIfStale(), 60 * 60 * 1000).unref();
       resolve(server.address().port);

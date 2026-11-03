@@ -13,9 +13,11 @@ guide des programmes et replay, dans le navigateur.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
 - **Réglages** (⚙) : compte, mise à jour du catalogue, et chaînes, films, séries ou groupes entiers
-  à retirer. Ces choix sont réversibles et conservés quand le catalogue est mis à jour.
+  à retirer (Maj + clic pour toute une plage). Ces choix sont réversibles et conservés quand le catalogue est mis à jour.
 - Vrai plein écran (bouton ou touche `F`, double-clic sur la vidéo) : le menu apparaît quand la souris
   bouge, et la liste en approchant la souris du bord gauche.
+- La liste de gauche se replie (bouton ☰ ou touche `L`) pour laisser toute la place à la vidéo :
+  elle réapparaît alors en approchant la souris du bord gauche.
 - La fiche (programme, film, épisodes) est dans une colonne repliée, qui se déplie au bord droit de l'écran.
 - Catalogue et guide stockés dans une base SQLite locale : l'interface reste rapide,
   même avec des dizaines de milliers d'entrées.
@@ -79,7 +81,7 @@ adresse du serveur, utilisateur et mot de passe. Pour les remplir automatiquemen
 Les accès sont vérifiés auprès du fournisseur puis enregistrés dans `config.json`.
 L'appli importe alors chaînes, films, séries et guide des programmes dans `tv.db`,
 et tout est ensuite servi depuis la base. Le bouton **Mettre à jour le catalogue** (⚙) relance l'import,
-et le guide se rafraîchit seul toutes les 6 heures.
+et le guide se rafraîchit seul toutes les 12 heures, en arrière-plan.
 
 **Se déconnecter** (⚙) vide la base et oublie les accès : on revient à l'écran de connexion,
 par exemple pour changer d'abonnement.
@@ -103,6 +105,7 @@ electron/main.js appli de bureau : démarre le serveur et ouvre la fenêtre
 server.js        serveur HTTP : API, proxy HLS, flux convertis, fichiers statiques
 lib/xtream.js    accès au fournisseur (configuration, API, URL de lecture)
 lib/db.js        base SQLite : import du catalogue et du guide, requêtes
+lib/epg-worker.js import du guide dans un thread à part, pour ne pas figer l'appli
 lib/hls.js       résolution des redirections et réécriture des playlists HLS
 lib/media.js     analyse et conversion ffmpeg des films et épisodes
 public/          interface (HTML, CSS, JS sans framework)

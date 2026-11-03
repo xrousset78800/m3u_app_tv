@@ -303,6 +303,7 @@ const menu = $('tabs');
 const aside = document.querySelector('aside');
 const EDGE = 60;
 const EDGE_RIGHT = 16; // étroit : les boutons du lecteur sont juste à côté du bord droit
+const EDGE_BOTTOM = 80;
 let idleTimer;
 
 function toggleFullscreen() {
@@ -316,9 +317,40 @@ function toggleFullscreen() {
 // en plein écran il flotte seul, la colonne étant repliée.
 const MENU_HOMES = { guide: '#guide .guide-bar', settings: '#settings .guide-bar' };
 
+// Liste repliée à la demande : comme en plein écran, le menu flotte et la liste glisse au bord gauche.
+let listClosed = (() => {
+  try {
+    return localStorage.getItem('listClosed') === '1';
+  } catch {
+    return false;
+  }
+})();
+let listHeld = false; // en plein écran : liste gardée ouverte avec ☰ ou L
+
 function placeMenu() {
-  const home = document.fullscreenElement ? document.body : document.querySelector(MENU_HOMES[currentType] ?? 'aside');
+  const fullPage = MENU_HOMES[currentType];
+  const closed = listClosed && !fullPage && !document.fullscreenElement;
+  document.body.classList.toggle('list-closed', closed);
+  const home = document.fullscreenElement || closed ? document.body : document.querySelector(fullPage ?? 'aside');
   home.prepend(menu);
+}
+
+const menuFloats = () => document.fullscreenElement || document.body.classList.contains('list-closed');
+
+function toggleList() {
+  if (aside.hidden) return; // Programme et Réglages n'ont pas de liste
+  if (document.fullscreenElement) {
+    listHeld = !listHeld;
+    document.body.classList.toggle('reveal-left', listHeld);
+  } else {
+    listClosed = !listClosed;
+    try {
+      localStorage.setItem('listClosed', listClosed ? '1' : '0');
+    } catch {}
+    document.body.classList.remove('reveal-left');
+    placeMenu();
+  }
+  wakeControls();
 }
 
 // Champ de la liste en cours d'utilisation (recherche, catégorie) : la liste reste affichée.
@@ -338,9 +370,11 @@ function wakeControls(e) {
   body.classList.remove('idle');
   clearTimeout(idleTimer);
   if (e) updatePanel(e);
-  if (!document.fullscreenElement) return;
+  if (!menuFloats()) return;
   if (e) {
-    body.classList.toggle('reveal-left', (e.clientX < EDGE && e.clientY > EDGE) || aside.contains(e.target) || editingAside());
+    // Ni le haut (menu) ni le bas (boutons du lecteur, juste à côté du bord gauche).
+    const atEdge = e.clientX < EDGE && e.clientY > EDGE && e.clientY < window.innerHeight - EDGE_BOTTOM;
+    body.classList.toggle('reveal-left', listHeld || atEdge || aside.contains(e.target) || editingAside());
   }
   if (![menu, aside, panel].some((zone) => zone.contains(e?.target))) {
     idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
@@ -358,8 +392,8 @@ function mouseGone() {
   const body = document.body;
   panelHeld = false;
   body.classList.remove('reveal-right');
-  body.classList.toggle('reveal-left', editingAside());
-  if (document.fullscreenElement) {
+  body.classList.toggle('reveal-left', listHeld || editingAside());
+  if (menuFloats()) {
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
   }
@@ -369,13 +403,19 @@ window.addEventListener('blur', mouseGone);
 document.addEventListener('fullscreenchange', () => {
   const on = Boolean(document.fullscreenElement);
   document.body.classList.toggle('cinema', on);
-  if (!on) document.body.classList.remove('reveal-left');
+  if (!on) {
+    listHeld = false;
+    document.body.classList.remove('reveal-left');
+  }
   placeMenu();
   $('fullscreen').textContent = on ? '✕ Quitter' : '⛶ Plein écran';
   wakeControls();
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key.toLowerCase() === 'f' && !['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) toggleFullscreen();
+  if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  const key = e.key.toLowerCase();
+  if (key === 'f') toggleFullscreen();
+  if (key === 'l') toggleList();
 });
 
 // --- TV : direct, guide des programmes et replay -----------------------------------
@@ -419,7 +459,7 @@ async function showChannel(channel, replay) {
         const canReplay = p.archive && p.start < now;
         const li = el(
           'li',
-          { className: `${current ? 'current' : p.end < now ? 'past' : ''}${replaying >= p.start && replaying < p.end ? ' playing' : ''}` },
+          { className: `${current ? 'current' : p.end < now ? 'past' : ''}${replaying >= p.start && replaying < p.end ? ' playing' : ''}`, title: p.title },
           el('span', { className: 'time' }, formatHour(p.start)),
           el(
             'div',
@@ -431,7 +471,8 @@ async function showChannel(channel, replay) {
           canReplay &&
             el('button', {
               className: 'secondary',
-              textContent: current ? '⟲ Depuis le début' : '▶ Revoir',
+              textContent: current ? '⟲ Début' : '▶ Revoir',
+              title: current ? 'Reprendre depuis le début' : 'Revoir ce programme',
               onclick: (e) => {
                 e.stopPropagation();
                 replaying = p.start;
@@ -773,6 +814,7 @@ async function loadList(append = false) {
   $('more').hidden = items.length < 200;
 
   const nodes = items.map((item) => {
+    if (item.separator) return el('li', { className: 'separator' }, item.name.replace(/^#+\s*|\s*#+$/g, ''));
     const li = el(
       'li',
       { className: currentType === 'live' ? '' : 'poster', title: item.name },
@@ -832,7 +874,8 @@ async function selectType(type, category) {
   if (categorySelect.selectedIndex < 0) categorySelect.value = ''; // catégorie disparue du catalogue
   chosenCategory[type] = categorySelect.value;
   await loadList();
-  if (category === undefined) searchInput.focus();
+  // Pas quand la liste est repliée : un champ actif la garderait ouverte.
+  if (category === undefined && !menuFloats()) searchInput.focus();
 }
 
 // --- Réglages : chaînes et groupes -------------------------------------------------
@@ -860,16 +903,49 @@ async function setHidden(kind, ids, hidden) {
   if (kind === 'category') await renderManagedItems();
 }
 
-function managedCheckbox(item, kind) {
+// Dernière ligne cliquée, par liste : retrouvée par son id, car les listes sont réaffichées.
+const managedAnchor = {};
+
+// Applique l'état de la case à sa ligne, ou avec Maj à toute la plage depuis la ligne précédente.
+function applyManaged(checkbox, kind, range) {
+  const row = checkbox.closest('li');
+  const rows = [...row.parentElement.children];
+  const here = rows.indexOf(row);
+  const anchor = rows.findIndex((li) => li.dataset.id === managedAnchor[kind]);
+  const selected = range && anchor >= 0 ? rows.slice(Math.min(anchor, here), Math.max(anchor, here) + 1) : [row];
+  const concerned = selected.filter((li) => !li.querySelector('input').disabled);
+  for (const li of concerned) {
+    li.querySelector('input').checked = checkbox.checked;
+    li.classList.toggle('removed', !checkbox.checked);
+  }
+  managedAnchor[kind] = row.dataset.id;
+  setHidden(kind, concerned.map((li) => li.dataset.id), !checkbox.checked);
+}
+
+// Clic sur la ligne plutôt que sur la case.
+function flipManaged(row, kind, range) {
+  const checkbox = row.querySelector('input');
+  if (checkbox.disabled) return;
+  checkbox.checked = !checkbox.checked;
+  applyManaged(checkbox, kind, range);
+}
+
+function managedCheckbox(kind) {
   return el('input', {
     type: 'checkbox',
-    checked: !item.hidden,
-    onclick: (e) => e.stopPropagation(),
-    onchange: (e) => {
-      e.target.closest('li').classList.toggle('removed', !e.target.checked);
-      setHidden(kind, [item.id], !e.target.checked);
+    onclick: (e) => {
+      e.stopPropagation();
+      applyManaged(e.target, kind, e.shiftKey);
     },
   });
+}
+
+function managedRow(item, kind, props, ...children) {
+  const checkbox = managedCheckbox(kind);
+  checkbox.checked = !item.hidden;
+  const row = el('li', props, checkbox, ...children);
+  row.dataset.id = item.id;
+  return row;
 }
 
 const shownManagedGroups = () => {
@@ -881,19 +957,20 @@ async function renderManagedGroups() {
   managedGroups = await getJson(`/api/manage/categories?type=${managedType}`);
   $('manage-groups').replaceChildren(
     ...shownManagedGroups().map((group) =>
-      el(
-        'li',
+      managedRow(
+        group,
+        'category',
         {
           className: `${group.id === managedGroup ? 'active' : ''}${group.hidden ? ' removed' : ''}`,
           title: group.name,
-          onclick: () => {
+          onclick: (e) => {
+            if (e.shiftKey) return flipManaged(e.currentTarget, 'category', true);
             managedGroup = group.id;
             $('manage-search').value = '';
             renderManagedGroups();
             renderManagedItems();
           },
         },
-        managedCheckbox(group, 'category'),
         el('span', {}, group.name),
         el('small', { className: 'muted' }, group.removed ? `${group.total - group.removed}/${group.total}` : group.total),
       ),
@@ -918,16 +995,20 @@ async function renderManagedItems(append = false) {
   $('manage-more').hidden = items.length < 200;
 
   const nodes = items.map((item) => {
-    const checkbox = managedCheckbox(item, 'item');
-    checkbox.disabled = Boolean(item.groupHidden);
-    return el(
-      'li',
-      { className: item.hidden || item.groupHidden ? 'removed' : '', title: item.groupHidden ? 'Son groupe est décoché' : item.name },
-      checkbox,
+    const row = managedRow(
+      item,
+      'item',
+      {
+        className: item.hidden || item.groupHidden ? 'removed' : '',
+        title: item.groupHidden ? 'Son groupe est décoché' : item.name,
+        onclick: (e) => flipManaged(e.currentTarget, 'item', e.shiftKey),
+      },
       item.logo && el('img', { src: item.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
       el('span', {}, item.name),
       q && el('small', { className: 'muted' }, managedGroups.find((g) => g.id === item.category)?.name ?? ''),
     );
+    row.querySelector('input').disabled = Boolean(item.groupHidden);
+    return row;
   });
   if (append) box.append(...nodes);
   else {
@@ -940,6 +1021,8 @@ async function renderManagedItems(append = false) {
 function selectManagedType(type) {
   managedType = type;
   managedGroup = null;
+  delete managedAnchor.category;
+  delete managedAnchor.item;
   $('manage-search').value = '';
   $('manage-group-search').value = '';
   $('manage-types').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
@@ -973,9 +1056,10 @@ function showSettings() {
 // --- Démarrage et import -----------------------------------------------------------
 
 function showSyncInfo(status) {
-  const date = status.syncedAt &&
-    new Date(status.syncedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
-  $('sync-info').textContent = date ? `${status.account?.username} @ ${status.account?.server} · catalogue du ${date}` : '';
+  const format = (date) => new Date(date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  $('sync-info').textContent = status.syncedAt
+    ? [`${status.account?.username} @ ${status.account?.server}`, `catalogue du ${format(status.syncedAt)}`, status.epgSyncedAt && `guide du ${format(status.epgSyncedAt)}`].filter(Boolean).join(' · ')
+    : '';
   $('sync').hidden = $('logout').hidden = !status.syncedAt;
 }
 
@@ -996,7 +1080,8 @@ async function runImport(button) {
 async function startApp() {
   $('onboarding').hidden = true;
   $('app').hidden = false;
-  document.querySelectorAll('#tabs button').forEach((b) => (b.onclick = () => selectType(b.dataset.type)));
+  document.querySelectorAll('#tabs button[data-type]').forEach((b) => (b.onclick = () => selectType(b.dataset.type)));
+  $('list-toggle').onclick = toggleList;
   let timer;
   searchInput.oninput = () => {
     clearTimeout(timer);
@@ -1108,4 +1193,11 @@ function showOnboarding() {
   };
 }
 
-init().catch((err) => setStatus(`Serveur injoignable : ${err.message}`, true));
+init()
+  .then(() => {
+    $('loading').hidden = true;
+  })
+  .catch((err) => {
+    document.querySelector('#loading .spinner').hidden = true;
+    $('loading-text').textContent = `Chargement impossible : ${err.message}. Relance l'appli.`;
+  });
