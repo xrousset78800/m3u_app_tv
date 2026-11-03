@@ -148,6 +148,10 @@ function idsParam(params) {
   return params.has('ids') ? params.get('ids').split(',').filter((id) => /^\d+$/.test(id)) : undefined;
 }
 
+function codecsParam(params) {
+  return (params.get('codecs') || '').split(',');
+}
+
 const routes = [
   ['GET', /^\/api\/status$/, (req, res) => sendJson(res, db.status())],
   ['POST', /^\/api\/login$/, async (req, res) => {
@@ -202,11 +206,15 @@ const routes = [
   ['GET', /^\/api\/series\/(\d+)$/, async (req, res, { match }) => sendJson(res, await seriesInfo(match[1]))],
   ['GET', /^\/api\/epg\/(\d+)$/, async (req, res, { match }) => sendJson(res, await epg(match[1]))],
   ['GET', /^\/api\/media\/probe$/, async (req, res, { params }) => sendJson(res, await media.probe(mediaUrl(params)))],
+  ['GET', /^\/api\/media\/seek$/, async (req, res, { params }) => {
+    const start = Math.max(0, Number(params.get('start')) || 0);
+    sendJson(res, { start: await media.seekPoint(mediaUrl(params), start, codecsParam(params)) });
+  }],
   ['GET', /^\/media\/stream$/, async (req, res, { params }) => {
     await media.stream(res, mediaUrl(params), {
       start: Math.max(0, Number(params.get('start')) || 0),
       audio: Math.max(0, parseInt(params.get('audio'), 10) || 0),
-      hevc: params.get('hevc') === '1',
+      codecs: codecsParam(params),
     });
   }],
   ['GET', /^\/live\/(\d+)\.m3u8$/, async (req, res, { match }) => {

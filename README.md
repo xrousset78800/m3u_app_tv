@@ -94,7 +94,7 @@ par exemple pour changer d'abonnement.
 | Contenu | Ce que fait le serveur |
 | --- | --- |
 | Direct et replay | Résout les redirections authentifiées du fournisseur et réécrit la playlist HLS pour que les segments passent par `/proxy`. Lu dans le navigateur avec hls.js. |
-| Films et épisodes | Convertit à la volée avec ffmpeg en MP4 fragmenté : vidéo copiée si le navigateur la lit (H.264, HEVC si supporté), sinon réencodée en H.264 ; audio converti en AAC. |
+| Films et épisodes | Convertit à la volée avec ffmpeg en MP4 fragmenté : vidéo copiée si le lecteur la décode (H.264, HEVC, VP9, AV1), sinon réencodée en H.264 (carte NVIDIA si disponible, HDR ramené en SDR) ; audio converti en AAC stéréo, calé sur l'image. Un déplacement repart de l'image clé précédente, parfois quelques secondes avant le point demandé. |
 
 L'abonnement n'autorise qu'**une connexion à la fois** : lancer une lecture arrête la précédente.
 

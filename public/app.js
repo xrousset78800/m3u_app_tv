@@ -9,8 +9,13 @@ const searchInput = $('search');
 const seekBar = $('seek-bar');
 const audioSelect = $('audio-track');
 
-// Le navigateur sait-il lire le HEVC ? Sinon le serveur le réencode en H.264.
-const HEVC = video.canPlayType('video/mp4; codecs="hvc1.1.6.L120.90"') ? 1 : 0;
+// Formats que ce lecteur décode : le serveur les copie tels quels, et réencode les autres en H.264.
+const CODECS = Object.entries({
+  hevc: 'hvc1.1.6.L120.90',
+  hevc10: 'hvc1.2.4.L120.90',
+  vp9: 'vp09.00.40.08',
+  av1: 'av01.0.08M.08',
+}).filter(([, codec]) => video.canPlayType(`video/mp4; codecs="${codec}"`)).map(([name]) => name).join();
 
 let currentType = 'live';
 let offset = 0;
@@ -157,13 +162,30 @@ async function playMedia(item, start = 0) {
   startMediaAt(start);
 }
 
-function startMediaAt(start) {
+let mediaLoad = 0;
+
+async function startMediaAt(start) {
+  const current = media;
+  const load = ++mediaLoad;
+  // Le serveur va couper le flux en cours : on le lâche d'abord, sinon il finirait en faux « ended ».
+  video.removeAttribute('src');
+  video.load();
   media.start = Math.max(0, Math.min(start, media.duration - 5));
-  const query = new URLSearchParams({
-    kind: media.kind, id: media.id, ext: media.ext,
-    start: Math.floor(media.start), audio: media.audio, hevc: HEVC,
-  });
+  updateSeek();
   setStatus(`Chargement de ${media.title}…`);
+  const query = new URLSearchParams({ kind: media.kind, id: media.id, ext: media.ext, codecs: CODECS });
+  let point;
+  try {
+    point = await getJson(`/api/media/seek?${query}&start=${Math.floor(media.start)}`);
+  } catch (err) {
+    if (load === mediaLoad && current === media) setStatus(`Lecture impossible : ${err.message}`, true);
+    return;
+  }
+  if (load !== mediaLoad || current !== media) return;
+  // Le flux repart de ce point exact (souvent un peu avant) : la barre doit le suivre.
+  media.start = point.start;
+  query.set('start', point.start);
+  query.set('audio', media.audio);
   video.src = `/media/stream?${query}`;
   video.play().catch(() => {});
   updateSeek();
