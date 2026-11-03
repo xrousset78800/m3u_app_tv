@@ -161,25 +161,27 @@ main {
 
 .guide-row {
   display: flex;
-  gap: 12px;
-  padding: 10px 0;
+  gap: 8px;
+  padding: 2px 0;
   border-bottom: 1px solid #262626;
 }
+.guide-row > p { margin: auto 0; font-size: 0.88em; }
 
 .guide-channel {
-  width: 170px;
+  width: 200px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px;
-  border-radius: 6px;
+  gap: 8px;
+  padding: 0 4px;
+  border-radius: 4px;
   cursor: pointer;
+  font-size: 0.92em;
   font-weight: 600;
 }
 .guide-channel:hover { background: #2a2a2a; }
-.guide-channel img { width: 48px; height: 34px; object-fit: contain; }
-.guide-channel span { flex: 1; min-width: 0; }
+.guide-channel img { width: 32px; height: 22px; object-fit: contain; }
+.guide-channel span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .star { flex-shrink: 0; padding: 0 4px; background: none; color: #888; font-size: 1.2em; }
 .star:hover { background: none; color: #f5c518; }
@@ -190,26 +192,31 @@ main {
   min-width: 0;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
-  gap: 8px;
+  gap: 4px;
+  align-items: start;
 }
 
+/* Une seule ligne par programme : heure et titre côte à côte, le détail est dans l'infobulle. */
 .guide-card {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
   min-width: 0;
-  padding: 8px 10px;
-  border-radius: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
   background: #1b1b1b;
   cursor: pointer;
-  font-size: 0.92em;
+  font-size: 0.88em;
 }
 .guide-card:hover { background: #242424; }
-.guide-card strong { overflow: hidden; text-overflow: ellipsis; }
+.guide-card strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.guide-card .bar { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; margin: 0; border-radius: 0; }
 .guide-card.live { background: #1c2636; }
 .guide-card.live:hover { background: #22304a; }
 .guide-card .action { color: #7fa8ee; }
-.guide-card .description { margin: 4px 0 0; }
+.guide-card .description { flex-basis: 100%; max-height: 9em; margin: 4px 0; overflow-y: auto; }
 
 /* --- Lecteur --- */
 

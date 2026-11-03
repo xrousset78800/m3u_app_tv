@@ -634,6 +634,10 @@ function toggleFavorite(key) {
   } catch {}
   document.querySelectorAll(`[data-favorite="${key}"]`).forEach(paintStar);
   if (!$('guide').hidden && $('guide-category').value === FAVORITES) renderGuide();
+  if (currentType === 'live' && categorySelect.value === FAVORITES) {
+    list.querySelector(`li[data-id="${key}"]`)?.remove();
+    if (!list.children.length) loadList();
+  }
 }
 
 function favoriteStar(id) {
@@ -651,7 +655,7 @@ function favoriteStar(id) {
 
 // Ouvre la chaîne dans l'onglet TV, en direct ou en replay d'un programme passé.
 async function watchChannel(channel, replay) {
-  await selectType('live', channel.category);
+  await selectType('live', $('guide-category').value === FAVORITES ? FAVORITES : channel.category);
   const items = [...list.children];
   const match = items.find((li) => li.dataset.id === String(channel.id));
   match?.classList.add('active');
@@ -663,14 +667,18 @@ function guideCard(channel, programme) {
   const now = Date.now() / 1000;
   const live = programme.start <= now && programme.stop > now;
   const canReplay = !live && programme.start < now && channel.archiveDays > 0;
-  const action = live ? '● En direct' : canReplay ? '⟲ Revoir' : '';
+  const hint = live ? 'Regarder en direct' : canReplay ? 'Revoir' : '';
   const card = el(
     'div',
-    { className: `guide-card${live ? ' live' : ''}${action ? ' playable' : ''}`, title: programme.description || '' },
-    el('span', { className: 'muted' }, `${formatHour(programme.start)} – ${formatHour(programme.stop)}`),
+    {
+      className: `guide-card${live ? ' live' : ''}${hint ? ' playable' : ''}`,
+      // Sur une seule ligne, le titre est souvent coupé : le détail est dans l'infobulle.
+      title: [`${formatHour(programme.start)} – ${formatHour(programme.stop)} · ${programme.title}`, hint, programme.description].filter(Boolean).join('\n'),
+    },
+    el('span', { className: 'muted' }, formatHour(programme.start)),
     el('strong', {}, programme.title),
+    canReplay && el('small', { className: 'action' }, '⟲'),
     live && el('div', { className: 'bar' }, el('div', { style: `width:${((now - programme.start) / (programme.stop - programme.start)) * 100}%` })),
-    action && el('small', { className: 'action' }, action),
     programme.description && el('p', { className: 'description', hidden: true }, programme.description),
   );
   card.onclick = () => {
@@ -699,7 +707,7 @@ async function renderGuide() {
         { className: 'guide-row' },
         el(
           'div',
-          { className: 'guide-channel', title: 'Regarder en direct', onclick: () => watchChannel(channel) },
+          { className: 'guide-channel', title: `Regarder ${channel.name} en direct`, onclick: () => watchChannel(channel) },
           channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
           el('span', {}, channel.name),
           favoriteStar(channel.id),
@@ -744,7 +752,10 @@ const handlers = { live: showChannel, vod: showMovie, series: showSeries };
 
 async function loadList(append = false) {
   if (!append) offset = 0;
-  const params = new URLSearchParams({ type: currentType, category: categorySelect.value, q: searchInput.value.trim(), offset });
+  const showFavorites = categorySelect.value === FAVORITES;
+  const params = new URLSearchParams({ type: currentType, q: searchInput.value.trim(), offset });
+  if (showFavorites) params.set('ids', [...favorites].join());
+  else params.set('category', categorySelect.value);
   const items = await getJson(`/api/list?${params}`);
   offset += items.length;
   $('more').hidden = items.length < 200;
@@ -772,6 +783,9 @@ async function loadList(append = false) {
   else {
     list.replaceChildren(...nodes);
     list.scrollTop = 0;
+    if (showFavorites && !nodes.length && !favorites.size) {
+      list.append(el('li', { className: 'muted' }, 'Aucun favori pour l\'instant : clique sur l\'étoile ☆ d\'une chaîne.'));
+    }
   }
 }
 
@@ -795,10 +809,13 @@ async function selectType(type, category) {
 
   searchInput.value = '';
   const categories = await getJson(`/api/categories?type=${type}`);
-  categorySelect.replaceChildren(new Option('Toutes les catégories', ''), ...categories.map((c) => new Option(c.name, c.id)));
-  const wanted = category ?? chosenCategory[type];
-  const preferred = categories.find((c) => c.id === wanted);
-  if (preferred) categorySelect.value = preferred.id;
+  categorySelect.replaceChildren(
+    new Option('Toutes les catégories', ''),
+    ...(type === 'live' ? [new Option('★ Favoris', FAVORITES)] : []),
+    ...categories.map((c) => new Option(c.name, c.id)),
+  );
+  categorySelect.value = category ?? chosenCategory[type] ?? '';
+  if (categorySelect.selectedIndex < 0) categorySelect.value = ''; // catégorie disparue du catalogue
   chosenCategory[type] = categorySelect.value;
   await loadList();
   if (category === undefined) searchInput.focus();

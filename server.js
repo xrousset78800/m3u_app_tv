@@ -142,6 +142,11 @@ function mediaUrl(params) {
   return xtream.urls.media(kind, id, ext);
 }
 
+// Liste d'identifiants (les favoris), absente si le paramètre n'est pas fourni.
+function idsParam(params) {
+  return params.has('ids') ? params.get('ids').split(',').filter((id) => /^\d+$/.test(id)) : undefined;
+}
+
 const routes = [
   ['GET', /^\/api\/status$/, (req, res) => sendJson(res, db.status())],
   ['POST', /^\/api\/login$/, async (req, res) => {
@@ -168,12 +173,11 @@ const routes = [
   ['GET', /^\/api\/list$/, (req, res, { params }) => {
     const type = params.get('type');
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
-    sendJson(res, db.list({ type, category: params.get('category'), q: params.get('q'), offset: params.get('offset') }));
+    sendJson(res, db.list({ type, category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset') }));
   }],
   ['GET', /^\/api\/guide$/, (req, res, { params }) => {
     const at = Number(params.get('at')) || Math.floor(Date.now() / 1000);
-    const ids = params.has('ids') ? params.get('ids').split(',').filter((id) => /^\d+$/.test(id)) : undefined;
-    sendJson(res, db.guide({ category: params.get('category') || '', ids, at }));
+    sendJson(res, db.guide({ category: params.get('category') || '', ids: idsParam(params), at }));
   }],
   ['GET', /^\/api\/vod\/(\d+)$/, async (req, res, { match }) => sendJson(res, await vodInfo(match[1]))],
   ['GET', /^\/api\/series\/(\d+)$/, async (req, res, { match }) => sendJson(res, await seriesInfo(match[1]))],

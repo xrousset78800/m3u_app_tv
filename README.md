@@ -8,7 +8,8 @@ guide des programmes et replay, dans le navigateur.
 - **Programme** : ce qui passe en ce moment, ce soir ou demain soir, chaîne par chaîne,
   avec une sélection personnelle de chaînes favorites (étoile).
   Un clic lance le direct, ou le replay d'un programme déjà diffusé.
-- **TV** : chaînes en direct (HLS), guide des programmes par jour et replay quand la chaîne le permet.
+- **TV** : chaînes en direct (HLS), entrée Favoris pour zapper entre ses chaînes,
+  guide des programmes par jour et replay quand la chaîne le permet.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
 - Vrai plein écran (bouton ou touche `F`, double-clic sur la vidéo) : les onglets et la liste
