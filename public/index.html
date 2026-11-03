@@ -68,12 +68,17 @@
             <input id="seek-bar" type="range" min="0" step="1" value="0">
             <span id="time-total">0:00</span>
             <select id="audio-track" title="Piste audio"></select>
+            <button id="next" class="secondary" title="Passer à la suite de la playlist" hidden>⏭ Suivant</button>
           </div>
         </div>
         <button id="fullscreen" class="secondary" title="Plein écran (F)">⛶ Plein écran</button>
       </div>
       <div id="panel">
         <div id="status">Choisis une chaîne, un film ou une série.</div>
+        <details id="playlist" open hidden>
+          <summary id="playlist-title"></summary>
+          <ol id="playlist-items"></ol>
+        </details>
         <section id="details"></section>
       </div>
     </main>

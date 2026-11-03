@@ -9,7 +9,7 @@ guide des programmes et replay, dans le navigateur.
   Un clic lance le direct, ou le replay d'un programme déjà diffusé.
 - **TV** : chaînes en direct (HLS), guide des programmes par jour et replay quand la chaîne le permet.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
-  choix de la piste audio (VF par défaut), enchaînement des épisodes.
+  choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
 - Vrai plein écran (bouton ou touche `F`, double-clic sur la vidéo) : les onglets et la liste
   restent accessibles en approchant la souris du bord haut ou gauche.
 - La fiche (programme, film, épisodes) est dans une colonne repliée, qui se déplie au bord droit de l'écran.

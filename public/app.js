@@ -100,6 +100,7 @@ function stopPlayback() {
   video.load();
   video.classList.remove('media');
   $('seek').hidden = true;
+  renderPlaylist();
 }
 
 // Direct et replay : HLS via le proxy du serveur.
@@ -129,7 +130,7 @@ function playHls(src, label) {
 // Films et épisodes : MP4 produit par ffmpeg, relancé à chaque déplacement.
 async function playMedia(item, start = 0) {
   stopPlayback();
-  markPlayingTab(currentType);
+  markPlayingTab(item.kind === 'movie' ? 'vod' : 'series'); // la playlist se lance depuis n'importe quel onglet
   setStatus(`Analyse de ${item.title}…`);
   const query = new URLSearchParams({ kind: item.kind, id: item.id, ext: item.ext });
   let info;
@@ -153,6 +154,7 @@ async function playMedia(item, start = 0) {
   $('time-total').textContent = formatTime(media.duration);
   $('seek').hidden = false;
   video.classList.add('media');
+  renderPlaylist();
   startMediaAt(start);
 }
 
@@ -192,7 +194,7 @@ video.addEventListener('timeupdate', () => {
 video.addEventListener('ended', () => {
   if (!media) return;
   progress.set(media.key, { position: media.duration, duration: media.duration });
-  media.onEnded?.();
+  if (!playNext()) media.onEnded?.();
 });
 
 video.addEventListener('error', () => {
@@ -212,6 +214,88 @@ audioSelect.addEventListener('change', () => {
   media.audio = Number(audioSelect.value);
   startMediaAt(position());
 });
+
+// --- Playlist (films et épisodes) -----------------------------------------------------
+
+// Un élément y reste tant qu'il n'est pas terminé ou passé : on peut fermer l'appli et reprendre.
+const playlist = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('playlist')) || [];
+  } catch {
+    return [];
+  }
+})();
+
+function savePlaylist() {
+  try {
+    localStorage.setItem('playlist', JSON.stringify(playlist));
+  } catch {}
+  renderPlaylist();
+}
+
+function removeFromPlaylist(key) {
+  const index = playlist.findIndex((p) => p.key === key);
+  if (index < 0) return;
+  playlist.splice(index, 1);
+  savePlaylist();
+}
+
+function togglePlaylist({ kind, id, ext, title, key }) {
+  if (playlist.some((p) => p.key === key)) return removeFromPlaylist(key);
+  playlist.push({ kind, id, ext, title, key });
+  savePlaylist();
+}
+
+function nextInPlaylist() {
+  const index = playlist.findIndex((p) => p.key === media?.key);
+  return playlist[index + 1] || playlist.find((p) => p.key !== media?.key);
+}
+
+// Passe à l'élément suivant ; faux si la playlist n'a plus rien à lire.
+function playNext() {
+  const next = nextInPlaylist();
+  if (media) removeFromPlaylist(media.key);
+  if (next) playMedia(next, resumePosition(next));
+  return Boolean(next);
+}
+
+const playlistLabel = (key) => (playlist.some((p) => p.key === key) ? '✓ Playlist' : '+ Playlist');
+
+function playlistButton(item) {
+  const button = el('button', { className: 'secondary', textContent: playlistLabel(item.key), onclick: () => togglePlaylist(item) });
+  button.dataset.playlist = item.key;
+  return button;
+}
+
+function renderPlaylist() {
+  $('playlist').hidden = !playlist.length;
+  $('playlist-title').textContent = `Playlist (${playlist.length})`;
+  $('playlist-items').replaceChildren(
+    ...playlist.map((item) =>
+      el(
+        'li',
+        { className: item.key === media?.key ? 'playing' : '', title: item.title, onclick: () => playMedia(item, resumePosition(item)) },
+        el('span', {}, item.title),
+        el('button', {
+          className: 'secondary',
+          textContent: '✕',
+          title: 'Retirer de la playlist',
+          onclick: (e) => {
+            e.stopPropagation();
+            removeFromPlaylist(item.key);
+          },
+        }),
+      ),
+    ),
+  );
+  $('next').hidden = !media || !nextInPlaylist();
+  document.querySelectorAll('[data-playlist]').forEach((b) => {
+    b.textContent = playlistLabel(b.dataset.playlist);
+  });
+}
+
+$('next').onclick = playNext;
+renderPlaylist();
 
 // Plein écran « cinéma » : toute la fenêtre passe en plein écran, la vidéo occupe l'écran,
 // et l'en-tête (onglets) et la liste glissent par-dessus quand la souris approche d'un bord.
@@ -263,9 +347,19 @@ document.addEventListener('mousemove', wakeControls);
 document.addEventListener('mousedown', (e) => {
   if (!panel.contains(e.target)) panelHeld = false;
 });
-document.documentElement.addEventListener('mouseleave', () => {
-  if (!panelHeld) document.body.classList.remove('reveal-right');
-});
+// Souris partie de la fenêtre (autre écran, autre application) : tout ce qu'elle dépliait se replie.
+function mouseGone() {
+  const body = document.body;
+  panelHeld = false;
+  body.classList.remove('reveal-right', 'reveal-top');
+  body.classList.toggle('reveal-left', editingAside());
+  if (document.fullscreenElement) {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
+  }
+}
+document.documentElement.addEventListener('mouseleave', mouseGone);
+window.addEventListener('blur', mouseGone);
 document.addEventListener('fullscreenchange', () => {
   const on = Boolean(document.fullscreenElement);
   document.body.classList.toggle('cinema', on);
@@ -383,15 +477,21 @@ async function showChannel(channel, replay) {
 
 // --- Films -------------------------------------------------------------------------
 
-function resumeButtons(item) {
+// Position de reprise, 0 si l'élément est à peine commencé ou déjà terminé.
+function resumePosition(item) {
   const saved = progress.get(item.key);
-  const inProgress = saved && saved.position > 30 && saved.position < saved.duration * 0.95;
+  return saved && saved.position > 30 && saved.position < saved.duration * 0.95 ? saved.position : 0;
+}
+
+function resumeButtons(item) {
+  const resume = resumePosition(item);
   return [
     el('button', {
-      textContent: inProgress ? `▶ Reprendre à ${formatTime(saved.position)}` : '▶ Lire',
-      onclick: () => playMedia(item, inProgress ? saved.position : 0),
+      textContent: resume ? `▶ Reprendre à ${formatTime(resume)}` : '▶ Lire',
+      onclick: () => playMedia(item, resume),
     }),
-    inProgress && el('button', { className: 'secondary', textContent: 'Depuis le début', onclick: () => playMedia(item, 0) }),
+    resume > 0 && el('button', { className: 'secondary', textContent: 'Depuis le début', onclick: () => playMedia(item, 0) }),
+    playlistButton(item),
   ];
 }
 
@@ -705,6 +805,8 @@ async function init() {
     stopPlayback();
     try {
       await getJson('/api/logout', { method: 'POST' });
+      playlist.length = 0;
+      savePlaylist();
       location.reload();
     } catch (err) {
       setStatus(`Déconnexion impossible : ${err.message}`, true);

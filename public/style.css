@@ -305,6 +305,15 @@ body.cinema.idle #fullscreen { opacity: 0; pointer-events: none; }
 #status { flex-shrink: 0; padding: 8px 14px; color: #aaa; }
 #status.error { color: #ff7b7b; }
 
+#playlist { flex-shrink: 0; padding: 0 14px 8px; border-bottom: 1px solid #333; }
+#playlist summary { padding: 4px 0; font-weight: 600; cursor: pointer; }
+#playlist ol { max-height: 30vh; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+#playlist li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
+#playlist li:hover { background: #2a2a2a; }
+#playlist li.playing { background: #1c2636; }
+#playlist li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#playlist li button { flex-shrink: 0; padding: 0 6px; }
+
 /* --- Détails : EPG, film, série --- */
 
 #details { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 24px; }
