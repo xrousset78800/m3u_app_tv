@@ -83,6 +83,11 @@ let lastSave = 0;
 
 // Onglet d'où vient la lecture en cours : il garde un repère (▶ / ❚❚) quand on navigue ailleurs.
 let playingTab = null;
+let playingChannel = null; // chaîne en cours, repérée dans le programme
+
+function paintPlayingChannel() {
+  document.querySelectorAll('.guide-row').forEach((row) => row.classList.toggle('playing', row.dataset.id === playingChannel));
+}
 
 function markPlayingTab(type) {
   playingTab = type;
@@ -97,6 +102,8 @@ video.addEventListener('pause', () => markPlayingTab(playingTab));
 
 function stopPlayback() {
   markPlayingTab(null);
+  playingChannel = null;
+  paintPlayingChannel();
   if (hls) hls.destroy();
   hls = null;
   media = null;
@@ -107,20 +114,41 @@ function stopPlayback() {
   renderPlaylist();
 }
 
+// Le serveur répond 502 pour tout problème côté fournisseur : le vrai motif est dans sa réponse.
+function hlsErrorText(data) {
+  const xhr = data.networkDetails;
+  const reply = ['', 'text'].includes(xhr?.responseType) ? xhr.responseText : '';
+  const code = reply.match(/^Fournisseur : HTTP (\d+)/)?.[1] ?? (data.response?.code !== 502 && data.response?.code);
+  return code
+    ? `Le fournisseur refuse ce flux (HTTP ${code}) : chaîne indisponible, ou connexion déjà prise par un autre appareil.`
+    : `Fournisseur injoignable (${data.details}).`;
+}
+
+const HLS_RETRIES = 3;
+
 // Direct et replay : HLS via le proxy du serveur.
 function playHls(src, label) {
   stopPlayback();
   markPlayingTab(currentType);
+  playingChannel = src.match(/(\d+)\.m3u8/)?.[1] ?? null;
+  paintPlayingChannel();
   setStatus(`Chargement de ${label}…`);
   if (window.Hls && Hls.isSupported()) {
-    hls = new Hls({ liveSyncDurationCount: 3 });
+    let retries = 0;
+    const current = (hls = new Hls({ liveSyncDurationCount: 3 }));
     hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
-    hls.on(Hls.Events.FRAG_BUFFERED, () => setStatus(`▶ ${label}`));
+    hls.on(Hls.Events.FRAG_BUFFERED, () => {
+      retries = 0;
+      setStatus(`▶ ${label}`);
+    });
     hls.on(Hls.Events.ERROR, (_, data) => {
       if (!data.fatal) return;
       if (data.type === Hls.ErrorTypes.MEDIA_ERROR) return hls.recoverMediaError();
-      const code = data.response?.code ? ` (HTTP ${data.response.code})` : '';
-      setStatus(`Erreur ${data.details}${code} — voir la console du serveur`, true);
+      if (retries === HLS_RETRIES) return setStatus(hlsErrorText(data), true);
+      // Souvent passager : la connexion unique de l'abonnement met quelques secondes à se libérer.
+      retries++;
+      setStatus(`Flux interrompu, nouvelle tentative (${retries}/${HLS_RETRIES})…`);
+      setTimeout(() => hls === current && hls.loadSource(src), 2000 * retries);
     });
     hls.loadSource(src);
     hls.attachMedia(video);
@@ -219,7 +247,7 @@ video.addEventListener('ended', () => {
 });
 
 video.addEventListener('error', () => {
-  if (media) setStatus('Le flux s\'est interrompu — voir la console du serveur', true);
+  if (media) setStatus('Le flux s\'est interrompu.', true);
 });
 
 seekBar.addEventListener('input', () => {
@@ -327,17 +355,39 @@ const EDGE = 60;
 const EDGE_RIGHT = 16; // étroit : les boutons du lecteur sont juste à côté du bord droit
 const EDGE_BOTTOM = 80;
 let idleTimer;
+let leavingFullscreen = false;
 
 function toggleFullscreen() {
-  if (document.fullscreenElement) document.exitFullscreen();
-  else if (!player.closest('main').hidden) {
+  if (document.fullscreenElement) {
+    leavingFullscreen = true;
+    document.exitFullscreen();
+  } else if (!player.closest('main').hidden) {
     document.documentElement.requestFullscreen().catch((err) => setStatus(`Plein écran refusé : ${err.message}`, true));
   }
 }
 
-// Le menu est en tête de la colonne de gauche, ou de la barre des pages sans colonne ;
+// Le bouton du lecteur met la vidéo seule en plein écran, sans menu ni barre de position :
+// on passe aussitôt en « cinéma », et depuis celui-ci ce même bouton sert à sortir.
+// Vrai si le changement en cours n'est qu'une étape vers un autre état.
+function redirectFullscreen() {
+  const current = document.fullscreenElement;
+  if (current && (leavingFullscreen || (current === video && document.body.classList.contains('cinema')))) {
+    leavingFullscreen = true;
+    document.exitFullscreen();
+    return true;
+  }
+  leavingFullscreen = false;
+  if (current !== video) return false;
+  document.documentElement.requestFullscreen().catch(() => {});
+  return true;
+}
+
+// Le menu est en tête de la colonne de gauche (liste ou programme), ou de la barre des réglages ;
 // en plein écran il flotte seul, la colonne étant repliée.
 const MENU_HOMES = { guide: '#guide .guide-bar', settings: '#settings .guide-bar' };
+
+// Colonne de gauche de l'onglet en cours (masquée dans les réglages).
+const column = () => ($('guide').hidden ? aside : $('guide'));
 
 // Liste repliée à la demande : comme en plein écran, le menu flotte et la liste glisse au bord gauche.
 let listClosed = (() => {
@@ -348,19 +398,20 @@ let listClosed = (() => {
   }
 })();
 let listHeld = false; // en plein écran : liste gardée ouverte avec ☰ ou L
+let columnHeld = false; // colonne repliée mais ouverte le temps d'y aller, après le choix d'un onglet
 
 function placeMenu() {
-  const fullPage = MENU_HOMES[currentType];
-  const closed = listClosed && !fullPage && !document.fullscreenElement;
+  const closed = listClosed && currentType !== 'settings' && !document.fullscreenElement;
   document.body.classList.toggle('list-closed', closed);
-  const home = document.fullscreenElement || closed ? document.body : document.querySelector(fullPage ?? 'aside');
+  const home = document.fullscreenElement || closed ? document.body : document.querySelector(MENU_HOMES[currentType] ?? 'aside');
   home.prepend(menu);
 }
 
 const menuFloats = () => document.fullscreenElement || document.body.classList.contains('list-closed');
 
 function toggleList() {
-  if (aside.hidden) return; // Programme et Réglages n'ont pas de liste
+  if (column().hidden) return; // les réglages n'ont pas de liste
+  columnHeld = false;
   if (document.fullscreenElement) {
     listHeld = !listHeld;
     document.body.classList.toggle('reveal-left', listHeld);
@@ -375,8 +426,8 @@ function toggleList() {
   wakeControls();
 }
 
-// Champ de la liste en cours d'utilisation (recherche, catégorie) : la liste reste affichée.
-const editingAside = () => aside.contains(document.activeElement) && ['INPUT', 'SELECT'].includes(document.activeElement.tagName);
+// Champ de la colonne en cours d'utilisation (recherche, catégorie) : elle reste affichée.
+const editingColumn = () => column().contains(document.activeElement) && ['INPUT', 'SELECT'].includes(document.activeElement.tagName);
 
 // La colonne de droite se déplie au bord droit de l'écran, en plein écran ou non.
 function updatePanel(e) {
@@ -396,25 +447,28 @@ function wakeControls(e) {
   if (e) {
     // Ni le haut (menu) ni le bas (boutons du lecteur, juste à côté du bord gauche).
     const atEdge = e.clientX < EDGE && e.clientY > EDGE && e.clientY < window.innerHeight - EDGE_BOTTOM;
-    body.classList.toggle('reveal-left', listHeld || atEdge || aside.contains(e.target) || editingAside());
+    const over = column().contains(e.target);
+    if (over) columnHeld = false;
+    body.classList.toggle('reveal-left', listHeld || columnHeld || atEdge || over || editingColumn());
   }
-  if (![menu, aside, panel].some((zone) => zone.contains(e?.target))) {
+  if (![menu, column(), panel].some((zone) => zone.contains(e?.target))) {
     idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
   }
 }
 
-$('fullscreen').onclick = toggleFullscreen;
 video.addEventListener('dblclick', toggleFullscreen);
 document.addEventListener('mousemove', wakeControls);
 document.addEventListener('mousedown', (e) => {
   if (!panel.contains(e.target)) panelHeld = false;
+  if (!column().contains(e.target) && !menu.contains(e.target)) columnHeld = false;
 });
 // Souris partie de la fenêtre (autre écran, autre application) : tout ce qu'elle dépliait se replie.
 function mouseGone() {
   const body = document.body;
   panelHeld = false;
+  columnHeld = false;
   body.classList.remove('reveal-right');
-  body.classList.toggle('reveal-left', listHeld || editingAside());
+  body.classList.toggle('reveal-left', listHeld || editingColumn());
   if (menuFloats()) {
     clearTimeout(idleTimer);
     idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
@@ -423,14 +477,15 @@ function mouseGone() {
 document.documentElement.addEventListener('mouseleave', mouseGone);
 window.addEventListener('blur', mouseGone);
 document.addEventListener('fullscreenchange', () => {
+  if (redirectFullscreen()) return;
   const on = Boolean(document.fullscreenElement);
   document.body.classList.toggle('cinema', on);
   if (!on) {
     listHeld = false;
+    columnHeld = false;
     document.body.classList.remove('reveal-left');
   }
   placeMenu();
-  $('fullscreen').textContent = on ? '✕ Quitter' : '⛶ Plein écran';
   wakeControls();
 });
 document.addEventListener('keydown', (e) => {
@@ -565,8 +620,31 @@ function resumeButtons(item) {
   ];
 }
 
+// Texte replié à quelques lignes pour ne pas repousser ce qui suit, avec un lien s'il dépasse.
+// `extras` : éléments qui n'apparaissent qu'une fois déplié.
+function foldable(text, extras = []) {
+  const body = el('p', { className: 'fold' }, text);
+  const link = el('button', { className: 'more', textContent: 'voir plus', hidden: true });
+  const fit = () => {
+    link.hidden = !body.classList.contains('open') && !extras.length && body.scrollHeight <= body.clientHeight;
+  };
+  link.onclick = () => {
+    const open = body.classList.toggle('open');
+    extras.forEach((extra) => (extra.hidden = !open));
+    link.textContent = open ? 'voir moins' : 'voir plus';
+    fit();
+  };
+  extras.forEach((extra) => (extra.hidden = true));
+  new ResizeObserver(fit).observe(body); // mesurable seulement une fois affiché, et selon la largeur
+  return [body, ...extras, link];
+}
+
 function infoBlock(info, buttons) {
   const meta = [info.year, info.genre, info.duration, info.rating && `★ ${info.rating}`].filter(Boolean).join(' · ');
+  const credits = [
+    info.director && el('p', { className: 'muted' }, `Réalisation : ${info.director}`),
+    info.cast && el('p', { className: 'muted' }, `Avec : ${info.cast}`),
+  ].filter(Boolean);
   return el(
     'div',
     { className: 'info' },
@@ -577,9 +655,7 @@ function infoBlock(info, buttons) {
       el('h2', {}, info.name),
       meta && el('p', { className: 'muted' }, meta),
       el('div', { className: 'buttons' }, ...buttons),
-      el('p', {}, info.plot),
-      info.director && el('p', { className: 'muted' }, `Réalisation : ${info.director}`),
-      info.cast && el('p', { className: 'muted' }, `Avec : ${info.cast}`),
+      ...(info.plot ? foldable(info.plot, credits) : credits),
     ),
   );
 }
@@ -643,7 +719,7 @@ async function showSeries(series) {
             { className: 'program' },
             el('strong', {}, `${e.num}. ${e.title.replace(/^.* - S\d+E\d+ - /, '')}`),
             el('p', { className: 'muted' }, [e.duration, watched && 'vu'].filter(Boolean).join(' · ')),
-            el('p', { className: 'description' }, e.plot),
+            ...(e.plot ? foldable(e.plot) : []),
           ),
           el('div', { className: 'buttons' }, ...resumeButtons(e.item)),
         );
@@ -724,16 +800,6 @@ function favoriteStar(id) {
   return star;
 }
 
-// Ouvre la chaîne dans l'onglet TV, en direct ou en replay d'un programme passé.
-async function watchChannel(channel, replay) {
-  await selectType('live', $('guide-category').value === FAVORITES ? FAVORITES : channel.category);
-  const items = [...list.children];
-  const match = items.find((li) => li.dataset.id === String(channel.id));
-  match?.classList.add('active');
-  match?.scrollIntoView({ block: 'center' });
-  showChannel(channel, replay);
-}
-
 function guideCard(channel, programme) {
   const now = Date.now() / 1000;
   const live = programme.start <= now && programme.stop > now;
@@ -753,8 +819,8 @@ function guideCard(channel, programme) {
     programme.description && el('p', { className: 'description', hidden: true }, programme.description),
   );
   card.onclick = () => {
-    if (live) return watchChannel(channel);
-    if (canReplay) return watchChannel(channel, programme);
+    if (live) return showChannel(channel);
+    if (canReplay) return showChannel(channel, programme);
     const description = card.querySelector('.description');
     if (description) description.hidden = !description.hidden;
   };
@@ -772,13 +838,13 @@ async function renderGuide() {
   const channels = await getJson(`/api/guide?${query}`);
 
   $('guide-list').replaceChildren(
-    ...channels.map((channel) =>
-      el(
+    ...channels.map((channel) => {
+      const row = el(
         'div',
         { className: 'guide-row' },
         el(
           'div',
-          { className: 'guide-channel', title: `Regarder ${channel.name} en direct`, onclick: () => watchChannel(channel) },
+          { className: 'guide-channel', title: `Regarder ${channel.name} en direct`, onclick: () => showChannel(channel) },
           channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
           el('span', {}, channel.name),
           favoriteStar(channel.id),
@@ -786,9 +852,12 @@ async function renderGuide() {
         channel.programmes.length
           ? el('div', { className: 'guide-programmes' }, ...channel.programmes.map((p) => guideCard(channel, p)))
           : el('p', { className: 'muted' }, 'Pas de guide des programmes pour cette chaîne.'),
-      ),
-    ),
+      );
+      row.dataset.id = channel.id;
+      return row;
+    }),
   );
+  paintPlayingChannel();
   if (!channels.length) {
     $('guide-list').append(
       el('p', { className: 'muted' }, showFavorites
@@ -867,23 +936,27 @@ async function loadList(append = false) {
 
 const chosenCategory = {}; // par onglet : la catégorie retrouvée en y revenant
 
-// `category` (optionnel) : catégorie à présélectionner.
-async function selectType(type, category) {
+async function selectType(type) {
   currentType = type;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
 
-  // Le programme et les réglages occupent tout l'écran : le lecteur est masqué mais la lecture
-  // continue (l'onglet d'origine garde son repère ▶).
-  const fullPage = type === 'guide' || type === 'settings';
+  // Le programme remplace la liste, à côté du lecteur. Les réglages occupent tout l'écran :
+  // le lecteur est masqué mais la lecture continue (l'onglet d'origine garde son repère ▶).
+  const fullPage = type === 'settings';
   $('guide').hidden = type !== 'guide';
-  $('settings').hidden = type !== 'settings';
-  aside.hidden = fullPage;
+  $('settings').hidden = !fullPage;
+  aside.hidden = type === 'guide' || fullPage;
   document.querySelector('main').hidden = fullPage;
   placeMenu();
   if (fullPage) {
     if (document.fullscreenElement) document.exitFullscreen();
-    return type === 'guide' ? showGuide() : showSettings();
+    return showSettings();
   }
+  if (menuFloats()) {
+    columnHeld = true;
+    document.body.classList.add('reveal-left');
+  }
+  if (type === 'guide') return showGuide();
 
   searchInput.value = '';
   const categories = await getJson(`/api/categories?type=${type}`);
@@ -892,12 +965,12 @@ async function selectType(type, category) {
     ...(type === 'live' ? [new Option('★ Favoris', FAVORITES)] : []),
     ...categories.map((c) => new Option(c.name, c.id)),
   );
-  categorySelect.value = category ?? chosenCategory[type] ?? '';
+  categorySelect.value = chosenCategory[type] ?? '';
   if (categorySelect.selectedIndex < 0) categorySelect.value = ''; // catégorie disparue du catalogue
   chosenCategory[type] = categorySelect.value;
   await loadList();
   // Pas quand la liste est repliée : un champ actif la garderait ouverte.
-  if (category === undefined && !menuFloats()) searchInput.focus();
+  if (!menuFloats()) searchInput.focus();
 }
 
 // --- Réglages : chaînes et groupes -------------------------------------------------

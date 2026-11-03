@@ -7,18 +7,22 @@ guide des programmes et replay, dans le navigateur.
 
 - **Programme** : ce qui passe en ce moment, ce soir ou demain soir, chaîne par chaîne,
   avec une sélection personnelle de chaînes favorites (étoile).
-  Un clic lance le direct, ou le replay d'un programme déjà diffusé.
+  Il s'affiche à côté du lecteur : un clic lance le direct, ou le replay d'un programme déjà diffusé,
+  sans quitter la grille.
 - **TV** : chaînes en direct (HLS), entrée Favoris pour zapper entre ses chaînes,
   guide des programmes par jour et replay quand la chaîne le permet.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
 - **Réglages** (⚙) : compte, mise à jour du catalogue, et chaînes, films, séries ou groupes entiers
   à retirer (Maj + clic pour toute une plage). Ces choix sont réversibles et conservés quand le catalogue est mis à jour.
-- Vrai plein écran (bouton ou touche `F`, double-clic sur la vidéo) : le menu apparaît quand la souris
+- Vrai plein écran (bouton du lecteur ou touche `F`, double-clic sur la vidéo) : le menu apparaît quand la souris
   bouge, et la liste en approchant la souris du bord gauche.
-- La liste de gauche se replie (bouton ☰ ou touche `L`) pour laisser toute la place à la vidéo :
-  elle réapparaît alors en approchant la souris du bord gauche.
+- La liste de gauche et le Programme se replient (bouton ☰ ou touche `L`) pour laisser toute la place à la vidéo :
+  ils réapparaissent alors en approchant la souris du bord gauche.
 - La fiche (programme, film, épisodes) est dans une colonne repliée, qui se déplie au bord droit de l'écran.
+  Les longs résumés sont coupés, avec un lien « voir plus ».
+- Si le fournisseur refuse un flux en direct, trois nouvelles tentatives automatiques, puis un message
+  qui donne la cause (code HTTP du refus, ou fournisseur injoignable).
 - Catalogue et guide stockés dans une base SQLite locale : l'interface reste rapide,
   même avec des dizaines de milliers d'entrées.
 
