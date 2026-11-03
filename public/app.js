@@ -726,6 +726,8 @@ async function loadList(append = false) {
   }
 }
 
+const chosenCategory = {}; // par onglet : la catégorie retrouvée en y revenant
+
 // `category` (optionnel) : catégorie à présélectionner.
 async function selectType(type, category) {
   currentType = type;
@@ -745,10 +747,12 @@ async function selectType(type, category) {
   searchInput.value = '';
   const categories = await getJson(`/api/categories?type=${type}`);
   categorySelect.replaceChildren(new Option('Toutes les catégories', ''), ...categories.map((c) => new Option(c.name, c.id)));
-  const preferred = categories.find((c) => c.id === category) ||
-    (type === 'live' ? categories.find((c) => c.name === DEFAULT_LIVE_CATEGORY) : categories[0]);
+  const wanted = category ?? chosenCategory[type];
+  const preferred = categories.find((c) => c.id === wanted);
   if (preferred) categorySelect.value = preferred.id;
+  chosenCategory[type] = categorySelect.value;
   await loadList();
+  if (category === undefined) searchInput.focus();
 }
 
 // --- Démarrage et import -----------------------------------------------------------
@@ -783,7 +787,11 @@ async function startApp() {
     clearTimeout(timer);
     timer = setTimeout(() => loadList(), 250);
   };
-  categorySelect.onchange = () => loadList();
+  categorySelect.onchange = () => {
+    chosenCategory[currentType] = categorySelect.value;
+    searchInput.focus();
+    loadList();
+  };
   $('more').onclick = () => loadList(true);
   await selectType('guide');
 }
