@@ -38,14 +38,6 @@
   </section>
 
   <div id="app" hidden>
-    <section id="guide" hidden>
-      <div class="guide-bar">
-        <select id="guide-category"></select>
-        <div id="guide-times" class="days"></div>
-      </div>
-      <div id="guide-list"></div>
-    </section>
-
     <section id="settings" hidden>
       <div class="guide-bar"></div>
       <div id="settings-content">
@@ -81,18 +73,40 @@
 
     <aside>
       <nav id="tabs">
-        <button id="list-toggle" title="Afficher ou masquer la liste (L)">☰</button>
-        <button data-type="guide">Programme</button>
+        <button data-type="settings" title="Réglages : compte, chaînes et groupes">⚙</button>
         <button data-type="live">TV</button>
         <button data-type="vod">Films</button>
         <button data-type="series">Séries</button>
-        <button data-type="settings" title="Réglages : compte, chaînes et groupes">⚙</button>
+        <span class="spacer"></span>
+        <button id="fiche-toggle">Fiche</button>
+        <button id="list-toggle" title="Afficher ou masquer les colonnes (L)">☰</button>
       </nav>
-      <select id="category"></select>
-      <input id="search" type="search" placeholder="Rechercher…">
-      <ul id="list"></ul>
-      <button id="more" class="secondary" hidden>Afficher plus</button>
+      <section id="guide" hidden>
+        <div class="guide-bar">
+          <select id="guide-category"></select>
+          <input id="guide-search" type="search" placeholder="Rechercher une chaîne…">
+          <div id="guide-times" class="days"></div>
+        </div>
+        <div id="guide-list"></div>
+        <button id="guide-more" class="secondary" hidden>Afficher plus</button>
+      </section>
+      <div id="browse">
+        <select id="category"></select>
+        <input id="search" type="search" placeholder="Rechercher…">
+        <ul id="list"></ul>
+        <button id="more" class="secondary" hidden>Afficher plus</button>
+      </div>
+      <div id="panel">
+        <div id="status">Choisis une chaîne, un film ou une série.</div>
+        <details id="playlist" open hidden>
+          <summary id="playlist-title"></summary>
+          <ol id="playlist-items"></ol>
+        </details>
+      </div>
     </aside>
+
+    <!-- Deuxième colonne : programme de la chaîne, film ou épisodes. -->
+    <section id="details"></section>
 
     <main>
       <div id="player" class="player">
@@ -108,16 +122,11 @@
           </div>
         </div>
       </div>
-      <div id="panel">
-        <div id="status">Choisis une chaîne, un film ou une série.</div>
-        <details id="playlist" open hidden>
-          <summary id="playlist-title"></summary>
-          <ol id="playlist-items"></ol>
-        </details>
-        <section id="details"></section>
-      </div>
     </main>
   </div>
+
+  <!-- Colonne masquée : une erreur de lecture doit se voir quand même. -->
+  <div id="alert"></div>
 
   <script src="vendor/hls.min.js"></script>
   <script src="app.js"></script>

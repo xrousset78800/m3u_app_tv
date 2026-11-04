@@ -5,23 +5,20 @@ guide des programmes et replay, dans le navigateur.
 
 ## Fonctionnalités
 
-- **Programme** : ce qui passe en ce moment, ce soir ou demain soir, chaîne par chaîne,
-  avec une sélection personnelle de chaînes favorites (étoile).
-  Il s'affiche à côté du lecteur : un clic lance le direct, ou le replay d'un programme déjà diffusé,
-  sans quitter la grille.
-- **TV** : chaînes en direct (HLS), entrée Favoris pour zapper entre ses chaînes
-  (à réordonner en les faisant glisser, ici comme dans Programme),
-  guide des programmes par jour et replay quand la chaîne le permet.
+- **TV** : chaînes en direct (HLS) avec ce qui passe en ce moment, ce soir ou demain soir, chaîne par chaîne.
+  Recherche, catégories et sélection personnelle de favoris (étoile, à réordonner en les faisant glisser).
+  Un clic lance le direct, ou le replay d'un programme déjà diffusé ; le guide complet de la chaîne, par jour,
+  s'affiche dans sa fiche.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
 - **Réglages** (⚙) : compte, mise à jour du catalogue, et chaînes, films, séries ou groupes entiers
   à retirer (Maj + clic pour toute une plage). Ces choix sont réversibles et conservés quand le catalogue est mis à jour.
-- Vrai plein écran (bouton du lecteur ou touche `F`, double-clic sur la vidéo) : le menu apparaît quand la souris
-  bouge, et la liste en approchant la souris du bord gauche.
-- La liste de gauche et le Programme se replient (bouton ☰ ou touche `L`) pour laisser toute la place à la vidéo :
-  ils réapparaissent alors en approchant la souris du bord gauche.
-- La fiche (programme, film, épisodes) est dans une colonne repliée, qui se déplie au bord droit de l'écran.
-  Les longs résumés sont coupés, avec un lien « voir plus ».
+- Tout est à gauche du lecteur, sur deux colonnes : d'abord le menu, les chaînes ou la liste, le statut et la playlist ;
+  puis la fiche (programme de la chaîne, film, épisodes), qui n'apparaît que lorsqu'il y a quelque chose à y montrer
+  et se masque avec « Fiche » dans le menu. Les longs résumés sont coupés, avec un lien « voir plus ».
+- Les colonnes ne s'ouvrent et ne se ferment qu'avec le bouton ☰ ou la touche `L`.
+- Vrai plein écran (bouton du lecteur ou touche `F`, double-clic sur la vidéo) : il commence sans les colonnes,
+  et ☰ ou `L` les affiche à côté de la vidéo.
 - Si le fournisseur refuse un flux en direct, trois nouvelles tentatives automatiques, puis un message
   qui donne la cause (code HTTP du refus, ou fournisseur injoignable).
 - Catalogue et guide stockés dans une base SQLite locale : l'interface reste rapide,

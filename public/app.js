@@ -2,7 +2,6 @@ const $ = (id) => document.getElementById(id);
 const video = $('video');
 const statusEl = $('status');
 const details = $('details');
-const panel = $('panel');
 const list = $('list');
 const categorySelect = $('category');
 const searchInput = $('search');
@@ -19,7 +18,6 @@ const CODECS = Object.entries({
 
 let currentType = 'live';
 let offset = 0;
-let panelHeld = false;
 
 // --- Utilitaires ----------------------------------------------------------------
 
@@ -35,17 +33,10 @@ async function getJson(url, options) {
   return res.json();
 }
 
-// Garde la colonne de droite ouverte sans survol, le temps que l'utilisateur y aille
-// (fiche à lire, erreur à voir). Un clic ailleurs ou un passage de la souris dessus y met fin.
-function holdPanel() {
-  panelHeld = true;
-  document.body.classList.add('reveal-right');
-}
-
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.classList.toggle('error', isError);
-  if (isError) holdPanel();
+  $('alert').textContent = isError ? text : '';
 }
 
 function formatTime(seconds) {
@@ -129,7 +120,7 @@ const HLS_RETRIES = 3;
 // Direct et replay : HLS via le proxy du serveur.
 function playHls(src, label) {
   stopPlayback();
-  markPlayingTab(currentType);
+  markPlayingTab('live');
   playingChannel = src.match(/(\d+)\.m3u8/)?.[1] ?? null;
   paintPlayingChannel();
   setStatus(`Chargement de ${label}…`);
@@ -346,14 +337,10 @@ function renderPlaylist() {
 $('next').onclick = playNext;
 renderPlaylist();
 
-// Plein écran « cinéma » : toute la fenêtre passe en plein écran, la vidéo occupe l'écran,
-// le menu flotte dessus tant que la souris bouge et la liste glisse par-dessus au bord gauche.
+// Plein écran : toute la fenêtre passe en plein écran, la vidéo occupe la place que laisse la colonne.
 const player = $('player');
 const menu = $('tabs');
 const aside = document.querySelector('aside');
-const EDGE = 60;
-const EDGE_RIGHT = 16; // étroit : les boutons du lecteur sont juste à côté du bord droit
-const EDGE_BOTTOM = 80;
 let idleTimer;
 
 function toggleFullscreen() {
@@ -378,14 +365,8 @@ function placeFullscreenHit() {
 const playerResized = new ResizeObserver(placeFullscreenHit);
 [player, video, document.querySelector('.controls')].forEach((el) => playerResized.observe(el));
 
-// Le menu est en tête de la colonne de gauche (liste ou programme), ou de la barre des réglages ;
-// en plein écran il flotte seul, la colonne étant repliée.
-const MENU_HOMES = { guide: '#guide .guide-bar', settings: '#settings .guide-bar' };
-
-// Colonne de gauche de l'onglet en cours (masquée dans les réglages).
-const column = () => ($('guide').hidden ? aside : $('guide'));
-
-// Liste repliée à la demande : comme en plein écran, le menu flotte et la liste glisse au bord gauche.
+// La colonne de gauche ne change d'état que par ☰ ou L. Elle reste fermée ou ouverte d'une fois
+// sur l'autre ; le plein écran commence sans elle, pour laisser tout l'écran à la vidéo.
 let listClosed = (() => {
   try {
     return localStorage.getItem('listClosed') === '1';
@@ -393,82 +374,67 @@ let listClosed = (() => {
     return false;
   }
 })();
-let listHeld = false; // en plein écran : liste gardée ouverte avec ☰ ou L
-let columnHeld = false; // colonne repliée mais ouverte le temps d'y aller, après le choix d'un onglet
+let listHeld = false; // en plein écran : colonne ouverte avec ☰ ou L
 
+// Colonne fermée, le menu se réduit à ☰, posé sur la vidéo. Les réglages ont leur propre barre.
 function placeMenu() {
-  const closed = listClosed && currentType !== 'settings' && !document.fullscreenElement;
+  const closed = currentType !== 'settings' && (document.fullscreenElement ? !listHeld : listClosed);
   document.body.classList.toggle('list-closed', closed);
-  const home = document.fullscreenElement || closed ? document.body : document.querySelector(MENU_HOMES[currentType] ?? 'aside');
+  const home = closed ? document.body : currentType === 'settings' ? document.querySelector('#settings .guide-bar') : aside;
   home.prepend(menu);
 }
 
-const menuFloats = () => document.fullscreenElement || document.body.classList.contains('list-closed');
-
 function toggleList() {
-  if (column().hidden) return; // les réglages n'ont pas de liste
-  columnHeld = false;
+  if (currentType === 'settings') return;
   if (document.fullscreenElement) {
     listHeld = !listHeld;
-    document.body.classList.toggle('reveal-left', listHeld);
   } else {
     listClosed = !listClosed;
     try {
       localStorage.setItem('listClosed', listClosed ? '1' : '0');
     } catch {}
-    document.body.classList.remove('reveal-left');
-    placeMenu();
   }
+  placeMenu();
   wakeControls();
 }
 
-// Champ de la colonne en cours d'utilisation (recherche, catégorie) : elle reste affichée.
-const editingColumn = () => column().contains(document.activeElement) && ['INPUT', 'SELECT'].includes(document.activeElement.tagName);
+// Deuxième colonne : fermée à la demande, pour rendre sa place à la vidéo.
+function closeFiche(closed) {
+  document.body.classList.toggle('fiche-closed', closed);
+  const toggle = $('fiche-toggle');
+  toggle.setAttribute('aria-pressed', !closed);
+  toggle.title = closed ? 'Afficher la fiche' : 'Masquer la fiche';
+  try {
+    localStorage.setItem('ficheClosed', closed ? '1' : '0');
+  } catch {}
+}
+closeFiche((() => {
+  try {
+    return localStorage.getItem('ficheClosed') === '1';
+  } catch {
+    return false;
+  }
+})());
+$('fiche-toggle').onclick = () => closeFiche(!document.body.classList.contains('fiche-closed'));
 
-// La colonne de droite se déplie au bord droit de l'écran, en plein écran ou non.
-function updatePanel(e) {
-  const over = panel.contains(e.target);
-  if (over) panelHeld = false;
-  document.body.classList.toggle('reveal-right', panelHeld || over || e.clientX >= window.innerWidth - EDGE_RIGHT);
+// En plein écran, le curseur, la barre de position et ☰ s'effacent après 3 s sans mouvement
+// de souris. La colonne, elle, ne bouge pas.
+function sleepControls() {
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => document.body.classList.add('idle'), 3000);
 }
 
-// Contrôles et menu s'effacent après 3 s sans mouvement de souris,
-// sauf si la souris est posée sur le menu, la liste ou la colonne de droite.
 function wakeControls(e) {
-  const body = document.body;
-  body.classList.remove('idle');
+  document.body.classList.remove('idle');
   clearTimeout(idleTimer);
-  if (e) updatePanel(e);
-  if (!menuFloats()) return;
-  if (e) {
-    // Ni le haut (menu) ni le bas (boutons du lecteur, juste à côté du bord gauche).
-    const atEdge = e.clientX < EDGE && e.clientY > EDGE && e.clientY < window.innerHeight - EDGE_BOTTOM;
-    const over = column().contains(e.target);
-    if (over) columnHeld = false;
-    body.classList.toggle('reveal-left', listHeld || columnHeld || atEdge || over || editingColumn());
-  }
-  if (![menu, column(), panel].some((zone) => zone.contains(e?.target))) {
-    idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
-  }
+  if (document.fullscreenElement && ![menu, aside].some((zone) => zone.contains(e?.target))) sleepControls();
 }
 
 video.addEventListener('dblclick', toggleFullscreen);
 document.addEventListener('mousemove', wakeControls);
-document.addEventListener('mousedown', (e) => {
-  if (!panel.contains(e.target)) panelHeld = false;
-  if (!column().contains(e.target) && !menu.contains(e.target)) columnHeld = false;
-});
-// Souris partie de la fenêtre (autre écran, autre application) : tout ce qu'elle dépliait se replie.
+// Souris partie de la fenêtre (autre écran, autre application).
 function mouseGone() {
-  const body = document.body;
-  panelHeld = false;
-  columnHeld = false;
-  body.classList.remove('reveal-right');
-  body.classList.toggle('reveal-left', listHeld || editingColumn());
-  if (menuFloats()) {
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => body.classList.add('idle'), 3000);
-  }
+  if (document.fullscreenElement) sleepControls();
 }
 document.documentElement.addEventListener('mouseleave', mouseGone);
 window.addEventListener('blur', mouseGone);
@@ -480,11 +446,7 @@ document.addEventListener('fullscreenchange', () => {
   }
   const on = Boolean(document.fullscreenElement);
   document.body.classList.toggle('cinema', on);
-  if (!on) {
-    listHeld = false;
-    columnHeld = false;
-    document.body.classList.remove('reveal-left');
-  }
+  if (!on) listHeld = false;
   placeMenu();
   wakeControls();
 });
@@ -661,6 +623,7 @@ function infoBlock(info, buttons) {
 }
 
 async function showMovie(movie) {
+  closeFiche(false); // rien ne se lance tout seul : la fiche (lecture) doit être visible
   details.replaceChildren(el('p', { className: 'muted' }, 'Chargement…'));
   const info = await getJson(`/api/vod/${movie.id}`).catch(() => ({ name: movie.name, cover: movie.logo }));
   const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, title: info.name || movie.name, key: `movie:${movie.id}` };
@@ -670,6 +633,7 @@ async function showMovie(movie) {
 // --- Séries ------------------------------------------------------------------------
 
 async function showSeries(series) {
+  closeFiche(false);
   details.replaceChildren(el('p', { className: 'muted' }, 'Chargement…'));
   const info = await getJson(`/api/series/${series.id}`);
   const seasonSelect = el('select', { className: 'season' });
@@ -738,7 +702,7 @@ async function showSeries(series) {
   } else episodesEl.append(el('li', { className: 'muted' }, 'Aucun épisode disponible.'));
 }
 
-// --- Programme : grille des chaînes d'une catégorie ----------------------------------
+// --- TV : grille des chaînes, avec leurs programmes ----------------------------------
 
 // Soirée : 21h15 pour tomber sur le programme de début de soirée (souvent 21h10).
 function evening(daysFromToday) {
@@ -756,6 +720,7 @@ const GUIDE_TIMES = {
 let guideTime = 'now';
 let guideTimer;
 const FAVORITES = 'favorites'; // entrée « Favoris » de la liste des catégories
+const PAGE = 200; // taille d'une page de résultats du serveur
 
 // Chaînes favorites, propres à ce navigateur.
 const favorites = (() => {
@@ -784,11 +749,7 @@ function toggleFavorite(key) {
   if (!favorites.delete(key)) favorites.add(key);
   saveFavorites();
   document.querySelectorAll(`[data-favorite="${key}"]`).forEach(paintStar);
-  if (!$('guide').hidden && $('guide-category').value === FAVORITES) renderGuide();
-  if (currentType === 'live' && categorySelect.value === FAVORITES) {
-    list.querySelector(`li[data-id="${key}"]`)?.remove();
-    if (!list.children.length) loadList();
-  }
+  if (!$('guide').hidden && $('guide-category').value === FAVORITES) renderGuide({ refresh: true });
 }
 
 function favoriteStar(id) {
@@ -804,7 +765,7 @@ function favoriteStar(id) {
   return star;
 }
 
-// Les favoris se réordonnent en les faisant glisser, dans la liste comme dans le programme.
+// Les favoris se réordonnent en les faisant glisser.
 let draggedFavorite = null;
 
 function sortFavoritesIn(container) {
@@ -836,10 +797,9 @@ function sortFavoritesIn(container) {
     favorites.clear();
     [...shown, ...others].forEach((id) => favorites.add(id));
     saveFavorites();
-    if (container === $('guide-list')) renderGuide(); // la mise à jour de la minute a pu être sautée
+    renderGuide({ refresh: true }); // la mise à jour de la minute a pu être sautée
   });
 }
-sortFavoritesIn(list);
 sortFavoritesIn($('guide-list'));
 
 function guideCard(channel, programme) {
@@ -869,59 +829,98 @@ function guideCard(channel, programme) {
   return card;
 }
 
-async function renderGuide() {
-  clearTimeout(guideTimer);
-  document.querySelectorAll('#guide-times button').forEach((b) => b.classList.toggle('active', b.dataset.time === guideTime));
-  const category = $('guide-category').value;
-  const showFavorites = category === FAVORITES;
-  const query = new URLSearchParams({ at: GUIDE_TIMES[guideTime].at() });
-  if (showFavorites) query.set('ids', [...favorites].join());
-  else query.set('category', category);
-  const channels = await getJson(`/api/guide?${query}`);
+let guideOffset = 0;
+let guideLoad = 0;
 
-  $('guide-list').replaceChildren(
-    ...channels.map((channel) => {
-      const row = el(
-        'div',
-        { className: 'guide-row' },
-        el(
-          'div',
-          { className: 'guide-channel', title: `Regarder ${channel.name} en direct`, onclick: () => showChannel(channel) },
-          channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
-          el('span', {}, channel.name),
-          favoriteStar(channel.id),
-        ),
-        channel.programmes.length
-          ? el('div', { className: 'guide-programmes' }, ...channel.programmes.map((p) => guideCard(channel, p)))
-          : el('p', { className: 'muted' }, 'Pas de guide des programmes pour cette chaîne.'),
-      );
-      row.dataset.id = channel.id;
-      row.draggable = showFavorites;
-      return row;
-    }),
+// La recherche porte sur toutes les chaînes, ou sur la catégorie choisie : pas sur les seuls favoris,
+// où l'on ne retrouverait jamais une chaîne qu'on n'y a pas encore mise.
+function guidePage(pageOffset) {
+  const category = $('guide-category').value;
+  const q = $('guide-search').value.trim();
+  const query = new URLSearchParams({ at: GUIDE_TIMES[guideTime].at(), q, offset: pageOffset });
+  if (category === FAVORITES && !q) query.set('ids', [...favorites].join());
+  else if (category !== FAVORITES) query.set('category', category);
+  return getJson(`/api/guide?${query}`);
+}
+
+function guideRow(channel, sortable) {
+  if (channel.separator) return el('div', { className: 'guide-separator' }, channel.name.replace(/^#+\s*|\s*#+$/g, ''));
+  const row = el(
+    'div',
+    { className: 'guide-row' },
+    el(
+      'div',
+      { className: 'guide-channel', title: `Regarder ${channel.name} en direct`, onclick: () => showChannel(channel) },
+      channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
+      el('span', {}, channel.name),
+      channel.archiveDays > 0 && el('small', { className: 'badge', title: `Replay ${channel.archiveDays} jours` }, '⟲'),
+      favoriteStar(channel.id),
+    ),
+    channel.programmes.length > 0 && el('div', { className: 'guide-programmes' }, ...channel.programmes.map((p) => guideCard(channel, p))),
   );
+  row.dataset.id = channel.id;
+  row.draggable = sortable;
+  return row;
+}
+
+// `append` : page suivante. `refresh` : relit ce qui est déjà affiché, sans bouger la liste.
+async function renderGuide({ append = false, refresh = false } = {}) {
+  clearTimeout(guideTimer);
+  const load = ++guideLoad;
+  document.querySelectorAll('#guide-times button').forEach((b) => b.classList.toggle('active', b.dataset.time === guideTime));
+
+  const channels = [];
+  let page;
+  do {
+    page = await guidePage(append ? guideOffset : channels.length);
+    if (load !== guideLoad) return; // une demande plus récente est partie entre-temps
+    channels.push(...page);
+  } while (refresh && page.length === PAGE && channels.length < guideOffset);
+
+  const box = $('guide-list');
+  const q = $('guide-search').value.trim();
+  const showFavorites = $('guide-category').value === FAVORITES && !q;
+  const nodes = channels.map((channel) => guideRow(channel, showFavorites));
+  $('guide-more').hidden = page.length < PAGE;
+  if (append) {
+    guideOffset += channels.length;
+    box.append(...nodes);
+  } else {
+    guideOffset = channels.length;
+    const scroll = box.scrollTop;
+    box.replaceChildren(...nodes);
+    box.scrollTop = refresh ? scroll : 0;
+  }
   paintPlayingChannel();
-  if (!channels.length) {
-    $('guide-list').append(
+  if (!box.children.length) {
+    box.append(
       el('p', { className: 'muted' }, showFavorites
         ? 'Aucun favori pour l\'instant : choisis une catégorie ci-dessus et clique sur l\'étoile ☆ des chaînes à garder ici.'
-        : 'Pas de guide des programmes pour cette catégorie.'),
+        : 'Aucune chaîne trouvée.'),
     );
   }
   // "En ce moment" se met à jour tout seul chaque minute.
-  if (guideTime === 'now') guideTimer = setTimeout(() => !$('guide').hidden && !draggedFavorite && renderGuide(), 60000);
+  if (guideTime === 'now') guideTimer = setTimeout(() => !$('guide').hidden && !draggedFavorite && renderGuide({ refresh: true }), 60000);
 }
 
 async function showGuide() {
   const select = $('guide-category');
+  const first = !select.options.length;
   // Relue à chaque fois : des groupes ont pu être retirés dans les réglages.
   const categories = await getJson('/api/categories?type=live');
   const chosen = select.value;
-  select.replaceChildren(new Option('★ Favoris', FAVORITES), ...categories.map((c) => new Option(c.name, c.id)));
-  select.value = chosen;
-  if (select.selectedIndex < 0) select.value = FAVORITES;
-  if (!$('guide-times').children.length) {
-    select.onchange = renderGuide;
+  select.replaceChildren(new Option('Toutes les catégories', ''), new Option('★ Favoris', FAVORITES), ...categories.map((c) => new Option(c.name, c.id)));
+  select.value = first ? (favorites.size ? FAVORITES : '') : chosen;
+  if (select.selectedIndex < 0) select.value = ''; // catégorie disparue du catalogue
+  $('guide-search').value = '';
+  if (first) {
+    select.onchange = () => renderGuide();
+    let timer;
+    $('guide-search').oninput = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => renderGuide(), 250);
+    };
+    $('guide-more').onclick = () => renderGuide({ append: true });
     $('guide-times').append(
       ...Object.entries(GUIDE_TIMES).map(([key, { label }]) => {
         const button = el('button', { className: 'secondary', textContent: label, onclick: () => ((guideTime = key), renderGuide()) });
@@ -935,35 +934,25 @@ async function showGuide() {
 
 // --- Navigation : onglets, catégories, liste ---------------------------------------
 
-const handlers = { live: showChannel, vod: showMovie, series: showSeries };
+const handlers = { vod: showMovie, series: showSeries };
 
 async function loadList(append = false) {
   if (!append) offset = 0;
-  const showFavorites = categorySelect.value === FAVORITES;
-  const params = new URLSearchParams({ type: currentType, q: searchInput.value.trim(), offset });
-  if (showFavorites) params.set('ids', [...favorites].join());
-  else params.set('category', categorySelect.value);
+  const params = new URLSearchParams({ type: currentType, q: searchInput.value.trim(), offset, category: categorySelect.value });
   const items = await getJson(`/api/list?${params}`);
   offset += items.length;
-  $('more').hidden = items.length < 200;
+  $('more').hidden = items.length < PAGE;
 
   const nodes = items.map((item) => {
-    if (item.separator) return el('li', { className: 'separator' }, item.name.replace(/^#+\s*|\s*#+$/g, ''));
     const li = el(
       'li',
-      { className: currentType === 'live' ? '' : 'poster', title: item.name },
+      { className: 'poster', title: item.name },
       item.logo && el('img', { src: item.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
       el('span', {}, item.name),
-      item.archiveDays > 0 && el('small', { className: 'badge', title: `Replay ${item.archiveDays} jours` }, 'replay'),
-      currentType === 'live' && favoriteStar(item.id),
     );
-    li.dataset.id = item.id;
-    li.draggable = showFavorites && !searchInput.value.trim();
     li.onclick = () => {
       list.querySelector('.active')?.classList.remove('active');
       li.classList.add('active');
-      // Film ou série : rien ne se lance tout seul, la fiche (lecture, épisodes) doit être visible.
-      if (currentType !== 'live') holdPanel();
       handlers[currentType](item);
     };
     return li;
@@ -972,9 +961,6 @@ async function loadList(append = false) {
   else {
     list.replaceChildren(...nodes);
     list.scrollTop = 0;
-    if (showFavorites && !nodes.length && !searchInput.value.trim()) {
-      list.append(el('li', { className: 'muted' }, 'Aucun favori pour l\'instant : clique sur l\'étoile ☆ d\'une chaîne.'));
-    }
   }
 }
 
@@ -984,37 +970,32 @@ async function selectType(type) {
   currentType = type;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
 
-  // Le programme remplace la liste, à côté du lecteur. Les réglages occupent tout l'écran :
+  // La TV a sa grille, films et séries leur liste. Les réglages occupent tout l'écran :
   // le lecteur est masqué mais la lecture continue (l'onglet d'origine garde son repère ▶).
   const fullPage = type === 'settings';
-  $('guide').hidden = type !== 'guide';
+  $('guide').hidden = type !== 'live';
   $('settings').hidden = !fullPage;
-  aside.hidden = type === 'guide' || fullPage;
+  $('browse').hidden = type === 'live';
+  aside.hidden = fullPage;
   document.querySelector('main').hidden = fullPage;
   placeMenu();
   if (fullPage) {
     if (document.fullscreenElement) document.exitFullscreen();
     return showSettings();
   }
-  if (menuFloats()) {
-    columnHeld = true;
-    document.body.classList.add('reveal-left');
-  }
-  if (type === 'guide') return showGuide();
+  if (type === 'live') return showGuide();
 
   searchInput.value = '';
   const categories = await getJson(`/api/categories?type=${type}`);
   categorySelect.replaceChildren(
     new Option('Toutes les catégories', ''),
-    ...(type === 'live' ? [new Option('★ Favoris', FAVORITES)] : []),
     ...categories.map((c) => new Option(c.name, c.id)),
   );
   categorySelect.value = chosenCategory[type] ?? '';
   if (categorySelect.selectedIndex < 0) categorySelect.value = ''; // catégorie disparue du catalogue
   chosenCategory[type] = categorySelect.value;
   await loadList();
-  // Pas quand la liste est repliée : un champ actif la garderait ouverte.
-  if (!menuFloats()) searchInput.focus();
+  searchInput.focus();
 }
 
 // --- Réglages : chaînes et groupes -------------------------------------------------
@@ -1232,7 +1213,7 @@ async function startApp() {
     loadList();
   };
   $('more').onclick = () => loadList(true);
-  await selectType('guide');
+  await selectType('live');
 }
 
 async function init() {
