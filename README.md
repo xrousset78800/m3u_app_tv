@@ -5,10 +5,10 @@ guide des programmes et replay, dans le navigateur.
 
 ## Fonctionnalités
 
-- **TV** : chaînes en direct (HLS) avec ce qui passe en ce moment, ce soir ou demain soir, chaîne par chaîne.
+- **TV** : chaînes en direct (HLS) avec ce qui passe en ce moment, chaîne par chaîne.
   Recherche, catégories et sélection personnelle de favoris (étoile, à réordonner en les faisant glisser).
-  Un clic lance le direct, ou le replay d'un programme déjà diffusé ; le guide complet de la chaîne, par jour,
-  s'affiche dans sa fiche.
+  Un clic sur une chaîne ouvre sa fiche, avec le guide complet par jour et le replay des programmes déjà diffusés ;
+  le bouton ▶ de la ligne lance le direct.
 - **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
 - **Réglages** (⚙) : compte, mise à jour du catalogue, et chaînes, films, séries ou groupes entiers
@@ -17,8 +17,8 @@ guide des programmes et replay, dans le navigateur.
   puis la fiche (programme de la chaîne, film, épisodes), qui n'apparaît que lorsqu'il y a quelque chose à y montrer
   et se masque avec « Fiche » dans le menu. Les longs résumés sont coupés, avec un lien « voir plus ».
 - Les colonnes ne s'ouvrent et ne se ferment qu'avec le bouton ☰ ou la touche `L`.
-- Vrai plein écran (bouton du lecteur ou touche `F`, double-clic sur la vidéo) : il commence sans les colonnes,
-  et ☰ ou `L` les affiche à côté de la vidéo.
+- Vrai plein écran (bouton du lecteur, touche `F` ou double-clic sur la vidéo, `Échap` pour en sortir) : les colonnes restent comme elles étaient,
+  et ☰ ou `L` les ferment pour laisser tout l'écran à la vidéo.
 - Si le fournisseur refuse un flux en direct, trois nouvelles tentatives automatiques, puis un message
   qui donne la cause (code HTTP du refus, ou fournisseur injoignable).
 - Catalogue et guide stockés dans une base SQLite locale : l'interface reste rapide,
@@ -104,6 +104,7 @@ L'abonnement n'autorise qu'**une connexion à la fois** : lancer une lecture arr
 
 ```
 electron/main.js appli de bureau : démarre le serveur et ouvre la fenêtre
+electron/preload.js pont entre la page et la fenêtre (plein écran)
 server.js        serveur HTTP : API, proxy HLS, flux convertis, fichiers statiques
 lib/xtream.js    accès au fournisseur (configuration, API, URL de lecture)
 lib/db.js        base SQLite : import du catalogue et du guide, requêtes

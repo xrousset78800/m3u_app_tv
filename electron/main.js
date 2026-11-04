@@ -1,7 +1,7 @@
 // Appli de bureau : le serveur tourne dans le processus Electron, la fenêtre affiche l'interface.
 
 const path = require('node:path');
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
 // Un port fixe garde la même origine d'un lancement à l'autre (la reprise des films
@@ -33,8 +33,11 @@ function createWindow(port) {
     backgroundColor: '#111111',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     show: false,
+    webPreferences: { preload: path.join(__dirname, 'preload.js') },
   });
   window.once('ready-to-show', () => window.show());
+  window.on('enter-full-screen', () => window.webContents.send('fullscreen', true));
+  window.on('leave-full-screen', () => window.webContents.send('fullscreen', false));
   // Liens externes éventuels : dans le navigateur, pas dans l'appli.
   window.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -42,6 +45,15 @@ function createWindow(port) {
   });
   window.loadURL(`http://127.0.0.1:${port}`);
 }
+
+// La fenêtre passe elle-même en plein écran : contrairement à la demande faite depuis la page,
+// le moteur du navigateur ne peut pas la refuser.
+ipcMain.handle('fullscreen', (_event, action) => {
+  if (action === 'toggle') window.setFullScreen(!window.isFullScreen());
+  if (action === 'enter') window.setFullScreen(true);
+  if (action === 'leave') window.setFullScreen(false);
+  return window.isFullScreen();
+});
 
 // Mises à jour : cherchées dans les Releases GitHub, téléchargées en arrière-plan,
 // installées au redémarrage (proposé tout de suite, sinon à la prochaine fermeture).

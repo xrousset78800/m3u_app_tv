@@ -75,9 +75,13 @@ let lastSave = 0;
 // Onglet d'où vient la lecture en cours : il garde un repère (▶ / ❚❚) quand on navigue ailleurs.
 let playingTab = null;
 let playingChannel = null; // chaîne en cours, repérée dans le programme
+let selectedChannel = null; // chaîne dont la fiche est affichée
 
 function paintPlayingChannel() {
-  document.querySelectorAll('.guide-row').forEach((row) => row.classList.toggle('playing', row.dataset.id === playingChannel));
+  document.querySelectorAll('.guide-row').forEach((row) => {
+    row.classList.toggle('playing', row.dataset.id === playingChannel);
+    row.classList.toggle('selected', row.dataset.id === selectedChannel);
+  });
 }
 
 function markPlayingTab(type) {
@@ -343,30 +347,59 @@ const menu = $('tabs');
 const aside = document.querySelector('aside');
 let idleTimer;
 
-function toggleFullscreen() {
-  if (document.fullscreenElement) {
-    document.exitFullscreen();
-  } else if (!player.closest('main').hidden) {
-    document.documentElement.requestFullscreen().catch((err) => setStatus(`Plein écran refusé : ${err.message}`, true));
-  }
+// Dans l'appli, la fenêtre passe elle-même en plein écran : le moteur du navigateur peut refuser une
+// demande faite depuis la page, pas celle-ci. Dans un navigateur (npm start), il n'y a que la page.
+const appWindow = window.tvWindow;
+let windowFullscreen = false;
+let fullscreenSwitching = false; // navigateur : une bascule à la fois
+
+function isFullscreen() {
+  return appWindow ? windowFullscreen : Boolean(document.fullscreenElement);
 }
 
-// Le bouton du lecteur met la vidéo seule en plein écran, sans menu ni barre de position, et le
-// navigateur refuse de corriger ensuite : une zone posée sur lui reçoit le clic à sa place.
-const fullscreenHit = $('fullscreen-hit');
-fullscreenHit.addEventListener('click', toggleFullscreen);
+function leaveFullscreen() {
+  if (appWindow) appWindow.fullscreen('leave');
+  else document.exitFullscreen();
+}
 
-function placeFullscreenHit() {
+function toggleFullscreen() {
+  const leaving = isFullscreen();
+  if (!leaving && player.closest('main').hidden) return;
+  if (appWindow) {
+    appWindow.fullscreen('toggle');
+    return;
+  }
+  if (fullscreenSwitching) return;
+  fullscreenSwitching = true;
+  (leaving ? document.exitFullscreen() : document.documentElement.requestFullscreen())
+    .catch((err) => setStatus(`Plein écran refusé : ${err.message}`, true))
+    .finally(() => {
+      fullscreenSwitching = false;
+    });
+}
+
+function fullscreenChanged(on) {
+  windowFullscreen = on;
+  document.body.classList.toggle('cinema', on);
+  wakeControls();
+}
+
+// Notre bouton plein écran, calé sur le bas de l'image et visible en même temps que les contrôles du lecteur.
+const fullscreenButton = $('fullscreen-button');
+fullscreenButton.addEventListener('click', toggleFullscreen);
+
+function placeFullscreenButton() {
   const box = video.getBoundingClientRect();
   const home = player.getBoundingClientRect();
-  fullscreenHit.style.right = `${home.right - box.right}px`;
-  fullscreenHit.style.bottom = `${home.bottom - box.bottom}px`;
+  fullscreenButton.style.right = `${home.right - box.right}px`;
+  fullscreenButton.style.bottom = `${home.bottom - box.bottom}px`;
+  fullscreenButton.classList.toggle('large', box.width > 1440);
 }
-const playerResized = new ResizeObserver(placeFullscreenHit);
+const playerResized = new ResizeObserver(placeFullscreenButton);
 [player, video, document.querySelector('.controls')].forEach((el) => playerResized.observe(el));
 
-// La colonne de gauche ne change d'état que par ☰ ou L. Elle reste fermée ou ouverte d'une fois
-// sur l'autre ; le plein écran commence sans elle, pour laisser tout l'écran à la vidéo.
+// Les colonnes n'ont qu'un état, qui ne change que par ☰ ou L : entrer en plein écran ou en sortir
+// n'y touche pas, et il est conservé d'une fois sur l'autre.
 let listClosed = (() => {
   try {
     return localStorage.getItem('listClosed') === '1';
@@ -374,11 +407,10 @@ let listClosed = (() => {
     return false;
   }
 })();
-let listHeld = false; // en plein écran : colonne ouverte avec ☰ ou L
 
 // Colonne fermée, le menu se réduit à ☰, posé sur la vidéo. Les réglages ont leur propre barre.
 function placeMenu() {
-  const closed = currentType !== 'settings' && (document.fullscreenElement ? !listHeld : listClosed);
+  const closed = currentType !== 'settings' && listClosed;
   document.body.classList.toggle('list-closed', closed);
   const home = closed ? document.body : currentType === 'settings' ? document.querySelector('#settings .guide-bar') : aside;
   home.prepend(menu);
@@ -386,14 +418,10 @@ function placeMenu() {
 
 function toggleList() {
   if (currentType === 'settings') return;
-  if (document.fullscreenElement) {
-    listHeld = !listHeld;
-  } else {
-    listClosed = !listClosed;
-    try {
-      localStorage.setItem('listClosed', listClosed ? '1' : '0');
-    } catch {}
-  }
+  listClosed = !listClosed;
+  try {
+    localStorage.setItem('listClosed', listClosed ? '1' : '0');
+  } catch {}
   placeMenu();
   wakeControls();
 }
@@ -427,30 +455,53 @@ function sleepControls() {
 function wakeControls(e) {
   document.body.classList.remove('idle');
   clearTimeout(idleTimer);
-  if (document.fullscreenElement && ![menu, aside].some((zone) => zone.contains(e?.target))) sleepControls();
+  if (isFullscreen() && ![menu, aside].some((zone) => zone.contains(e?.target))) sleepControls();
 }
 
-video.addEventListener('dblclick', toggleFullscreen);
+// Sur l'image, les clics sont à nous : le lecteur ferait pause puis lecture à chaque double-clic.
+// Sa barre de contrôles, en bas, garde les siens.
+let videoClickTimer;
+video.addEventListener('click', (e) => {
+  const barHeight = video.classList.contains('media') ? 48 : 72; // films : pas de frise sous les boutons
+  if (e.clientY > video.getBoundingClientRect().bottom - barHeight) return;
+  e.preventDefault();
+  clearTimeout(videoClickTimer);
+  // Un clic n'agit qu'une fois sûr qu'aucun second ne suit.
+  if (e.detail === 1) videoClickTimer = setTimeout(() => (video.paused ? video.play().catch(() => {}) : video.pause()), 250);
+  if (e.detail === 2) toggleFullscreen();
+});
+
+let playerTimer;
+function wakePlayer() {
+  player.classList.add('awake');
+  clearTimeout(playerTimer);
+  playerTimer = setTimeout(sleepPlayer, 3000);
+}
+function sleepPlayer() {
+  if (!video.paused) player.classList.remove('awake'); // en pause, le lecteur garde ses contrôles
+}
+player.addEventListener('mousemove', wakePlayer);
+player.addEventListener('mouseleave', sleepPlayer);
+video.addEventListener('pause', wakePlayer);
+video.addEventListener('play', wakePlayer);
+
 document.addEventListener('mousemove', wakeControls);
 // Souris partie de la fenêtre (autre écran, autre application).
 function mouseGone() {
-  if (document.fullscreenElement) sleepControls();
+  if (isFullscreen()) sleepControls();
 }
 document.documentElement.addEventListener('mouseleave', mouseGone);
 window.addEventListener('blur', mouseGone);
 document.addEventListener('fullscreenchange', () => {
-  // Vidéo seule malgré tout (double-clic, menu ⋮ du lecteur) : sans menu ni liste, on n'y reste pas.
-  if (document.fullscreenElement === video) {
-    document.exitFullscreen();
-    return;
-  }
-  const on = Boolean(document.fullscreenElement);
-  document.body.classList.toggle('cinema', on);
-  if (!on) listHeld = false;
-  placeMenu();
-  wakeControls();
+  if (!appWindow) fullscreenChanged(Boolean(document.fullscreenElement));
 });
+if (appWindow) {
+  appWindow.onFullscreen(fullscreenChanged);
+  appWindow.isFullscreen().then(fullscreenChanged);
+}
 document.addEventListener('keydown', (e) => {
+  // La fenêtre, elle, ne sort pas toute seule du plein écran avec Échap.
+  if (e.key === 'Escape' && appWindow && isFullscreen()) return leaveFullscreen();
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
   const key = e.key.toLowerCase();
   if (key === 'f') toggleFullscreen();
@@ -465,11 +516,30 @@ function playReplay(channel, programme) {
   playHls(`/replay/${channel.id}.m3u8?${query}`, `${channel.name} — ${programme.title} (replay)`);
 }
 
-// `replay` (optionnel) : programme à revoir au lieu du direct.
-async function showChannel(channel, replay) {
-  if (replay) playReplay(channel, replay);
-  else playHls(`/live/${channel.id}.m3u8`, channel.name);
-  details.replaceChildren(el('h2', {}, channel.name), el('p', { className: 'muted' }, 'Chargement du programme…'));
+function playLive(channel) {
+  playHls(`/live/${channel.id}.m3u8`, channel.name);
+}
+
+// Affiche la fiche de la chaîne, sans rien lancer : le direct part de ▶ sur la ligne ou de « Direct » ici.
+async function showChannel(channel) {
+  selectedChannel = String(channel.id);
+  paintPlayingChannel();
+
+  const listEl = el('ul', { className: 'epg' });
+  let replaying = null; // début du replay en cours, sur lequel se place la liste
+  const head = el('div', { className: 'detail-head' },
+    el('h2', {}, channel.name),
+    el('button', {
+      className: 'secondary',
+      textContent: '● Direct',
+      onclick: () => {
+        replaying = null;
+        listEl.querySelector('.playing')?.classList.remove('playing');
+        playLive(channel);
+      },
+    }),
+  );
+  details.replaceChildren(head, el('p', { className: 'muted' }, 'Chargement du programme…'));
 
   let programs;
   try {
@@ -477,8 +547,9 @@ async function showChannel(channel, replay) {
   } catch {
     programs = [];
   }
+  if (selectedChannel !== String(channel.id)) return; // une autre fiche a été demandée entre-temps
   if (!programs.length) {
-    details.replaceChildren(el('h2', {}, channel.name), el('p', { className: 'muted' }, 'Pas de guide des programmes pour cette chaîne.'));
+    details.replaceChildren(head, el('p', { className: 'muted' }, 'Pas de guide des programmes pour cette chaîne.'));
     return;
   }
 
@@ -487,8 +558,6 @@ async function showChannel(channel, replay) {
   const days = [...new Set(programs.map((p) => dayKey(p.start)))];
   const today = new Date().toDateString();
   const tabs = el('div', { className: 'days' });
-  const listEl = el('ul', { className: 'epg' });
-  let replaying = replay?.start; // début du replay en cours, sur lequel se place la liste
 
   function renderDay(day) {
     tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.day === day));
@@ -542,24 +611,8 @@ async function showChannel(channel, replay) {
       return button;
     }),
   );
-  details.replaceChildren(
-    el('div', { className: 'detail-head' },
-      el('h2', {}, channel.name),
-      el('button', {
-        className: 'secondary',
-        textContent: '● Direct',
-        onclick: () => {
-          replaying = null;
-          listEl.querySelector('.playing')?.classList.remove('playing');
-          playHls(`/live/${channel.id}.m3u8`, channel.name);
-        },
-      }),
-    ),
-    tabs,
-    listEl,
-  );
-  const replayDay = replay && dayKey(replay.start);
-  renderDay(days.includes(replayDay) ? replayDay : days.includes(today) ? today : days[days.length - 1]);
+  details.replaceChildren(head, tabs, listEl);
+  renderDay(days.includes(today) ? today : days[days.length - 1]);
 }
 
 // --- Films -------------------------------------------------------------------------
@@ -623,6 +676,7 @@ function infoBlock(info, buttons) {
 }
 
 async function showMovie(movie) {
+  selectedChannel = null;
   closeFiche(false); // rien ne se lance tout seul : la fiche (lecture) doit être visible
   details.replaceChildren(el('p', { className: 'muted' }, 'Chargement…'));
   const info = await getJson(`/api/vod/${movie.id}`).catch(() => ({ name: movie.name, cover: movie.logo }));
@@ -633,6 +687,7 @@ async function showMovie(movie) {
 // --- Séries ------------------------------------------------------------------------
 
 async function showSeries(series) {
+  selectedChannel = null;
   closeFiche(false);
   details.replaceChildren(el('p', { className: 'muted' }, 'Chargement…'));
   const info = await getJson(`/api/series/${series.id}`);
@@ -704,20 +759,6 @@ async function showSeries(series) {
 
 // --- TV : grille des chaînes, avec leurs programmes ----------------------------------
 
-// Soirée : 21h15 pour tomber sur le programme de début de soirée (souvent 21h10).
-function evening(daysFromToday) {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromToday);
-  date.setHours(21, 15, 0, 0);
-  return Math.floor(date / 1000);
-}
-
-const GUIDE_TIMES = {
-  now: { label: 'En ce moment', at: () => Math.floor(Date.now() / 1000) },
-  tonight: { label: 'Ce soir', at: () => evening(0) },
-  tomorrow: { label: 'Demain soir', at: () => evening(1) },
-};
-let guideTime = 'now';
 let guideTimer;
 const FAVORITES = 'favorites'; // entrée « Favoris » de la liste des catégories
 const PAGE = 200; // taille d'une page de résultats du serveur
@@ -802,42 +843,33 @@ function sortFavoritesIn(container) {
 }
 sortFavoritesIn($('guide-list'));
 
-function guideCard(channel, programme) {
+// Le programme de la ligne : une seule ligne de texte, le détail est dans l'infobulle et la fiche.
+function guideProgramme(programme) {
   const now = Date.now() / 1000;
   const live = programme.start <= now && programme.stop > now;
-  const canReplay = !live && programme.start < now && channel.archiveDays > 0;
-  const hint = live ? 'Regarder en direct' : canReplay ? 'Revoir' : '';
-  const card = el(
+  return el(
     'div',
     {
-      className: `guide-card${live ? ' live' : ''}${hint ? ' playable' : ''}`,
-      // Sur une seule ligne, le titre est souvent coupé : le détail est dans l'infobulle.
-      title: [`${formatHour(programme.start)} – ${formatHour(programme.stop)} · ${programme.title}`, hint, programme.description].filter(Boolean).join('\n'),
+      className: `guide-programme${live ? ' live' : ''}`,
+      title: [`${formatHour(programme.start)} – ${formatHour(programme.stop)} · ${programme.title}`, programme.description].filter(Boolean).join('\n'),
     },
     el('span', { className: 'muted' }, formatHour(programme.start)),
     el('strong', {}, programme.title),
-    canReplay && el('small', { className: 'action' }, '⟲'),
     live && el('div', { className: 'bar' }, el('div', { style: `width:${((now - programme.start) / (programme.stop - programme.start)) * 100}%` })),
-    programme.description && el('p', { className: 'description', hidden: true }, programme.description),
   );
-  card.onclick = () => {
-    if (live) return showChannel(channel);
-    if (canReplay) return showChannel(channel, programme);
-    const description = card.querySelector('.description');
-    if (description) description.hidden = !description.hidden;
-  };
-  return card;
 }
 
 let guideOffset = 0;
 let guideLoad = 0;
+let guideHasMore = false;
+let guideAppending = false;
 
 // La recherche porte sur toutes les chaînes, ou sur la catégorie choisie : pas sur les seuls favoris,
 // où l'on ne retrouverait jamais une chaîne qu'on n'y a pas encore mise.
 function guidePage(pageOffset) {
   const category = $('guide-category').value;
   const q = $('guide-search').value.trim();
-  const query = new URLSearchParams({ at: GUIDE_TIMES[guideTime].at(), q, offset: pageOffset });
+  const query = new URLSearchParams({ at: Math.floor(Date.now() / 1000), q, offset: pageOffset });
   if (category === FAVORITES && !q) query.set('ids', [...favorites].join());
   else if (category !== FAVORITES) query.set('category', category);
   return getJson(`/api/guide?${query}`);
@@ -845,18 +877,31 @@ function guidePage(pageOffset) {
 
 function guideRow(channel, sortable) {
   if (channel.separator) return el('div', { className: 'guide-separator' }, channel.name.replace(/^#+\s*|\s*#+$/g, ''));
+  const [programme] = channel.programmes;
   const row = el(
     'div',
-    { className: 'guide-row' },
-    el(
-      'div',
-      { className: 'guide-channel', title: `Regarder ${channel.name} en direct`, onclick: () => showChannel(channel) },
-      channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
-      el('span', {}, channel.name),
-      channel.archiveDays > 0 && el('small', { className: 'badge', title: `Replay ${channel.archiveDays} jours` }, '⟲'),
-      favoriteStar(channel.id),
-    ),
-    channel.programmes.length > 0 && el('div', { className: 'guide-programmes' }, ...channel.programmes.map((p) => guideCard(channel, p))),
+    {
+      className: 'guide-row',
+      title: `Voir le programme de ${channel.name}`,
+      onclick: () => {
+        closeFiche(false);
+        showChannel(channel);
+      },
+    },
+    el('button', {
+      className: 'guide-play',
+      textContent: '▶',
+      title: `Regarder ${channel.name} en direct`,
+      onclick: (e) => {
+        e.stopPropagation();
+        playLive(channel); // la fiche ne s'ouvre qu'au clic sur le reste de la ligne
+      },
+    }),
+    el('div', { className: 'guide-logo' }, channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() })),
+    el('span', { className: `guide-name${programme ? '' : ' wide'}` }, channel.name),
+    programme && guideProgramme(programme),
+    el('div', { className: 'guide-replay' }, channel.archiveDays > 0 && el('small', { className: 'badge', title: `Replay ${channel.archiveDays} jours` }, '⟲')),
+    favoriteStar(channel.id),
   );
   row.dataset.id = channel.id;
   row.draggable = sortable;
@@ -867,7 +912,6 @@ function guideRow(channel, sortable) {
 async function renderGuide({ append = false, refresh = false } = {}) {
   clearTimeout(guideTimer);
   const load = ++guideLoad;
-  document.querySelectorAll('#guide-times button').forEach((b) => b.classList.toggle('active', b.dataset.time === guideTime));
 
   const channels = [];
   let page;
@@ -881,7 +925,7 @@ async function renderGuide({ append = false, refresh = false } = {}) {
   const q = $('guide-search').value.trim();
   const showFavorites = $('guide-category').value === FAVORITES && !q;
   const nodes = channels.map((channel) => guideRow(channel, showFavorites));
-  $('guide-more').hidden = page.length < PAGE;
+  guideHasMore = page.length === PAGE;
   if (append) {
     guideOffset += channels.length;
     box.append(...nodes);
@@ -899,8 +943,8 @@ async function renderGuide({ append = false, refresh = false } = {}) {
         : 'Aucune chaîne trouvée.'),
     );
   }
-  // "En ce moment" se met à jour tout seul chaque minute.
-  if (guideTime === 'now') guideTimer = setTimeout(() => !$('guide').hidden && !draggedFavorite && renderGuide({ refresh: true }), 60000);
+  // Ce qui passe se met à jour tout seul chaque minute.
+  guideTimer = setTimeout(() => !$('guide').hidden && !draggedFavorite && renderGuide({ refresh: true }), 60000);
 }
 
 async function showGuide() {
@@ -920,14 +964,16 @@ async function showGuide() {
       clearTimeout(timer);
       timer = setTimeout(() => renderGuide(), 250);
     };
-    $('guide-more').onclick = () => renderGuide({ append: true });
-    $('guide-times').append(
-      ...Object.entries(GUIDE_TIMES).map(([key, { label }]) => {
-        const button = el('button', { className: 'secondary', textContent: label, onclick: () => ((guideTime = key), renderGuide()) });
-        button.dataset.time = key;
-        return button;
-      }),
-    );
+    // La suite de la liste arrive d'elle-même, un peu avant d'atteindre le bas.
+    $('guide-list').onscroll = ({ target: box }) => {
+      if (!guideHasMore || guideAppending || box.scrollHeight - box.scrollTop - box.clientHeight > 600) return;
+      guideAppending = true;
+      renderGuide({ append: true })
+        .catch((err) => setStatus(err.message, true))
+        .finally(() => {
+          guideAppending = false;
+        });
+    };
   }
   await renderGuide();
 }
@@ -980,7 +1026,7 @@ async function selectType(type) {
   document.querySelector('main').hidden = fullPage;
   placeMenu();
   if (fullPage) {
-    if (document.fullscreenElement) document.exitFullscreen();
+    if (isFullscreen()) leaveFullscreen();
     return showSettings();
   }
   if (type === 'live') return showGuide();

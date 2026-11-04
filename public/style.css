@@ -121,7 +121,7 @@ aside {
   background: #1b1b1b;
   border-right: 1px solid #333;
 }
-aside:has(> #guide:not([hidden])) { width: clamp(440px, 34vw, 640px); }
+aside:has(> #guide:not([hidden])) { width: clamp(520px, 38vw, 720px); }
 aside > #tabs { padding: 8px 12px 4px; }
 
 #browse, #guide { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
@@ -201,20 +201,26 @@ main {
   border-bottom: 1px solid #333;
 }
 .guide-bar select { width: 260px; }
-.guide-bar .days { margin: 0; }
 #guide .guide-bar { gap: 8px; padding: 12px; }
 #guide .guide-bar :is(select, input) { flex: 1 1 180px; width: auto; min-width: 0; }
-#guide-more { margin: 4px 12px; }
-#guide-list { container-type: inline-size; }
 
 #guide-list { flex: 1; overflow-y: auto; padding: 0 12px 24px; }
 
+/* Toutes les lignes ont la même hauteur et les mêmes colonnes, qu'il y ait ou non un logo, un guide ou un replay. */
 .guide-row {
-  display: flex;
-  gap: 8px;
-  padding: 2px 0;
+  display: grid;
+  grid-template-columns: 24px 32px minmax(0, 6fr) minmax(0, 5fr) 22px 24px;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 4px;
   border-bottom: 1px solid #262626;
+  cursor: pointer;
+  font-size: 0.92em;
 }
+.guide-row:hover { background: #222; }
+.guide-row.selected { background: #2a2a2a; box-shadow: inset 2px 0 #7fa8ee; }
+.guide-row.playing { background: #2d4a7a; }
 /* Intertitre du fournisseur : pas une chaîne, il reste visible tant qu'on est dans sa section. */
 .guide-separator {
   position: sticky;
@@ -228,66 +234,40 @@ main {
   font-weight: 700;
   letter-spacing: 0.03em;
 }
-.guide-row.playing .guide-channel { background: #2d4a7a; }
-
-.guide-channel {
-  width: 240px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 4px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.92em;
-  font-weight: 600;
+.guide-play {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+  background: #2a2a2a;
+  color: #ddd;
+  font-size: 0.7em;
+  line-height: 24px;
 }
-.guide-channel:hover { background: #2a2a2a; }
-.guide-channel img { width: 32px; height: 22px; object-fit: contain; }
-.guide-channel span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide-play:hover { background: #3c7ee6; color: #fff; }
+.guide-row.playing .guide-play { background: #3c7ee6; color: #fff; }
+.guide-logo { height: 22px; }
+.guide-logo img { display: block; width: 32px; height: 22px; object-fit: contain; }
+.guide-name { min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.guide-name.wide { grid-column: span 2; }
+.guide-replay { text-align: center; }
 
 .star { flex-shrink: 0; padding: 0 4px; background: none; color: #888; font-size: 1.2em; }
 .star:hover { background: none; color: #f5c518; }
 .star.on { color: #f5c518; }
 
-.guide-programmes {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 4px;
-  align-items: start;
-}
-
-/* Une seule ligne par programme : heure et titre côte à côte, le détail est dans l'infobulle. */
-.guide-card {
+.guide-programme {
   position: relative;
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0 6px;
+  gap: 6px;
   min-width: 0;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: #1b1b1b;
-  cursor: pointer;
-  font-size: 0.88em;
+  padding: 2px 0 4px;
+  font-size: 0.95em;
 }
-.guide-card:hover { background: #242424; }
-.guide-card strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-.guide-card .bar { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; margin: 0; border-radius: 0; }
-.guide-card.live { background: #1c2636; }
-.guide-card.live:hover { background: #22304a; }
-.guide-card .action { color: #7fa8ee; }
-.guide-card .description { flex-basis: 100%; max-height: 9em; margin: 4px 0; overflow-y: auto; }
-
-/* Chaîne sans guide : son nom a toute la ligne. Colonne étroite : le nom au-dessus de ses programmes. */
-.guide-row:not(:has(.guide-programmes)) .guide-channel { flex: 1; }
-@container (max-width: 800px) {
-  .guide-row { flex-direction: column; gap: 2px; }
-  .guide-channel { width: auto; }
-  .guide-programmes { flex: none; width: 100%; grid-template-columns: 1fr 1fr; }
-}
+.guide-programme strong { flex: 1; min-width: 0; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.guide-programme .bar { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; margin: 0; }
+.guide-row.playing .muted { color: #cdd8ec; }
 
 /* --- Réglages --- */
 
@@ -334,25 +314,32 @@ video {
 }
 
 /* Favoris en cours de déplacement */
-[draggable="true"] .guide-channel { cursor: grab; }
+.guide-row[draggable="true"] { cursor: grab; }
 .dragging { opacity: 0.4; }
 
-/* Posée sur le bouton plein écran du lecteur, qui est plus bas sans sa barre de position (films, épisodes).
-   Survolée, elle reprend son icône : les contrôles du lecteur s'effacent quand la souris les quitte. */
-#fullscreen-hit {
+/* Plein écran : notre bouton, au bout de la rangée du lecteur, qui lui garde la place. Le bouton natif
+   ne mettrait que la vidéo en plein écran. Plus bas sans la barre de position (films, épisodes). */
+video::-webkit-media-controls-panel { padding-right: 48px; }
+video::-webkit-media-controls-fullscreen-button { display: none; }
+#fullscreen-button {
   position: absolute;
   right: 0;
   bottom: 0;
   width: 40px;
   height: 40px;
-  margin: 0 52px 28px 0;
+  margin: 0 8px 30px 0;
   border-radius: 50%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 10V6h4M14 6h4v4M18 14v4h-4M10 18H6v-4'/%3E%3C/svg%3E") center / 22px no-repeat;
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
-video.media ~ #fullscreen-hit { margin-bottom: 4px; }
-#fullscreen-hit:hover {
-  background: #222 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M6 10V6h4M14 6h4v4M18 14v4h-4M10 18H6v-4'/%3E%3C/svg%3E") center / 22px no-repeat;
-}
+video.media ~ #fullscreen-button { margin-bottom: 6px; }
+/* Sur une très large image, le lecteur remonte sa rangée. */
+#fullscreen-button.large { margin-bottom: 38px; }
+video.media ~ #fullscreen-button.large { margin-bottom: 14px; }
+#player.awake #fullscreen-button { opacity: 1; }
+#fullscreen-button:hover { background-color: #222; }
 
 /* Films/épisodes : la barre native ne sait pas se déplacer dans le flux converti,
    on la remplace par #seek. */
