@@ -14,6 +14,31 @@ const server = require('../server');
 
 let window = null;
 
+// Textes des fenêtres de l'appli : ceux de l'interface (public/i18n), dans la langue choisie par la page,
+// ou celle du système tant que la page ne l'a pas dite.
+const I18N_DIR = path.join(__dirname, '..', 'public', 'i18n');
+const LANGUAGES = ['fr-FR', 'en-US', 'de-DE', 'es-ES', 'it-IT', 'pt-PT'];
+let language = null;
+
+function readStrings(code) {
+  try {
+    return require(path.join(I18N_DIR, `${code}.json`));
+  } catch {
+    return {};
+  }
+}
+
+function t(key, vars = {}) {
+  const system = app.getLocale().split('-')[0];
+  const code = language || LANGUAGES.find((c) => c.split('-')[0] === system) || 'fr-FR';
+  const text = readStrings(code)[key] ?? readStrings('fr-FR')[key] ?? key;
+  return text.replace(/\{(\w+)\}/g, (all, name) => (name in vars ? vars[name] : all));
+}
+
+ipcMain.on('language', (_event, code) => {
+  if (LANGUAGES.includes(code)) language = code;
+});
+
 async function startServer() {
   try {
     return await server.start(PREFERRED_PORT);
@@ -62,10 +87,10 @@ function checkForUpdates() {
   autoUpdater.on('update-downloaded', async ({ version }) => {
     const { response } = await dialog.showMessageBox(window, {
       type: 'info',
-      title: 'Mise à jour',
-      message: `La version ${version} de TV est prête.`,
-      detail: 'Redémarrer maintenant pour l\'installer ? Sinon, elle s\'installera à la prochaine fermeture.',
-      buttons: ['Redémarrer', 'Plus tard'],
+      title: t('update.title'),
+      message: t('update.message', { version }),
+      detail: t('update.detail'),
+      buttons: [t('update.restart'), t('update.later')],
       defaultId: 0,
       cancelId: 1,
     });
@@ -91,7 +116,7 @@ if (!app.requestSingleInstanceLock()) {
       createWindow(await startServer());
       checkForUpdates();
     } catch (err) {
-      dialog.showErrorBox('TV', `Impossible de démarrer : ${err.message}`);
+      dialog.showErrorBox('TV', t('startup.failed', { error: err.message }));
       app.quit();
     }
   });

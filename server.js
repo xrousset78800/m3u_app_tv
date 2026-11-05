@@ -118,9 +118,12 @@ async function epg(id) {
 
 // --- HTTP ------------------------------------------------------------------------
 
-function sendText(res, status, text) {
+// `error` : erreur prévue, dont l'interface affiche le message dans sa langue (en-tête X-Error).
+function sendText(res, status, text, error) {
   if (res.headersSent) return res.destroy();
-  res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8' });
+  const headers = { 'Content-Type': 'text/plain; charset=utf-8' };
+  if (error?.key) headers['X-Error'] = encodeURIComponent(JSON.stringify({ key: error.key, vars: error.vars }));
+  res.writeHead(status, headers);
   res.end(text);
 }
 
@@ -142,7 +145,7 @@ async function readJson(req) {
   }
 }
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json; charset=utf-8' };
 
 function serveStatic(res, pathname) {
   const file = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
@@ -273,7 +276,7 @@ const server = http.createServer(async (req, res) => {
   } catch (err) {
     if (err.name === 'AbortError') return;
     console.error(`${pathname} :`, err.message);
-    sendText(res, err.status || 502, err.message);
+    sendText(res, err.status || 502, err.message, err);
   }
 });
 

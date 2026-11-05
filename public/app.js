@@ -27,16 +27,141 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
+// Les erreurs prévues du serveur arrivent aussi sous forme de clé, à traduire ici (en-tête X-Error).
 async function getJson(url, options) {
   const res = await fetch(url, options);
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    let text = await res.text();
+    try {
+      const { key, vars } = JSON.parse(decodeURIComponent(res.headers.get('X-Error')));
+      text = t(`error.${key}`, vars);
+    } catch {}
+    throw new Error(text);
+  }
   return res.json();
 }
 
+// Message du statut, gardé sous forme de clé pour être retraduit si la langue change.
+let statusMessage = null;
+
 function setStatus(text, isError = false) {
+  statusMessage = null;
   statusEl.textContent = text;
   statusEl.classList.toggle('error', isError);
   $('alert').textContent = isError ? text : '';
+}
+
+function say(key, vars, isError = false) {
+  setStatus(t(key, vars), isError);
+  statusMessage = { key, vars, isError };
+}
+
+// --- Langue de l'interface ------------------------------------------------------
+// Textes dans public/i18n/<langue>.json ; le français sert de référence pour ce qui manquerait.
+// La même langue sert aux fiches des films et séries, traduites par TMDB côté serveur.
+
+const LANGUAGES = { 'fr-FR': 'Français', 'en-US': 'English', 'de-DE': 'Deutsch', 'es-ES': 'Español', 'it-IT': 'Italiano', 'pt-PT': 'Português' };
+const DEFAULT_LANGUAGE = 'fr-FR';
+const LANGUAGE_KEY = 'language';
+let language = DEFAULT_LANGUAGE;
+let strings = {};
+let reference = {};
+
+// Celle choisie, sinon au premier lancement celle du système si l'appli la connaît.
+function initialLanguage() {
+  try {
+    const saved = localStorage.getItem(LANGUAGE_KEY);
+    if (LANGUAGES[saved]) return saved;
+  } catch {}
+  const codes = Object.keys(LANGUAGES);
+  for (const wanted of navigator.languages || []) {
+    const found = codes.find((code) => code === wanted) || codes.find((code) => code.split('-')[0] === wanted.split('-')[0]);
+    if (found) return found;
+  }
+  return DEFAULT_LANGUAGE;
+}
+
+// t('player.retry', { count: 1, max: 3 }) ; un texte { one, other } est choisi selon `count`.
+function t(key, vars = {}) {
+  let text = strings[key] ?? reference[key] ?? key;
+  if (typeof text === 'object') text = text[new Intl.PluralRules(language).select(vars.count)] ?? text.other;
+  return text.replace(/\{(\w+)\}/g, (all, name) => (name in vars ? vars[name] : all));
+}
+
+const loadStrings = (code) => fetch(`i18n/${code}.json`).then((res) => (res.ok ? res.json() : {})).catch(() => ({}));
+
+async function loadLanguage(code) {
+  const [base, chosen] = await Promise.all([
+    Object.keys(reference).length ? reference : loadStrings(DEFAULT_LANGUAGE),
+    code === DEFAULT_LANGUAGE ? null : loadStrings(code),
+  ]);
+  reference = base;
+  strings = chosen || base;
+  language = code;
+  document.documentElement.lang = code.split('-')[0];
+  translatePage();
+  paintLanguagePicker();
+  window.tvWindow?.setLanguage?.(code); // pour les fenêtres de l'appli elle-même (mise à jour)
+}
+
+// Textes fixes de la page, repérés par leurs attributs data-i18n*.
+function translatePage() {
+  if (!Object.keys(reference).length) return; // fichiers illisibles : le français de la page reste
+  document.querySelectorAll('[data-i18n]').forEach((node) => (node.textContent = t(node.dataset.i18n)));
+  document.querySelectorAll('[data-i18n-html]').forEach((node) => (node.innerHTML = t(node.dataset.i18nHtml)));
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => (node.placeholder = t(node.dataset.i18nPlaceholder)));
+  document.querySelectorAll('[data-i18n-title]').forEach((node) => (node.title = t(node.dataset.i18nTitle)));
+}
+
+// Sélecteur discret de l'en-tête : un drapeau, et la liste des langues au clic.
+const flagUrl = (code) => `i18n/flags/${code}.svg`;
+const languageMenu = $('language-menu');
+
+function paintLanguagePicker() {
+  $('language-button').querySelector('img').src = flagUrl(language);
+  languageMenu.replaceChildren(
+    ...Object.entries(LANGUAGES).map(([code, name]) => {
+      const item = el(
+        'li',
+        { role: 'option', className: code === language ? 'active' : '', onclick: () => chooseLanguage(code) },
+        el('img', { src: flagUrl(code), alt: '' }),
+        el('span', {}, name),
+      );
+      item.setAttribute('aria-selected', code === language);
+      return item;
+    }),
+  );
+}
+
+// Placée par rapport au bouton, pour ne pas être coupée par la colonne.
+function openLanguageMenu(open) {
+  languageMenu.hidden = !open;
+  $('language-button').setAttribute('aria-expanded', open);
+  if (!open) return;
+  const box = $('language-button').getBoundingClientRect();
+  languageMenu.style.top = `${box.bottom + 4}px`;
+  languageMenu.style.left = `${Math.max(8, box.right - languageMenu.offsetWidth)}px`;
+}
+
+$('language-button').onclick = (e) => {
+  e.stopPropagation();
+  openLanguageMenu(languageMenu.hidden);
+};
+document.addEventListener('click', (e) => {
+  if (!$('language-picker').contains(e.target)) openLanguageMenu(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !languageMenu.hidden) openLanguageMenu(false);
+});
+
+async function chooseLanguage(code) {
+  openLanguageMenu(false);
+  if (code === language) return;
+  try {
+    localStorage.setItem(LANGUAGE_KEY, code);
+  } catch {}
+  await loadLanguage(code);
+  refreshTexts().catch((err) => setStatus(err.message, true));
 }
 
 function formatTime(seconds) {
@@ -47,7 +172,7 @@ function formatTime(seconds) {
   return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
 }
 
-const formatHour = (ts) => new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const formatHour = (ts) => new Date(ts * 1000).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
 
 // Position de lecture mémorisée (films et épisodes), propre à ce navigateur.
 const progress = {
@@ -76,6 +201,7 @@ let lastSave = 0;
 let playingTab = null;
 let playingChannel = null; // chaîne en cours, repérée dans le programme
 let selectedChannel = null; // chaîne dont la fiche est affichée
+let shownFiche = null; // réaffiche la fiche en cours (changement de langue)
 
 function paintPlayingChannel() {
   document.querySelectorAll('.guide-row').forEach((row) => {
@@ -115,9 +241,7 @@ function hlsErrorText(data) {
   const xhr = data.networkDetails;
   const reply = ['', 'text'].includes(xhr?.responseType) ? xhr.responseText : '';
   const code = reply.match(/^Fournisseur : HTTP (\d+)/)?.[1] ?? (data.response?.code !== 502 && data.response?.code);
-  return code
-    ? `Le fournisseur refuse ce flux (HTTP ${code}) : chaîne indisponible, ou connexion déjà prise par un autre appareil.`
-    : `Fournisseur injoignable (${data.details}).`;
+  return code ? ['player.refused', { code }] : ['player.unreachable', { details: data.details }];
 }
 
 const HLS_RETRIES = 3;
@@ -128,7 +252,7 @@ function playHls(src, label) {
   markPlayingTab('live');
   playingChannel = src.match(/(\d+)\.m3u8/)?.[1] ?? null;
   paintPlayingChannel();
-  setStatus(`Chargement de ${label}…`);
+  say('player.loading', { label });
   if (window.Hls && Hls.isSupported()) {
     let retries = 0;
     const current = (hls = new Hls({ liveSyncDurationCount: 3 }));
@@ -140,10 +264,10 @@ function playHls(src, label) {
     hls.on(Hls.Events.ERROR, (_, data) => {
       if (!data.fatal) return;
       if (data.type === Hls.ErrorTypes.MEDIA_ERROR) return hls.recoverMediaError();
-      if (retries === HLS_RETRIES) return setStatus(hlsErrorText(data), true);
+      if (retries === HLS_RETRIES) return say(...hlsErrorText(data), true);
       // Souvent passager : la connexion unique de l'abonnement met quelques secondes à se libérer.
       retries++;
-      setStatus(`Flux interrompu, nouvelle tentative (${retries}/${HLS_RETRIES})…`);
+      say('player.retry', { count: retries, max: HLS_RETRIES });
       setTimeout(() => hls === current && hls.loadSource(src), 2000 * retries);
     });
     hls.loadSource(src);
@@ -151,7 +275,7 @@ function playHls(src, label) {
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = src;
   } else {
-    setStatus('Ce navigateur ne sait pas lire le HLS.', true);
+    say('player.noHls', {}, true);
   }
 }
 
@@ -159,13 +283,13 @@ function playHls(src, label) {
 async function playMedia(item, start = 0) {
   stopPlayback();
   markPlayingTab(item.kind === 'movie' ? 'vod' : 'series'); // la playlist se lance depuis n'importe quel onglet
-  setStatus(`Analyse de ${item.title}…`);
+  say('player.analysing', { title: item.title });
   const query = new URLSearchParams({ kind: item.kind, id: item.id, ext: item.ext });
   let info;
   try {
     info = await getJson(`/api/media/probe?${query}`);
   } catch (err) {
-    return setStatus(`Lecture impossible : ${err.message}`, true);
+    return say('player.failed', { error: err.message }, true);
   }
 
   // Piste française par défaut si elle existe.
@@ -174,7 +298,7 @@ async function playMedia(item, start = 0) {
   thumbs.clear();
   audioSelect.replaceChildren(
     ...info.audio.map((a, i) =>
-      new Option([a.title, a.lang, a.codec, a.channels].filter(Boolean).join(' · ') || `Piste ${i + 1}`, i),
+      new Option([a.title, a.lang, a.codec, a.channels].filter(Boolean).join(' · ') || t('player.track', { number: i + 1 }), i),
     ),
   );
   audioSelect.value = media.audio;
@@ -223,7 +347,7 @@ async function startMediaAt(start) {
   video.load();
   media.start = Math.max(0, Math.min(start, media.duration - 5));
   updateSeek();
-  setStatus(`Chargement de ${media.title}…`);
+  say('player.loading', { label: media.title });
   const query = new URLSearchParams({ kind: media.kind, id: media.id, ext: media.ext, codecs: CODECS });
   let point;
   try {
@@ -231,7 +355,7 @@ async function startMediaAt(start) {
   } catch (err) {
     if (load === mediaLoad && current === media) {
       unfreeze();
-      setStatus(`Lecture impossible : ${err.message}`, true);
+      say('player.failed', { error: err.message }, true);
     }
     return;
   }
@@ -322,7 +446,7 @@ video.addEventListener('ended', () => {
 
 video.addEventListener('error', () => {
   unfreeze();
-  if (media) setStatus('Le flux s\'est interrompu.', true);
+  if (media) say('player.interrupted', {}, true);
 });
 
 seekBar.addEventListener('input', () => {
@@ -383,7 +507,7 @@ function playNext() {
   return Boolean(next);
 }
 
-const playlistLabel = (key) => (playlist.some((p) => p.key === key) ? '✓ Playlist' : '+ Playlist');
+const playlistLabel = (key) => t(playlist.some((p) => p.key === key) ? 'playlist.added' : 'playlist.add');
 
 function playlistButton(item) {
   const button = el('button', { className: 'secondary', textContent: playlistLabel(item.key), onclick: () => togglePlaylist(item) });
@@ -393,7 +517,7 @@ function playlistButton(item) {
 
 function renderPlaylist() {
   $('playlist').hidden = !playlist.length;
-  $('playlist-title').textContent = `Playlist (${playlist.length})`;
+  $('playlist-title').textContent = t('playlist.title', { count: playlist.length });
   $('playlist-items').replaceChildren(
     ...playlist.map((item) =>
       el(
@@ -403,7 +527,7 @@ function renderPlaylist() {
         el('button', {
           className: 'secondary',
           textContent: '✕',
-          title: 'Retirer de la playlist',
+          title: t('playlist.remove'),
           onclick: (e) => {
             e.stopPropagation();
             removeFromPlaylist(item.key);
@@ -452,7 +576,7 @@ function toggleFullscreen() {
   if (fullscreenSwitching) return;
   fullscreenSwitching = true;
   (leaving ? document.exitFullscreen() : document.documentElement.requestFullscreen())
-    .catch((err) => setStatus(`Plein écran refusé : ${err.message}`, true))
+    .catch((err) => say('player.fullscreenRefused', { error: err.message }, true))
     .finally(() => {
       fullscreenSwitching = false;
     });
@@ -600,6 +724,7 @@ function playLive(channel) {
 // Affiche la fiche de la chaîne, sans rien lancer : le direct part de ▶ sur la ligne ou de « Direct » ici.
 async function showChannel(channel) {
   selectedChannel = String(channel.id);
+  shownFiche = () => showChannel(channel);
   paintPlayingChannel();
 
   const listEl = el('ul', { className: 'epg' });
@@ -608,7 +733,7 @@ async function showChannel(channel) {
     el('h2', {}, channel.name),
     el('button', {
       className: 'secondary',
-      textContent: '● Direct',
+      textContent: t('channel.live'),
       onclick: () => {
         replaying = null;
         listEl.querySelector('.playing')?.classList.remove('playing');
@@ -616,7 +741,7 @@ async function showChannel(channel) {
       },
     }),
   );
-  details.replaceChildren(head, el('p', { className: 'muted' }, 'Chargement du programme…'));
+  details.replaceChildren(head, el('p', { className: 'muted' }, t('channel.loading')));
 
   let programs;
   try {
@@ -626,7 +751,7 @@ async function showChannel(channel) {
   }
   if (selectedChannel !== String(channel.id)) return; // une autre fiche a été demandée entre-temps
   if (!programs.length) {
-    details.replaceChildren(head, el('p', { className: 'muted' }, 'Pas de guide des programmes pour cette chaîne.'));
+    details.replaceChildren(head, el('p', { className: 'muted' }, t('channel.noGuide')));
     return;
   }
 
@@ -656,8 +781,8 @@ async function showChannel(channel) {
           canReplay &&
             el('button', {
               className: 'secondary',
-              textContent: current ? '⟲ Début' : '▶ Revoir',
-              title: current ? 'Reprendre depuis le début' : 'Revoir ce programme',
+              textContent: t(current ? 'channel.restart' : 'channel.replay'),
+              title: t(current ? 'channel.restartTitle' : 'channel.replayTitle'),
               onclick: (e) => {
                 e.stopPropagation();
                 replaying = p.start;
@@ -681,7 +806,7 @@ async function showChannel(channel) {
     ...days.map((day) => {
       const button = el('button', {
         className: 'secondary',
-        textContent: day === today ? "Aujourd'hui" : new Date(day).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }),
+        textContent: day === today ? t('channel.today') : new Date(day).toLocaleDateString(language, { weekday: 'short', day: 'numeric' }),
         onclick: () => renderDay(day),
       });
       button.dataset.day = day;
@@ -704,10 +829,10 @@ function resumeButtons(item) {
   const resume = resumePosition(item);
   return [
     el('button', {
-      textContent: resume ? `▶ Reprendre à ${formatTime(resume)}` : '▶ Lire',
+      textContent: resume ? t('media.resume', { time: formatTime(resume) }) : t('media.play'),
       onclick: () => playMedia(item, resume),
     }),
-    resume > 0 && el('button', { className: 'secondary', textContent: 'Depuis le début', onclick: () => playMedia(item, 0) }),
+    resume > 0 && el('button', { className: 'secondary', textContent: t('media.fromStart'), onclick: () => playMedia(item, 0) }),
     playlistButton(item),
   ];
 }
@@ -716,14 +841,14 @@ function resumeButtons(item) {
 // `extras` : éléments qui n'apparaissent qu'une fois déplié.
 function foldable(text, extras = []) {
   const body = el('p', { className: 'fold' }, text);
-  const link = el('button', { className: 'more', textContent: 'voir plus', hidden: true });
+  const link = el('button', { className: 'more', textContent: t('media.foldMore'), hidden: true });
   const fit = () => {
     link.hidden = !body.classList.contains('open') && !extras.length && body.scrollHeight <= body.clientHeight;
   };
   link.onclick = () => {
     const open = body.classList.toggle('open');
     extras.forEach((extra) => (extra.hidden = !open));
-    link.textContent = open ? 'voir moins' : 'voir plus';
+    link.textContent = t(open ? 'media.foldLess' : 'media.foldMore');
     fit();
   };
   extras.forEach((extra) => (extra.hidden = true));
@@ -734,8 +859,8 @@ function foldable(text, extras = []) {
 function infoBlock(info, buttons, star) {
   const meta = [info.year, info.genre, info.duration, info.rating && `★ ${info.rating}`].filter(Boolean).join(' · ');
   const credits = [
-    info.director && el('p', { className: 'muted' }, `Réalisation : ${info.director}`),
-    info.cast && el('p', { className: 'muted' }, `Avec : ${info.cast}`),
+    info.director && el('p', { className: 'muted' }, t('media.director', { names: info.director })),
+    info.cast && el('p', { className: 'muted' }, t('media.cast', { names: info.cast })),
   ].filter(Boolean);
   return el(
     'div',
@@ -754,8 +879,9 @@ function infoBlock(info, buttons, star) {
 
 async function showMovie(movie) {
   selectedChannel = null;
+  shownFiche = () => showMovie(movie);
   closeFiche(false); // rien ne se lance tout seul : la fiche (lecture) doit être visible
-  details.replaceChildren(el('p', { className: 'muted' }, 'Chargement…'));
+  details.replaceChildren(el('p', { className: 'muted' }, t('list.loading')));
   const info = await getJson(`/api/vod/${movie.id}?${languageParam()}`).catch(() => ({ name: movie.name, cover: movie.logo }));
   const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, title: info.name || movie.name, key: `movie:${movie.id}` };
   details.replaceChildren(infoBlock(info, resumeButtons(item), favoriteStar('vod', movie.id)));
@@ -765,8 +891,9 @@ async function showMovie(movie) {
 
 async function showSeries(series) {
   selectedChannel = null;
+  shownFiche = () => showSeries(series);
   closeFiche(false);
-  details.replaceChildren(el('p', { className: 'muted' }, 'Chargement…'));
+  details.replaceChildren(el('p', { className: 'muted' }, t('list.loading')));
   const info = await getJson(`/api/series/${series.id}?${languageParam()}`);
   const seasonSelect = el('select', { className: 'season' });
   const episodesEl = el('ul', { className: 'episodes' });
@@ -814,7 +941,7 @@ async function showSeries(series) {
             'div',
             { className: 'program' },
             el('strong', {}, `${e.num}. ${e.title.replace(/^.* - S\d+E\d+ - /, '')}`),
-            el('p', { className: 'muted' }, [e.duration, watched && 'vu'].filter(Boolean).join(' · ')),
+            el('p', { className: 'muted' }, [e.duration, watched && t('series.watched')].filter(Boolean).join(' · ')),
             ...(e.plot ? foldable(e.plot) : []),
           ),
           el('div', { className: 'buttons' }, ...resumeButtons(e.item)),
@@ -823,7 +950,7 @@ async function showSeries(series) {
     );
   }
 
-  seasonSelect.append(...info.seasons.map((s) => new Option(`Saison ${s.number} (${s.episodes.length} épisodes)`, s.number)));
+  seasonSelect.append(...info.seasons.map((s) => new Option(t('series.season', { number: s.number, count: s.episodes.length }), s.number)));
   seasonSelect.onchange = () => renderSeason(Number(seasonSelect.value));
   details.replaceChildren(infoBlock(info, [seasonSelect], favoriteStar('series', series.id)), episodesEl);
   if (info.seasons.length) {
@@ -831,7 +958,7 @@ async function showSeries(series) {
     seasonSelect.value = season;
     renderSeason(season);
     episodesEl.querySelector('.playing')?.scrollIntoView({ block: 'center' });
-  } else episodesEl.append(el('li', { className: 'muted' }, 'Aucun épisode disponible.'));
+  } else episodesEl.append(el('li', { className: 'muted' }, t('series.noEpisode')));
 }
 
 // --- TV : grille des chaînes, avec leurs programmes ----------------------------------
@@ -856,7 +983,7 @@ const favorites = favoriteSets.live;
 function paintStar(star) {
   const on = favoriteSets[star.dataset.type].has(star.dataset.favorite);
   star.textContent = on ? '★' : '☆';
-  star.title = on ? 'Retirer des favoris' : 'Ajouter aux favoris';
+  star.title = t(on ? 'favorites.remove' : 'favorites.add');
   star.classList.toggle('on', on);
   star.setAttribute('aria-pressed', on);
 }
@@ -978,7 +1105,7 @@ function guideRow(channel, sortable) {
     'div',
     {
       className: 'guide-row',
-      title: `Voir le programme de ${channel.name}`,
+      title: t('guide.rowTitle', { name: channel.name }),
       onclick: () => {
         closeFiche(false);
         showChannel(channel);
@@ -987,7 +1114,7 @@ function guideRow(channel, sortable) {
     el('button', {
       className: 'guide-play',
       textContent: '▶',
-      title: `Regarder ${channel.name} en direct`,
+      title: t('guide.playTitle', { name: channel.name }),
       onclick: (e) => {
         e.stopPropagation();
         playLive(channel); // la fiche ne s'ouvre qu'au clic sur le reste de la ligne
@@ -996,7 +1123,7 @@ function guideRow(channel, sortable) {
     el('div', { className: 'guide-logo' }, channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() })),
     el('span', { className: `guide-name${programme ? '' : ' wide'}` }, channel.name),
     programme && guideProgramme(programme),
-    el('div', { className: 'guide-replay' }, channel.archiveDays > 0 && el('small', { className: 'badge', title: `Replay ${channel.archiveDays} jours` }, '⟲')),
+    el('div', { className: 'guide-replay' }, channel.archiveDays > 0 && el('small', { className: 'badge', title: t('guide.replayDays', { count: channel.archiveDays }) }, '⟲')),
     favoriteStar('live', channel.id),
   );
   row.dataset.id = channel.id;
@@ -1034,9 +1161,7 @@ async function renderGuide({ append = false, refresh = false } = {}) {
   paintPlayingChannel();
   if (!box.children.length) {
     box.append(
-      el('p', { className: 'muted' }, showFavorites
-        ? 'Aucun favori pour l\'instant : choisis une catégorie ci-dessus et clique sur l\'étoile ☆ des chaînes à garder ici.'
-        : 'Aucune chaîne trouvée.'),
+      el('p', { className: 'muted' }, t(showFavorites ? 'favorites.noneChannels' : 'guide.noChannel')),
     );
   }
   // Ce qui passe se met à jour tout seul chaque minute.
@@ -1049,7 +1174,7 @@ async function showGuide() {
   // Relue à chaque fois : des groupes ont pu être retirés dans les réglages.
   const categories = await getJson('/api/categories?type=live');
   const chosen = select.value;
-  select.replaceChildren(new Option('Toutes les catégories', ''), new Option('★ Favoris', FAVORITES), ...categories.map((c) => new Option(c.name, c.id)));
+  select.replaceChildren(new Option(t('list.allCategories'), ''), new Option(t('list.favorites'), FAVORITES), ...categories.map((c) => new Option(c.name, c.id)));
   select.value = first ? (favorites.size ? FAVORITES : '') : chosen;
   if (select.selectedIndex < 0) select.value = ''; // catégorie disparue du catalogue
   $('guide-search').value = '';
@@ -1082,8 +1207,7 @@ const handlers = { vod: showMovie, series: showSeries };
 const showingFavorites = () => categorySelect.value === FAVORITES && !searchInput.value.trim();
 
 function noFavorite() {
-  const what = currentType === 'series' ? 'des séries' : 'des films';
-  return el('li', { className: 'muted empty' }, `Aucun favori pour l'instant : clique sur l'étoile ☆ ${what} à garder ici.`);
+  return el('li', { className: 'muted empty' }, t(currentType === 'series' ? 'favorites.noneSeries' : 'favorites.noneMovies'));
 }
 
 async function loadList(append = false) {
@@ -1147,8 +1271,8 @@ async function selectType(type) {
   searchInput.value = '';
   const categories = await getJson(`/api/categories?type=${type}`);
   categorySelect.replaceChildren(
-    new Option('Toutes les catégories', ''),
-    new Option('★ Favoris', FAVORITES),
+    new Option(t('list.allCategories'), ''),
+    new Option(t('list.favorites'), FAVORITES),
     ...categories.map((c) => new Option(c.name, c.id)),
   );
   categorySelect.value = chosenCategory[type] ?? (favoriteSets[type].size ? FAVORITES : '');
@@ -1160,7 +1284,7 @@ async function selectType(type) {
 
 // --- Réglages : chaînes et groupes -------------------------------------------------
 
-const MANAGED_TYPES = { live: 'TV', vod: 'Films', series: 'Séries' };
+const MANAGED_TYPES = ['live', 'vod', 'series']; // libellés : ceux des onglets
 let managedType = 'live';
 let managedGroup = null; // groupe affiché à droite
 let managedGroups = [];
@@ -1176,7 +1300,7 @@ async function setHidden(kind, ids, hidden) {
       body: JSON.stringify({ type: managedType, kind, ids, hidden }),
     });
   } catch (err) {
-    $('manage-note').textContent = `Modification impossible : ${err.message}`;
+    $('manage-note').textContent = t('settings.manageFailed', { error: err.message });
     $('manage-note').classList.add('error');
   }
   await renderManagedGroups();
@@ -1264,7 +1388,7 @@ async function renderManagedItems(append = false) {
   if (!append) managedOffset = 0;
   $('manage-more').hidden = true;
   if (!q && managedGroup === null) {
-    return box.replaceChildren(el('li', { className: 'muted' }, 'Clique sur un groupe pour voir son contenu, ou lance une recherche.'));
+    return box.replaceChildren(el('li', { className: 'muted' }, t('settings.pickGroup')));
   }
   const params = new URLSearchParams({ type: managedType, offset: managedOffset });
   // La recherche couvre tout le catalogue : on cherche une chaîne sans savoir dans quel groupe elle est.
@@ -1280,7 +1404,7 @@ async function renderManagedItems(append = false) {
       'item',
       {
         className: item.hidden || item.groupHidden ? 'removed' : '',
-        title: item.groupHidden ? 'Son groupe est décoché' : item.name,
+        title: item.groupHidden ? t('settings.groupHidden') : item.name,
         onclick: (e) => flipManaged(e.currentTarget, 'item', e.shiftKey),
       },
       item.logo && el('img', { src: item.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
@@ -1294,7 +1418,7 @@ async function renderManagedItems(append = false) {
   else {
     box.replaceChildren(...nodes);
     box.scrollTop = 0;
-    if (!nodes.length) box.append(el('li', { className: 'muted' }, 'Aucun résultat.'));
+    if (!nodes.length) box.append(el('li', { className: 'muted' }, t('settings.noResult')));
   }
 }
 
@@ -1309,42 +1433,17 @@ function selectManagedType(type) {
   return renderManagedGroups().then(() => renderManagedItems());
 }
 
-// Langue des fiches : traduites par TMDB côté serveur, '' pour garder les textes du fournisseur.
-const LANGUAGE_KEY = 'language';
-function chosenLanguage() {
-  try {
-    return localStorage.getItem(LANGUAGE_KEY) ?? 'fr-FR';
-  } catch {
-    return 'fr-FR';
-  }
-}
-const languageParam = () => new URLSearchParams({ language: chosenLanguage() });
-
-function setupLanguage(status) {
-  const select = $('language');
-  select.replaceChildren(
-    ...Object.entries(status.languages || {}).map(([code, name]) => new Option(name, code)),
-    new Option('Celle du fournisseur, sans traduction', ''),
-  );
-  select.value = chosenLanguage();
-  if (select.selectedIndex < 0) select.value = 'fr-FR';
-  select.disabled = !status.tmdb;
-  $('language-note').textContent = status.tmdb
-    ? "Titres et résumés traduits grâce à TMDB (themoviedb.org) quand la traduction existe, sinon ceux du fournisseur. Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB."
-    : 'Traduction indisponible dans cette version : les fiches gardent les textes du fournisseur.';
-  select.onchange = () => {
-    try {
-      localStorage.setItem(LANGUAGE_KEY, select.value);
-    } catch {}
-  };
-}
+// Fiches des films et séries dans la langue de l'appli (traduites par TMDB côté serveur).
+const languageParam = () => new URLSearchParams({ language });
 
 function showSettings() {
   if (!$('manage-types').children.length) {
     $('manage-types').append(
-      ...Object.entries(MANAGED_TYPES).map(([type, label]) => {
-        const button = el('button', { className: 'secondary', textContent: label, onclick: () => selectManagedType(type) });
+      ...MANAGED_TYPES.map((type) => {
+        const button = el('button', { className: 'secondary', onclick: () => selectManagedType(type) });
         button.dataset.type = type;
+        button.dataset.i18n = `tabs.${type}`;
+        button.textContent = t(button.dataset.i18n);
         return button;
       }),
     );
@@ -1365,18 +1464,46 @@ function showSettings() {
 
 // --- Démarrage et import -----------------------------------------------------------
 
+let syncStatus = null; // dernier état connu, réaffiché si la langue change
+
 function showSyncInfo(status) {
-  const format = (date) => new Date(date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  syncStatus = status;
+  const format = (date) => new Date(date).toLocaleString(language, { dateStyle: 'short', timeStyle: 'short' });
   $('sync-info').textContent = status.syncedAt
-    ? [`${status.account?.username} @ ${status.account?.server}`, `catalogue du ${format(status.syncedAt)}`, status.epgSyncedAt && `guide du ${format(status.epgSyncedAt)}`].filter(Boolean).join(' · ')
+    ? [
+        `${status.account?.username} @ ${status.account?.server}`,
+        t('settings.catalogueOf', { date: format(status.syncedAt) }),
+        status.epgSyncedAt && t('settings.guideOf', { date: format(status.epgSyncedAt) }),
+      ].filter(Boolean).join(' · ')
     : '';
   $('sync').hidden = $('logout').hidden = !status.syncedAt;
+  $('tmdb-note').hidden = !status.tmdb; // attribution demandée par TMDB
+}
+
+// Tout ce qui est déjà affiché passe dans la nouvelle langue, sans toucher à la lecture.
+async function refreshTexts() {
+  if (statusMessage) say(statusMessage.key, statusMessage.vars, statusMessage.isError);
+  renderPlaylist();
+  document.querySelectorAll('.star').forEach(paintStar);
+  if (syncStatus) showSyncInfo(syncStatus);
+  if ($('app').hidden) return;
+  for (const select of [categorySelect, $('guide-category')]) {
+    if (select.options.length < 2) continue;
+    select.options[0].text = t('list.allCategories');
+    select.options[1].text = t('list.favorites');
+  }
+  const ficheClosed = document.body.classList.contains('fiche-closed');
+  if (currentType === 'settings') await renderManagedItems();
+  else if (currentType === 'live') await renderGuide({ refresh: true });
+  else list.querySelector('.empty')?.replaceWith(noFavorite());
+  await shownFiche?.();
+  closeFiche(ficheClosed);
 }
 
 async function runImport(button) {
   button.disabled = true;
   const label = button.textContent;
-  button.textContent = 'Import en cours…';
+  button.textContent = t('settings.importing');
   try {
     const status = await getJson('/api/sync', { method: 'POST' });
     showSyncInfo(status);
@@ -1407,20 +1534,22 @@ async function startApp() {
 }
 
 async function init() {
+  await loadLanguage(initialLanguage());
+  say('player.idle');
+  renderPlaylist();
   const status = await getJson('/api/status');
   showSyncInfo(status);
-  setupLanguage(status);
   $('sync').onclick = async () => {
     try {
       await runImport($('sync'));
       await selectType(currentType);
     } catch (err) {
-      $('sync-info').textContent = `Import impossible : ${err.message}`;
+      $('sync-info').textContent = t('settings.syncFailed', { error: err.message });
     }
   };
 
   $('logout').onclick = async () => {
-    if (!confirm('Se déconnecter ? Le catalogue, le guide et les chaînes retirées seront effacés, et les identifiants oubliés.')) return;
+    if (!confirm(t('settings.logoutConfirm'))) return;
     stopPlayback();
     try {
       await getJson('/api/logout', { method: 'POST' });
@@ -1428,7 +1557,7 @@ async function init() {
       savePlaylist();
       location.reload();
     } catch (err) {
-      $('sync-info').textContent = `Déconnexion impossible : ${err.message}`;
+      $('sync-info').textContent = t('settings.logoutFailed', { error: err.message });
     }
   };
 
@@ -1464,9 +1593,9 @@ function showOnboarding() {
     $('onboarding-text').classList.toggle('error', isError);
   };
   const fill = (credentials, source) => {
-    if (!credentials) return message(`Aucun accès Xtream trouvé dans ${source}.`, true);
+    if (!credentials) return message(t('onboarding.notFound', { source }), true);
     for (const [name, value] of Object.entries(credentials)) form.elements[name].value = value;
-    message(`Accès lus dans ${source} : vérifie-les puis connecte-toi.`);
+    message(t('onboarding.found', { source }));
   };
   $('onboarding').hidden = false;
 
@@ -1479,27 +1608,27 @@ function showOnboarding() {
     fill(credentials, file.name);
     event.target.value = '';
   };
-  $('m3u-link').oninput = (event) => event.target.value && fill(credentialsFromUrl(event.target.value), 'le lien');
+  $('m3u-link').oninput = (event) => event.target.value && fill(credentialsFromUrl(event.target.value), t('onboarding.theLink'));
 
   form.onsubmit = async (event) => {
     event.preventDefault();
     const button = $('import');
     button.disabled = true;
-    button.textContent = 'Connexion…';
+    button.textContent = t('onboarding.connecting');
     try {
       await getJson('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(Object.fromEntries(new FormData(form))),
       });
-      message('Connecté. Import du catalogue et du guide, ça prend quelques secondes…');
+      message(t('onboarding.connected'));
       await runImport(button);
       startApp();
     } catch (err) {
       message(err.message, true);
     } finally {
       button.disabled = false;
-      button.textContent = 'Se connecter et importer';
+      button.textContent = t('onboarding.submit');
     }
   };
 }
@@ -1510,5 +1639,5 @@ init()
   })
   .catch((err) => {
     document.querySelector('#loading .spinner').hidden = true;
-    $('loading-text').textContent = `Chargement impossible : ${err.message}. Relance l'appli.`;
+    $('loading-text').textContent = t('loading.failed', { error: err.message });
   });

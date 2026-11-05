@@ -7,32 +7,35 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Textes : data-i18n (contenu), data-i18n-html, data-i18n-placeholder, data-i18n-title,
+       remplacés par ceux de public/i18n/<langue>.json. Le français reste en place en attendant. -->
+
   <!-- Visible dès le premier affichage, et tant que l'appli n'est pas prête à répondre. -->
   <div id="loading">
     <div class="spinner"></div>
-    <p id="loading-text">Chargement de vos chaînes…</p>
+    <p id="loading-text" data-i18n="loading.text">Chargement de vos chaînes…</p>
   </div>
 
   <section id="onboarding" hidden>
-    <h1>Connexion</h1>
-    <p class="muted">
+    <h1 data-i18n="onboarding.title">Connexion</h1>
+    <p class="muted" data-i18n-html="onboarding.intro">
       Renseigne les accès <strong>Xtream Codes</strong> de ton abonnement IPTV (serveur, utilisateur, mot de passe),
       ou laisse-les se remplir depuis ta playlist.
     </p>
 
     <div class="fill-from">
       <label class="file-button">
-        Choisir un fichier .m3u
+        <span data-i18n="onboarding.file">Choisir un fichier .m3u</span>
         <input id="m3u-file" type="file" accept=".m3u,.m3u8" hidden>
       </label>
-      <input id="m3u-link" type="url" placeholder="ou coller le lien de la playlist (http://…/get.php?username=…)">
+      <input id="m3u-link" type="url" data-i18n-placeholder="onboarding.link" placeholder="ou coller le lien de la playlist (http://…/get.php?username=…)">
     </div>
 
     <form id="login">
-      <input name="server" placeholder="Serveur (ex. http://exemple.com:8080)" required>
-      <input name="username" placeholder="Utilisateur" autocomplete="username" required>
-      <input name="password" type="password" placeholder="Mot de passe" autocomplete="current-password" required>
-      <button id="import">Se connecter et importer</button>
+      <input name="server" data-i18n-placeholder="onboarding.server" placeholder="Serveur (ex. http://exemple.com:8080)" required>
+      <input name="username" data-i18n-placeholder="onboarding.username" placeholder="Utilisateur" autocomplete="username" required>
+      <input name="password" type="password" data-i18n-placeholder="onboarding.password" placeholder="Mot de passe" autocomplete="current-password" required>
+      <button id="import" data-i18n="onboarding.submit">Se connecter et importer</button>
     </form>
     <p id="onboarding-text"></p>
   </section>
@@ -41,38 +44,32 @@
     <section id="settings" hidden>
       <div class="guide-bar"></div>
       <div id="settings-content">
-        <h2>Compte</h2>
+        <h2 data-i18n="settings.account">Compte</h2>
         <div class="account">
           <span id="sync-info"></span>
-          <button id="sync" class="secondary">Mettre à jour le catalogue</button>
-          <button id="logout" class="secondary" title="Vider le catalogue et oublier les identifiants">Se déconnecter</button>
+          <button id="sync" class="secondary" data-i18n="settings.sync">Mettre à jour le catalogue</button>
+          <button id="logout" class="secondary" data-i18n="settings.logout" data-i18n-title="settings.logoutTitle" title="Vider le catalogue et oublier les identifiants">Se déconnecter</button>
         </div>
+        <p id="tmdb-note" class="muted" data-i18n="settings.tmdb" hidden></p>
 
-        <h2>Fiches des films et séries</h2>
-        <div class="account">
-          <label for="language">Langue des titres et résumés</label>
-          <select id="language"></select>
-        </div>
-        <p id="language-note" class="muted"></p>
-
-        <h2>Chaînes et groupes</h2>
-        <p id="manage-note" class="muted">
+        <h2 data-i18n="settings.manage">Chaînes et groupes</h2>
+        <p id="manage-note" class="muted" data-i18n="settings.manageNote">
           Décoche ce que tu ne veux plus voir (Maj + clic pour toute une plage). Rien n'est définitif : il suffit de recocher, et tes choix sont conservés quand le catalogue est mis à jour.
         </p>
         <div id="manage-types" class="days"></div>
         <div class="manage">
           <div class="manage-column">
-            <input id="manage-group-search" type="search" placeholder="Filtrer les groupes…">
+            <input id="manage-group-search" type="search" data-i18n-placeholder="settings.groupFilter" placeholder="Filtrer les groupes…">
             <div class="buttons">
-              <button id="manage-check" class="secondary">Tout cocher</button>
-              <button id="manage-uncheck" class="secondary">Tout décocher</button>
+              <button id="manage-check" class="secondary" data-i18n="settings.checkAll">Tout cocher</button>
+              <button id="manage-uncheck" class="secondary" data-i18n="settings.uncheckAll">Tout décocher</button>
             </div>
             <ul id="manage-groups"></ul>
           </div>
           <div class="manage-column">
-            <input id="manage-search" type="search" placeholder="Rechercher dans tout le catalogue…">
+            <input id="manage-search" type="search" data-i18n-placeholder="settings.searchAll" placeholder="Rechercher dans tout le catalogue…">
             <ul id="manage-items"></ul>
-            <button id="manage-more" class="secondary" hidden>Afficher plus</button>
+            <button id="manage-more" class="secondary" data-i18n="list.more" hidden>Afficher plus</button>
           </div>
         </div>
       </div>
@@ -80,25 +77,29 @@
 
     <aside>
       <nav id="tabs">
-        <button data-type="settings" title="Réglages : compte, chaînes et groupes">⚙</button>
-        <button data-type="live">TV</button>
-        <button data-type="vod">Films</button>
-        <button data-type="series">Séries</button>
+        <button data-type="settings" data-i18n-title="tabs.settings" title="Réglages : compte, chaînes et groupes">⚙</button>
+        <button data-type="live" data-i18n="tabs.live">TV</button>
+        <button data-type="vod" data-i18n="tabs.vod">Films</button>
+        <button data-type="series" data-i18n="tabs.series">Séries</button>
         <span class="spacer"></span>
-        <button id="list-toggle" title="Afficher ou masquer les colonnes (L)">☰</button>
+        <div id="language-picker">
+          <button id="language-button" data-i18n-title="language.choose" title="Langue de l'appli" aria-haspopup="listbox"><img alt=""></button>
+          <ul id="language-menu" role="listbox" hidden></ul>
+        </div>
+        <button id="list-toggle" data-i18n-title="tabs.toggle" title="Afficher ou masquer les colonnes (L)">☰</button>
       </nav>
       <section id="guide" hidden>
         <div class="guide-bar">
           <select id="guide-category"></select>
-          <input id="guide-search" type="search" placeholder="Rechercher une chaîne…">
+          <input id="guide-search" type="search" data-i18n-placeholder="guide.search" placeholder="Rechercher une chaîne…">
         </div>
         <div id="guide-list"></div>
       </section>
       <div id="browse">
         <select id="category"></select>
-        <input id="search" type="search" placeholder="Rechercher…">
+        <input id="search" type="search" data-i18n-placeholder="list.search" placeholder="Rechercher…">
         <ul id="list"></ul>
-        <button id="more" class="secondary" hidden>Afficher plus</button>
+        <button id="more" class="secondary" data-i18n="list.more" hidden>Afficher plus</button>
       </div>
       <div id="panel">
         <div id="status">Choisis une chaîne, un film ou une série.</div>
@@ -116,15 +117,15 @@
       <div id="player" class="player">
         <video id="video" controls controlslist="nofullscreen" autoplay playsinline></video>
         <div id="frozen" hidden><canvas></canvas></div>
-        <div id="fullscreen-button" title="Plein écran"></div>
+        <div id="fullscreen-button" data-i18n-title="player.fullscreen" title="Plein écran"></div>
         <div class="controls">
           <div id="seek" hidden>
             <span id="time-current">0:00</span>
             <input id="seek-bar" type="range" min="0" step="1" value="0">
             <div id="seek-preview" hidden><img alt=""><span></span></div>
             <span id="time-total">0:00</span>
-            <select id="audio-track" title="Piste audio"></select>
-            <button id="next" class="secondary" title="Passer à la suite de la playlist" hidden>⏭ Suivant</button>
+            <select id="audio-track" data-i18n-title="player.audio" title="Piste audio"></select>
+            <button id="next" class="secondary" data-i18n="player.next" data-i18n-title="player.nextTitle" title="Passer à la suite de la playlist" hidden>⏭ Suivant</button>
           </div>
         </div>
       </div>

@@ -51,6 +51,41 @@ select, input {
 #tabs button[data-type="settings"] { font-size: 1.15em; }
 #list-toggle { font-size: 1.15em; }
 #tabs .spacer { flex: 1; }
+
+/* Langue : un petit drapeau dans l'en-tête, la liste s'ouvre au clic (placée par le script). */
+#language-button { display: flex; align-items: center; padding: 4px 6px; opacity: 0.75; }
+#language-button:hover, #language-button[aria-expanded="true"] { opacity: 1; }
+#language-button img, #language-menu img {
+  width: 20px;
+  height: 14px;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+#language-menu {
+  position: fixed;
+  z-index: 10;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #1d1d1d;
+  border: 1px solid #333;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+#language-menu li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 4px;
+  color: #ccc;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#language-menu li:hover { background: #2a2a2a; color: #fff; }
+#language-menu li.active { color: #fff; font-weight: 600; }
+body > #tabs #language-picker { display: none; }
 #tabs button[data-playing]::after {
   content: attr(data-playing);
   margin-left: 7px;
@@ -274,7 +309,6 @@ main {
 #manage-note.error { color: #ff7b7b; }
 
 .account { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-#language { width: auto; }
 #sync-info { margin-right: auto; color: #999; }
 
 .manage { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

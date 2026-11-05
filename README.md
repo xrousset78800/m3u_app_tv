@@ -12,7 +12,7 @@ guide des programmes et replay, dans le navigateur.
 - **Films / Séries** : favoris comme pour la TV (étoile sur la ligne ou dans la fiche ; pour une série,
   c'est la série entière), fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
-  Titres et résumés traduits avec [TMDB](https://www.themoviedb.org) dans la langue choisie (⚙, français par défaut) :
+  Titres et résumés traduits avec [TMDB](https://www.themoviedb.org) dans la langue de l'appli :
   les textes des fournisseurs mélangent souvent les langues d'une saison à l'autre.
   Une série n'est retenue que si ses épisodes portent les identifiants TMDB donnés par le fournisseur ;
   sans identifiant ni traduction, les textes du fournisseur restent affichés.
@@ -21,6 +21,8 @@ guide des programmes et replay, dans le navigateur.
 - Tout est à gauche du lecteur, sur deux colonnes : d'abord le menu, les chaînes ou la liste, le statut et la playlist ;
   puis la fiche (programme de la chaîne, film, épisodes), qui n'apparaît que lorsqu'il y a quelque chose à y montrer
   et se referme quand la souris rejoint la vidéo. Les longs résumés sont coupés, avec un lien « voir plus ».
+- **Langue** : le drapeau à côté de ☰ change la langue de toute l'appli (français, anglais, allemand,
+  espagnol, italien, portugais) et des fiches traduites. Au premier lancement, c'est celle du système, sinon le français.
 - Les colonnes ne s'ouvrent et ne se ferment qu'avec le bouton ☰ ou la touche `L`.
 - Vrai plein écran (bouton du lecteur, touche `F` ou double-clic sur la vidéo, `Échap` pour en sortir) : les colonnes restent comme elles étaient,
   et ☰ ou `L` les ferment pour laisser tout l'écran à la vidéo.
@@ -122,4 +124,9 @@ lib/hls.js       résolution des redirections et réécriture des playlists HLS
 lib/media.js     analyse et conversion ffmpeg des films et épisodes
 lib/tmdb.js      traduction des fiches avec TMDB, mise en cache dans la base
 public/          interface (HTML, CSS, JS sans framework)
+public/i18n/     traductions de l'interface (un JSON par langue, le français sert de référence) et drapeaux
 ```
+
+Pour ajouter une langue : copier `public/i18n/fr-FR.json` sous le code TMDB de la langue (`nl-NL.json` …),
+traduire les valeurs, ajouter son drapeau dans `public/i18n/flags/`, puis le code dans `LANGUAGES`
+(avec le nom de la langue dans `public/app.js`, le code seul dans `electron/main.js`).
