@@ -15,7 +15,7 @@ guide des programmes et replay, dans le navigateur.
   à retirer (Maj + clic pour toute une plage). Ces choix sont réversibles et conservés quand le catalogue est mis à jour.
 - Tout est à gauche du lecteur, sur deux colonnes : d'abord le menu, les chaînes ou la liste, le statut et la playlist ;
   puis la fiche (programme de la chaîne, film, épisodes), qui n'apparaît que lorsqu'il y a quelque chose à y montrer
-  et se masque avec « Fiche » dans le menu. Les longs résumés sont coupés, avec un lien « voir plus ».
+  et se referme quand la souris rejoint la vidéo. Les longs résumés sont coupés, avec un lien « voir plus ».
 - Les colonnes ne s'ouvrent et ne se ferment qu'avec le bouton ☰ ou la touche `L`.
 - Vrai plein écran (bouton du lecteur, touche `F` ou double-clic sur la vidéo, `Échap` pour en sortir) : les colonnes restent comme elles étaient,
   et ☰ ou `L` les ferment pour laisser tout l'écran à la vidéo.
@@ -96,7 +96,7 @@ par exemple pour changer d'abonnement.
 | Contenu | Ce que fait le serveur |
 | --- | --- |
 | Direct et replay | Résout les redirections authentifiées du fournisseur et réécrit la playlist HLS pour que les segments passent par `/proxy`. Lu dans le navigateur avec hls.js. |
-| Films et épisodes | Convertit à la volée avec ffmpeg en MP4 fragmenté : vidéo copiée si le lecteur la décode (H.264, HEVC, VP9, AV1), sinon réencodée en H.264 (carte NVIDIA si disponible, HDR ramené en SDR) ; audio converti en AAC stéréo, calé sur l'image. Un déplacement repart de l'image clé précédente, parfois quelques secondes avant le point demandé. |
+| Films et épisodes | Convertit à la volée avec ffmpeg en MP4 fragmenté : vidéo copiée si le lecteur la décode (H.264, HEVC, VP9, AV1), sinon réencodée en H.264 (carte NVIDIA si disponible, HDR ramené en SDR) ; audio converti en AAC stéréo, calé sur l'image. Un déplacement repart de l'image clé précédente, parfois quelques secondes avant le point demandé : la dernière image reste affichée en attendant, et une ouverture restée sans réponse est relancée toute seule. Au survol de la barre, l'heure visée et l'image du passage s'il a déjà été vu pendant cette lecture : une seule connexion est permise au fournisseur, on ne peut pas chercher d'images ailleurs dans le film. |
 
 L'abonnement n'autorise qu'**une connexion à la fois** : lancer une lecture arrête la précédente.
 

@@ -208,7 +208,8 @@ const routes = [
   ['GET', /^\/api\/media\/probe$/, async (req, res, { params }) => sendJson(res, await media.probe(mediaUrl(params)))],
   ['GET', /^\/api\/media\/seek$/, async (req, res, { params }) => {
     const start = Math.max(0, Number(params.get('start')) || 0);
-    sendJson(res, { start: await media.seekPoint(mediaUrl(params), start, codecsParam(params)) });
+    const audio = Math.max(0, parseInt(params.get('audio'), 10) || 0);
+    sendJson(res, { start: await media.seekPoint(mediaUrl(params), start, { audio, codecs: codecsParam(params) }) });
   }],
   ['GET', /^\/media\/stream$/, async (req, res, { params }) => {
     await media.stream(res, mediaUrl(params), {

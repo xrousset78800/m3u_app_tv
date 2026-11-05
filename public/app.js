@@ -102,6 +102,7 @@ function stopPlayback() {
   if (hls) hls.destroy();
   hls = null;
   media = null;
+  unfreeze();
   video.removeAttribute('src');
   video.load();
   video.classList.remove('media');
@@ -170,6 +171,7 @@ async function playMedia(item, start = 0) {
   // Piste française par défaut si elle existe.
   const french = info.audio.findIndex((a) => /^fr/.test(a.lang) || /\bVF/i.test(a.title));
   media = { ...item, duration: info.duration || 0, audio: Math.max(0, french) };
+  thumbs.clear();
   audioSelect.replaceChildren(
     ...info.audio.map((a, i) =>
       new Option([a.title, a.lang, a.codec, a.channels].filter(Boolean).join(' · ') || `Piste ${i + 1}`, i),
@@ -187,9 +189,35 @@ async function playMedia(item, start = 0) {
 
 let mediaLoad = 0;
 
+// Pendant que le flux repart, la dernière image reste affichée à la place de l'écran noir du lecteur.
+const frozen = $('frozen');
+const frozenCanvas = frozen.querySelector('canvas');
+
+function placeFrozen() {
+  frozen.style.left = `${video.offsetLeft}px`;
+  frozen.style.top = `${video.offsetTop}px`;
+  frozen.style.width = `${video.offsetWidth}px`;
+  frozen.style.height = `${video.offsetHeight}px`;
+}
+
+function freeze() {
+  // Déplacements enchaînés : la vidéo est déjà vide, l'image figée reste la bonne.
+  if (video.readyState < 2 || !video.videoWidth) return;
+  frozenCanvas.width = video.videoWidth;
+  frozenCanvas.height = video.videoHeight;
+  frozenCanvas.getContext('2d').drawImage(video, 0, 0);
+  placeFrozen();
+  frozen.hidden = false;
+}
+
+function unfreeze() {
+  frozen.hidden = true;
+}
+
 async function startMediaAt(start) {
   const current = media;
   const load = ++mediaLoad;
+  freeze();
   // Le serveur va couper le flux en cours : on le lâche d'abord, sinon il finirait en faux « ended ».
   video.removeAttribute('src');
   video.load();
@@ -199,9 +227,12 @@ async function startMediaAt(start) {
   const query = new URLSearchParams({ kind: media.kind, id: media.id, ext: media.ext, codecs: CODECS });
   let point;
   try {
-    point = await getJson(`/api/media/seek?${query}&start=${Math.floor(media.start)}`);
+    point = await getJson(`/api/media/seek?${query}&start=${Math.floor(media.start)}&audio=${media.audio}`);
   } catch (err) {
-    if (load === mediaLoad && current === media) setStatus(`Lecture impossible : ${err.message}`, true);
+    if (load === mediaLoad && current === media) {
+      unfreeze();
+      setStatus(`Lecture impossible : ${err.message}`, true);
+    }
     return;
   }
   if (load !== mediaLoad || current !== media) return;
@@ -225,11 +256,59 @@ function updateSeek() {
 }
 
 video.addEventListener('playing', () => {
+  unfreeze();
   if (media) setStatus(`▶ ${media.title}`);
+});
+
+// Aperçus de la barre. Le fournisseur n'autorise qu'une connexion, déjà prise par la lecture :
+// on ne peut pas aller chercher une image ailleurs dans le film, seulement garder celles déjà vues.
+const THUMB_EVERY = 10; // secondes
+const THUMB_REACH = 3; // aperçus de distance acceptés au survol
+const thumbs = new Map();
+const thumbCanvas = document.createElement('canvas');
+
+function captureThumb() {
+  const slot = Math.floor(position() / THUMB_EVERY);
+  if (thumbs.has(slot) || video.readyState < 2 || !video.videoWidth) return;
+  thumbCanvas.width = 240;
+  thumbCanvas.height = Math.round((240 * video.videoHeight) / video.videoWidth);
+  thumbCanvas.getContext('2d').drawImage(video, 0, 0, thumbCanvas.width, thumbCanvas.height);
+  thumbs.set(slot, thumbCanvas.toDataURL('image/jpeg', 0.6));
+}
+
+function nearestThumb(time) {
+  const slot = Math.floor(time / THUMB_EVERY);
+  for (let gap = 0; gap <= THUMB_REACH; gap++) {
+    const found = thumbs.get(slot - gap) || thumbs.get(slot + gap);
+    if (found) return found;
+  }
+  return null;
+}
+
+const seekPreview = $('seek-preview');
+seekBar.addEventListener('mousemove', (e) => {
+  if (!media?.duration) return;
+  const bar = seekBar.getBoundingClientRect();
+  const home = $('seek').getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.clientX - bar.left) / bar.width));
+  const time = ratio * media.duration;
+  const thumb = nearestThumb(time);
+  const image = seekPreview.querySelector('img');
+  if (thumb) image.src = thumb;
+  else image.removeAttribute('src');
+  seekPreview.querySelector('span').textContent = formatTime(time);
+  seekPreview.hidden = false;
+  const half = seekPreview.offsetWidth / 2;
+  const x = e.clientX - home.left;
+  seekPreview.style.left = `${Math.max(half, Math.min(home.width - half, x))}px`;
+});
+seekBar.addEventListener('mouseleave', () => {
+  seekPreview.hidden = true;
 });
 
 video.addEventListener('timeupdate', () => {
   updateSeek();
+  if (media) captureThumb();
   if (!media || Date.now() - lastSave < 5000) return;
   lastSave = Date.now();
   progress.set(media.key, { position: position(), duration: media.duration });
@@ -242,6 +321,7 @@ video.addEventListener('ended', () => {
 });
 
 video.addEventListener('error', () => {
+  unfreeze();
   if (media) setStatus('Le flux s\'est interrompu.', true);
 });
 
@@ -395,7 +475,10 @@ function placeFullscreenButton() {
   fullscreenButton.style.bottom = `${home.bottom - box.bottom}px`;
   fullscreenButton.classList.toggle('large', box.width > 1440);
 }
-const playerResized = new ResizeObserver(placeFullscreenButton);
+const playerResized = new ResizeObserver(() => {
+  placeFullscreenButton();
+  placeFrozen();
+});
 [player, video, document.querySelector('.controls')].forEach((el) => playerResized.observe(el));
 
 // Les colonnes n'ont qu'un état, qui ne change que par ☰ ou L : entrer en plein écran ou en sortir
@@ -426,24 +509,18 @@ function toggleList() {
   wakeControls();
 }
 
-// Deuxième colonne : fermée à la demande, pour rendre sa place à la vidéo.
+// Deuxième colonne : ouverte au clic sur une ligne, elle rend sa place à la vidéo dès que la souris
+// y retourne. Le court délai pardonne un passage involontaire.
+let ficheTimer;
+
 function closeFiche(closed) {
+  clearTimeout(ficheTimer);
   document.body.classList.toggle('fiche-closed', closed);
-  const toggle = $('fiche-toggle');
-  toggle.setAttribute('aria-pressed', !closed);
-  toggle.title = closed ? 'Afficher la fiche' : 'Masquer la fiche';
-  try {
-    localStorage.setItem('ficheClosed', closed ? '1' : '0');
-  } catch {}
 }
-closeFiche((() => {
-  try {
-    return localStorage.getItem('ficheClosed') === '1';
-  } catch {
-    return false;
-  }
-})());
-$('fiche-toggle').onclick = () => closeFiche(!document.body.classList.contains('fiche-closed'));
+player.addEventListener('mouseenter', () => {
+  ficheTimer = setTimeout(() => closeFiche(true), 300);
+});
+[aside, details].forEach((zone) => zone.addEventListener('mouseenter', () => clearTimeout(ficheTimer)));
 
 // En plein écran, le curseur, la barre de position et ☰ s'effacent après 3 s sans mouvement
 // de souris. La colonne, elle, ne bouge pas.

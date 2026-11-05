@@ -78,7 +78,6 @@
         <button data-type="vod">Films</button>
         <button data-type="series">Séries</button>
         <span class="spacer"></span>
-        <button id="fiche-toggle">Fiche</button>
         <button id="list-toggle" title="Afficher ou masquer les colonnes (L)">☰</button>
       </nav>
       <section id="guide" hidden>
@@ -109,11 +108,13 @@
     <main>
       <div id="player" class="player">
         <video id="video" controls controlslist="nofullscreen" autoplay playsinline></video>
+        <div id="frozen" hidden><canvas></canvas></div>
         <div id="fullscreen-button" title="Plein écran"></div>
         <div class="controls">
           <div id="seek" hidden>
             <span id="time-current">0:00</span>
             <input id="seek-bar" type="range" min="0" step="1" value="0">
+            <div id="seek-preview" hidden><img alt=""><span></span></div>
             <span id="time-total">0:00</span>
             <select id="audio-track" title="Piste audio"></select>
             <button id="next" class="secondary" title="Passer à la suite de la playlist" hidden>⏭ Suivant</button>
