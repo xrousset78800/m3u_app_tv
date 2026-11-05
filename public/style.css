@@ -1,6 +1,6 @@
 * { box-sizing: border-box; }
 
-:root { --list-width: 380px; color-scheme: dark; }
+:root { --list-width: clamp(520px, 38vw, 720px); color-scheme: dark; }
 
 [hidden] { display: none !important; }
 
@@ -117,7 +117,6 @@ aside {
   background: #1b1b1b;
   border-right: 1px solid #333;
 }
-aside:has(> #guide:not([hidden])) { width: clamp(520px, 38vw, 720px); }
 aside > #tabs { padding: 8px 12px 4px; }
 
 #browse, #guide { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
@@ -172,6 +171,8 @@ body.cinema.idle > #tabs { opacity: 0; pointer-events: none; }
 #list li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #list img { width: 40px; height: 28px; object-fit: contain; flex-shrink: 0; }
 #list li.poster img { width: 34px; height: 50px; object-fit: cover; border-radius: 3px; }
+#list li.empty { cursor: default; white-space: normal; }
+#list li.empty:hover { background: none; }
 .badge { padding: 1px 5px; border-radius: 4px; background: #3a3a3a; color: #bbb; font-size: 0.75em; }
 
 main {
@@ -273,6 +274,7 @@ main {
 #manage-note.error { color: #ff7b7b; }
 
 .account { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+#language { width: auto; }
 #sync-info { margin-right: auto; color: #999; }
 
 .manage { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -310,7 +312,7 @@ video {
 }
 
 /* Favoris en cours de déplacement */
-.guide-row[draggable="true"] { cursor: grab; }
+.guide-row[draggable="true"], #list li[draggable="true"] { cursor: grab; }
 .dragging { opacity: 0.4; }
 
 /* Plein écran : notre bouton, au bout de la rangée du lecteur, qui lui garde la place. Le bouton natif

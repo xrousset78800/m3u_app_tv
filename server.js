@@ -7,16 +7,28 @@ const db = require('./lib/db');
 const xtream = require('./lib/xtream');
 const hls = require('./lib/hls');
 const media = require('./lib/media');
+const tmdb = require('./lib/tmdb');
+
+tmdb.useStore(db.tmdbCache);
 
 const PORT = Number(process.env.PORT) || 8080;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const EPG_REFRESH_DELAY = 15 * 1000;
 
 // --- Fiches détaillées (appel direct à l'API, non stocké) ------------------------
+// `language` : langue choisie dans les réglages ; les textes de TMDB y remplacent ceux du fournisseur
+// quand il y en a (voir lib/tmdb.js).
 
-async function vodInfo(id) {
+// Les champs vides de TMDB laissent ceux du fournisseur.
+function overlay(base, extra) {
+  for (const [name, value] of Object.entries(extra || {})) if (typeof value === 'string' && value) base[name] = value;
+  return base;
+}
+
+async function vodInfo(id, language) {
   const { info = {}, movie_data: data = {} } = await xtream.api('get_vod_info', { vod_id: id });
-  return {
+  const translated = await tmdb.movie(info.tmdb_id, language);
+  return overlay({
     id,
     name: data.name || info.name,
     ext: data.container_extension,
@@ -28,10 +40,10 @@ async function vodInfo(id) {
     rating: Number(info.rating) || null,
     director: info.director || '',
     cast: info.cast || info.actors || '',
-  };
+  }, translated);
 }
 
-async function seriesInfo(id) {
+async function seriesInfo(id, language) {
   const { info = {}, episodes = {} } = await xtream.api('get_series_info', { series_id: id });
   const seasons = Object.entries(episodes)
     .map(([number, list]) => ({
@@ -44,10 +56,11 @@ async function seriesInfo(id) {
         plot: e.info?.plot || '',
         image: e.info?.movie_image || '',
         duration: e.info?.duration || '',
+        tmdbId: e.info?.tmdb_id ? String(e.info.tmdb_id) : '',
       })),
     }))
     .sort((a, b) => a.number - b.number);
-  return {
+  const result = {
     id,
     name: info.name,
     cover: info.cover,
@@ -58,6 +71,18 @@ async function seriesInfo(id) {
     cast: info.cast || '',
     seasons,
   };
+  const translated = await tmdb.series(id, result, seasons, language);
+  if (translated) {
+    const { episodes, ...show } = translated;
+    overlay(result, show);
+    // Image du fournisseur d'abord : TMDB ne sert qu'à combler un manque.
+    for (const e of seasons.flatMap((s) => s.episodes)) {
+      const found = episodes[e.tmdbId];
+      if (found) overlay(e, { title: found.title, plot: found.plot, image: e.image ? '' : found.image });
+    }
+  }
+  for (const e of seasons.flatMap((s) => s.episodes)) delete e.tmdbId;
+  return result;
 }
 
 const decode = (b64) => Buffer.from(b64 || '', 'base64').toString('utf8');
@@ -153,7 +178,7 @@ function codecsParam(params) {
 }
 
 const routes = [
-  ['GET', /^\/api\/status$/, (req, res) => sendJson(res, db.status())],
+  ['GET', /^\/api\/status$/, (req, res) => sendJson(res, { ...db.status(), tmdb: tmdb.enabled(), languages: tmdb.LANGUAGES })],
   ['POST', /^\/api\/login$/, async (req, res) => {
     await xtream.login(await readJson(req));
     sendJson(res, db.status());
@@ -202,8 +227,8 @@ const routes = [
     const at = Number(params.get('at')) || Math.floor(Date.now() / 1000);
     sendJson(res, db.guide({ category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), at }));
   }],
-  ['GET', /^\/api\/vod\/(\d+)$/, async (req, res, { match }) => sendJson(res, await vodInfo(match[1]))],
-  ['GET', /^\/api\/series\/(\d+)$/, async (req, res, { match }) => sendJson(res, await seriesInfo(match[1]))],
+  ['GET', /^\/api\/vod\/(\d+)$/, async (req, res, { match, params }) => sendJson(res, await vodInfo(match[1], params.get('language')))],
+  ['GET', /^\/api\/series\/(\d+)$/, async (req, res, { match, params }) => sendJson(res, await seriesInfo(match[1], params.get('language')))],
   ['GET', /^\/api\/epg\/(\d+)$/, async (req, res, { match }) => sendJson(res, await epg(match[1]))],
   ['GET', /^\/api\/media\/probe$/, async (req, res, { params }) => sendJson(res, await media.probe(mediaUrl(params)))],
   ['GET', /^\/api\/media\/seek$/, async (req, res, { params }) => {

@@ -731,7 +731,7 @@ function foldable(text, extras = []) {
   return [body, ...extras, link];
 }
 
-function infoBlock(info, buttons) {
+function infoBlock(info, buttons, star) {
   const meta = [info.year, info.genre, info.duration, info.rating && `★ ${info.rating}`].filter(Boolean).join(' · ');
   const credits = [
     info.director && el('p', { className: 'muted' }, `Réalisation : ${info.director}`),
@@ -744,7 +744,7 @@ function infoBlock(info, buttons) {
     el(
       'div',
       {},
-      el('h2', {}, info.name),
+      el('div', { className: 'detail-head' }, el('h2', {}, info.name), star),
       meta && el('p', { className: 'muted' }, meta),
       el('div', { className: 'buttons' }, ...buttons),
       ...(info.plot ? foldable(info.plot, credits) : credits),
@@ -756,9 +756,9 @@ async function showMovie(movie) {
   selectedChannel = null;
   closeFiche(false); // rien ne se lance tout seul : la fiche (lecture) doit être visible
   details.replaceChildren(el('p', { className: 'muted' }, 'Chargement…'));
-  const info = await getJson(`/api/vod/${movie.id}`).catch(() => ({ name: movie.name, cover: movie.logo }));
+  const info = await getJson(`/api/vod/${movie.id}?${languageParam()}`).catch(() => ({ name: movie.name, cover: movie.logo }));
   const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, title: info.name || movie.name, key: `movie:${movie.id}` };
-  details.replaceChildren(infoBlock(info, resumeButtons(item)));
+  details.replaceChildren(infoBlock(info, resumeButtons(item), favoriteStar('vod', movie.id)));
 }
 
 // --- Séries ------------------------------------------------------------------------
@@ -767,7 +767,7 @@ async function showSeries(series) {
   selectedChannel = null;
   closeFiche(false);
   details.replaceChildren(el('p', { className: 'muted' }, 'Chargement…'));
-  const info = await getJson(`/api/series/${series.id}`);
+  const info = await getJson(`/api/series/${series.id}?${languageParam()}`);
   const seasonSelect = el('select', { className: 'season' });
   const episodesEl = el('ul', { className: 'episodes' });
 
@@ -825,7 +825,7 @@ async function showSeries(series) {
 
   seasonSelect.append(...info.seasons.map((s) => new Option(`Saison ${s.number} (${s.episodes.length} épisodes)`, s.number)));
   seasonSelect.onchange = () => renderSeason(Number(seasonSelect.value));
-  details.replaceChildren(infoBlock(info, [seasonSelect]), episodesEl);
+  details.replaceChildren(infoBlock(info, [seasonSelect], favoriteStar('series', series.id)), episodesEl);
   if (info.seasons.length) {
     const season = resume ? resume.season : info.seasons[0].number;
     seasonSelect.value = season;
@@ -840,44 +840,59 @@ let guideTimer;
 const FAVORITES = 'favorites'; // entrée « Favoris » de la liste des catégories
 const PAGE = 200; // taille d'une page de résultats du serveur
 
-// Chaînes favorites, propres à ce navigateur.
-const favorites = (() => {
-  try {
-    return new Set(JSON.parse(localStorage.getItem('favorites')));
-  } catch {
-    return new Set();
-  }
-})();
+// Favoris propres à ce navigateur, un jeu par onglet : chaînes, films, séries (la série entière).
+const FAVORITE_STORES = { live: 'favorites', vod: 'favorites-vod', series: 'favorites-series' };
+const favoriteSets = Object.fromEntries(
+  Object.entries(FAVORITE_STORES).map(([type, store]) => {
+    try {
+      return [type, new Set(JSON.parse(localStorage.getItem(store)))];
+    } catch {
+      return [type, new Set()];
+    }
+  }),
+);
+const favorites = favoriteSets.live;
 
 function paintStar(star) {
-  const on = favorites.has(star.dataset.favorite);
+  const on = favoriteSets[star.dataset.type].has(star.dataset.favorite);
   star.textContent = on ? '★' : '☆';
   star.title = on ? 'Retirer des favoris' : 'Ajouter aux favoris';
   star.classList.toggle('on', on);
   star.setAttribute('aria-pressed', on);
 }
 
-function saveFavorites() {
+function saveFavorites(type) {
   try {
-    localStorage.setItem('favorites', JSON.stringify([...favorites]));
+    localStorage.setItem(FAVORITE_STORES[type], JSON.stringify([...favoriteSets[type]]));
   } catch {}
 }
 
-function toggleFavorite(key) {
-  if (!favorites.delete(key)) favorites.add(key);
-  saveFavorites();
-  document.querySelectorAll(`[data-favorite="${key}"]`).forEach(paintStar);
-  if (!$('guide').hidden && $('guide-category').value === FAVORITES) renderGuide({ refresh: true });
+function toggleFavorite(type, key) {
+  const set = favoriteSets[type];
+  const added = !set.delete(key);
+  if (added) set.add(key);
+  saveFavorites(type);
+  document.querySelectorAll(`.star[data-type="${type}"][data-favorite="${key}"]`).forEach(paintStar);
+  if (type === 'live') {
+    if (!$('guide').hidden && $('guide-category').value === FAVORITES) renderGuide({ refresh: true });
+    return;
+  }
+  // Liste des favoris affichée : retirée sur place, sans perdre le défilement ; ajoutée depuis la fiche, on relit.
+  if (currentType !== type || !showingFavorites()) return;
+  if (added) return loadList();
+  list.querySelector(`li[data-id="${key}"]`)?.remove();
+  if (!list.children.length) list.append(noFavorite());
 }
 
-function favoriteStar(id) {
+function favoriteStar(type, id) {
   const star = el('button', {
     className: 'star',
     onclick: (e) => {
       e.stopPropagation();
-      toggleFavorite(star.dataset.favorite);
+      toggleFavorite(type, star.dataset.favorite);
     },
   });
+  star.dataset.type = type;
   star.dataset.favorite = id;
   paintStar(star);
   return star;
@@ -886,7 +901,8 @@ function favoriteStar(id) {
 // Les favoris se réordonnent en les faisant glisser.
 let draggedFavorite = null;
 
-function sortFavoritesIn(container) {
+// `refresh` : réaffichage après coup, si la liste en a besoin.
+function sortFavoritesIn(container, type, refresh) {
   container.addEventListener('dragstart', (e) => {
     draggedFavorite = e.target.closest('[draggable="true"]');
     if (!draggedFavorite) return;
@@ -911,14 +927,17 @@ function sortFavoritesIn(container) {
     draggedFavorite = null;
     // Ceux qui ne sont pas affichés (page suivante, chaîne retirée) gardent leur ordre, à la suite.
     const shown = [...container.querySelectorAll('[draggable="true"]')].map((row) => row.dataset.id);
-    const others = [...favorites].filter((id) => !shown.includes(id));
-    favorites.clear();
-    [...shown, ...others].forEach((id) => favorites.add(id));
-    saveFavorites();
-    renderGuide({ refresh: true }); // la mise à jour de la minute a pu être sautée
+    const kind = typeof type === 'function' ? type() : type;
+    const set = favoriteSets[kind];
+    const others = [...set].filter((id) => !shown.includes(id));
+    set.clear();
+    [...shown, ...others].forEach((id) => set.add(id));
+    saveFavorites(kind);
+    refresh?.();
   });
 }
-sortFavoritesIn($('guide-list'));
+sortFavoritesIn($('guide-list'), 'live', () => renderGuide({ refresh: true })); // la mise à jour de la minute a pu être sautée
+sortFavoritesIn(list, () => currentType);
 
 // Le programme de la ligne : une seule ligne de texte, le détail est dans l'infobulle et la fiche.
 function guideProgramme(programme) {
@@ -978,7 +997,7 @@ function guideRow(channel, sortable) {
     el('span', { className: `guide-name${programme ? '' : ' wide'}` }, channel.name),
     programme && guideProgramme(programme),
     el('div', { className: 'guide-replay' }, channel.archiveDays > 0 && el('small', { className: 'badge', title: `Replay ${channel.archiveDays} jours` }, '⟲')),
-    favoriteStar(channel.id),
+    favoriteStar('live', channel.id),
   );
   row.dataset.id = channel.id;
   row.draggable = sortable;
@@ -1059,10 +1078,23 @@ async function showGuide() {
 
 const handlers = { vod: showMovie, series: showSeries };
 
+// Comme pour la TV, la recherche porte sur tout le catalogue, même depuis les favoris.
+const showingFavorites = () => categorySelect.value === FAVORITES && !searchInput.value.trim();
+
+function noFavorite() {
+  const what = currentType === 'series' ? 'des séries' : 'des films';
+  return el('li', { className: 'muted empty' }, `Aucun favori pour l'instant : clique sur l'étoile ☆ ${what} à garder ici.`);
+}
+
 async function loadList(append = false) {
   if (!append) offset = 0;
-  const params = new URLSearchParams({ type: currentType, q: searchInput.value.trim(), offset, category: categorySelect.value });
+  const type = currentType;
+  const favoritesOnly = showingFavorites();
+  const params = new URLSearchParams({ type, q: searchInput.value.trim(), offset });
+  if (favoritesOnly) params.set('ids', [...favoriteSets[type]].join());
+  else if (categorySelect.value !== FAVORITES) params.set('category', categorySelect.value);
   const items = await getJson(`/api/list?${params}`);
+  if (type !== currentType) return; // onglet changé entre-temps
   offset += items.length;
   $('more').hidden = items.length < PAGE;
 
@@ -1072,11 +1104,14 @@ async function loadList(append = false) {
       { className: 'poster', title: item.name },
       item.logo && el('img', { src: item.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
       el('span', {}, item.name),
+      favoriteStar(type, String(item.id)),
     );
+    li.dataset.id = item.id;
+    li.draggable = favoritesOnly; // les favoris se réordonnent en les faisant glisser
     li.onclick = () => {
       list.querySelector('.active')?.classList.remove('active');
       li.classList.add('active');
-      handlers[currentType](item);
+      handlers[type](item);
     };
     return li;
   });
@@ -1084,6 +1119,7 @@ async function loadList(append = false) {
   else {
     list.replaceChildren(...nodes);
     list.scrollTop = 0;
+    if (!nodes.length && favoritesOnly) list.append(noFavorite());
   }
 }
 
@@ -1112,9 +1148,10 @@ async function selectType(type) {
   const categories = await getJson(`/api/categories?type=${type}`);
   categorySelect.replaceChildren(
     new Option('Toutes les catégories', ''),
+    new Option('★ Favoris', FAVORITES),
     ...categories.map((c) => new Option(c.name, c.id)),
   );
-  categorySelect.value = chosenCategory[type] ?? '';
+  categorySelect.value = chosenCategory[type] ?? (favoriteSets[type].size ? FAVORITES : '');
   if (categorySelect.selectedIndex < 0) categorySelect.value = ''; // catégorie disparue du catalogue
   chosenCategory[type] = categorySelect.value;
   await loadList();
@@ -1272,6 +1309,36 @@ function selectManagedType(type) {
   return renderManagedGroups().then(() => renderManagedItems());
 }
 
+// Langue des fiches : traduites par TMDB côté serveur, '' pour garder les textes du fournisseur.
+const LANGUAGE_KEY = 'language';
+function chosenLanguage() {
+  try {
+    return localStorage.getItem(LANGUAGE_KEY) ?? 'fr-FR';
+  } catch {
+    return 'fr-FR';
+  }
+}
+const languageParam = () => new URLSearchParams({ language: chosenLanguage() });
+
+function setupLanguage(status) {
+  const select = $('language');
+  select.replaceChildren(
+    ...Object.entries(status.languages || {}).map(([code, name]) => new Option(name, code)),
+    new Option('Celle du fournisseur, sans traduction', ''),
+  );
+  select.value = chosenLanguage();
+  if (select.selectedIndex < 0) select.value = 'fr-FR';
+  select.disabled = !status.tmdb;
+  $('language-note').textContent = status.tmdb
+    ? "Titres et résumés traduits grâce à TMDB (themoviedb.org) quand la traduction existe, sinon ceux du fournisseur. Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB."
+    : 'Traduction indisponible dans cette version : les fiches gardent les textes du fournisseur.';
+  select.onchange = () => {
+    try {
+      localStorage.setItem(LANGUAGE_KEY, select.value);
+    } catch {}
+  };
+}
+
 function showSettings() {
   if (!$('manage-types').children.length) {
     $('manage-types').append(
@@ -1342,6 +1409,7 @@ async function startApp() {
 async function init() {
   const status = await getJson('/api/status');
   showSyncInfo(status);
+  setupLanguage(status);
   $('sync').onclick = async () => {
     try {
       await runImport($('sync'));

@@ -11,6 +11,9 @@ dist/
 # Identifiants extraits de la playlist
 config.json
 
+# Clé TMDB (fournie au build par le secret GitHub TMDB_KEY)
+tmdb.key
+
 # Base locale (recréée par l'import)
 tv.db
 tv.db-*

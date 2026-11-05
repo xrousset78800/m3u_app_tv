@@ -35,7 +35,8 @@
       "lib/**",
       "public/**",
       "electron/**",
-      "build/icon.png"
+      "build/icon.png",
+      "tmdb.key"
     ],
     "publish": {
       "provider": "github",

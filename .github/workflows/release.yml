@@ -30,6 +30,16 @@ jobs:
           if (-not (Test-Path node_modules/ffmpeg-static/ffmpeg.exe)) { node node_modules/ffmpeg-static/install.js }
           if (-not (Test-Path node_modules/ffmpeg-static/ffmpeg.exe)) { throw 'ffmpeg.exe manquant' }
 
+      # Clé TMDB (traduction des fiches) : secret du dépôt, jamais dans le code.
+      # Sans elle, l'appli marche avec les textes du fournisseur.
+      - name: Clé TMDB
+        shell: pwsh
+        env:
+          TMDB_KEY: ${{ secrets.TMDB_KEY }}
+        run: |
+          if ($env:TMDB_KEY) { [IO.File]::WriteAllText("$PWD/tmdb.key", $env:TMDB_KEY.Trim()) }
+          else { Write-Warning 'Secret TMDB_KEY absent : fiches sans traduction' }
+
       - name: Fabriquer
         run: npx electron-builder --win --publish never
 

@@ -9,8 +9,13 @@ guide des programmes et replay, dans le navigateur.
   Recherche, catégories et sélection personnelle de favoris (étoile, à réordonner en les faisant glisser).
   Un clic sur une chaîne ouvre sa fiche, avec le guide complet par jour et le replay des programmes déjà diffusés ;
   le bouton ▶ de la ligne lance le direct.
-- **Films / Séries** : fiches détaillées, lecture avec reprise là où on s'était arrêté,
+- **Films / Séries** : favoris comme pour la TV (étoile sur la ligne ou dans la fiche ; pour une série,
+  c'est la série entière), fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
+  Titres et résumés traduits avec [TMDB](https://www.themoviedb.org) dans la langue choisie (⚙, français par défaut) :
+  les textes des fournisseurs mélangent souvent les langues d'une saison à l'autre.
+  Une série n'est retenue que si ses épisodes portent les identifiants TMDB donnés par le fournisseur ;
+  sans identifiant ni traduction, les textes du fournisseur restent affichés.
 - **Réglages** (⚙) : compte, mise à jour du catalogue, et chaînes, films, séries ou groupes entiers
   à retirer (Maj + clic pour toute une plage). Ces choix sont réversibles et conservés quand le catalogue est mis à jour.
 - Tout est à gauche du lecteur, sur deux colonnes : d'abord le menu, les chaînes ou la liste, le statut et la playlist ;
@@ -69,6 +74,10 @@ GitHub Actions fabrique alors l'installateur et le publie dans une Release (quel
 suivi dans l'onglet *Actions*). Les applis installées détectent la nouvelle version au lancement,
 la téléchargent en arrière-plan et proposent de redémarrer pour l'installer.
 
+La clé TMDB n'est pas dans le dépôt : en local, la mettre dans un fichier `tmdb.key` à la racine
+(ignoré par git) ; pour les installateurs, dans le secret `TMDB_KEY` du dépôt GitHub
+(*Settings → Secrets and variables → Actions*). Sans clé, l'appli marche avec les textes du fournisseur.
+
 Pour une version plus importante : `npm version minor` (1.1.0) ou `npm version major` (2.0.0),
 puis `git push --follow-tags`.
 
@@ -111,5 +120,6 @@ lib/db.js        base SQLite : import du catalogue et du guide, requêtes
 lib/epg-worker.js import du guide dans un thread à part, pour ne pas figer l'appli
 lib/hls.js       résolution des redirections et réécriture des playlists HLS
 lib/media.js     analyse et conversion ffmpeg des films et épisodes
+lib/tmdb.js      traduction des fiches avec TMDB, mise en cache dans la base
 public/          interface (HTML, CSS, JS sans framework)
 ```
