@@ -1000,6 +1000,7 @@ function toggleFavorite(type, key) {
   if (added) set.add(key);
   saveFavorites(type);
   document.querySelectorAll(`.star[data-type="${type}"][data-favorite="${key}"]`).forEach(paintStar);
+  for (const select of [categorySelect, $('guide-category')]) if (select.dataset.type === type) labelCategories(select);
   if (type === 'live') {
     if (!$('guide').hidden && $('guide-category').value === FAVORITES) renderGuide({ refresh: true });
     return;
@@ -1174,7 +1175,7 @@ async function showGuide() {
   // Relue à chaque fois : des groupes ont pu être retirés dans les réglages.
   const categories = await getJson('/api/categories?type=live');
   const chosen = select.value;
-  select.replaceChildren(new Option(t('list.allCategories'), ''), new Option(t('list.favorites'), FAVORITES), ...categories.map((c) => new Option(c.name, c.id)));
+  fillCategories(select, 'live', categories);
   select.value = first ? (favorites.size ? FAVORITES : '') : chosen;
   if (select.selectedIndex < 0) select.value = ''; // catégorie disparue du catalogue
   $('guide-search').value = '';
@@ -1249,6 +1250,33 @@ async function loadList(append = false) {
 
 const chosenCategory = {}; // par onglet : la catégorie retrouvée en y revenant
 
+// Menu des catégories, chacune avec son nombre d'éléments : « Ligue 1 (21) ».
+const withCount = (text, count) => `${text} (${Number(count).toLocaleString(language)})`;
+
+function fillCategories(select, type, categories) {
+  select.dataset.type = type;
+  select.dataset.total = categories.reduce((sum, c) => sum + c.count, 0);
+  select.replaceChildren(
+    new Option('', ''),
+    new Option('', FAVORITES),
+    ...categories.map((c) => {
+      const option = new Option('', c.id);
+      Object.assign(option.dataset, { name: c.name, count: c.count });
+      return option;
+    }),
+  );
+  labelCategories(select);
+}
+
+// Les deux premières entrées : traduites, et le nombre de favoris change avec les étoiles.
+function labelCategories(select) {
+  if (select.options.length < 2) return;
+  select.options[0].text = withCount(t('list.allCategories'), select.dataset.total);
+  select.options[1].text = withCount(t('list.favorites'), favoriteSets[select.dataset.type].size);
+  // Les nombres des groupes suivent aussi la langue (séparateur des milliers).
+  for (const option of [...select.options].slice(2)) option.text = withCount(option.dataset.name, option.dataset.count);
+}
+
 async function selectType(type) {
   currentType = type;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
@@ -1270,11 +1298,7 @@ async function selectType(type) {
 
   searchInput.value = '';
   const categories = await getJson(`/api/categories?type=${type}`);
-  categorySelect.replaceChildren(
-    new Option(t('list.allCategories'), ''),
-    new Option(t('list.favorites'), FAVORITES),
-    ...categories.map((c) => new Option(c.name, c.id)),
-  );
+  fillCategories(categorySelect, type, categories);
   categorySelect.value = chosenCategory[type] ?? (favoriteSets[type].size ? FAVORITES : '');
   if (categorySelect.selectedIndex < 0) categorySelect.value = ''; // catégorie disparue du catalogue
   chosenCategory[type] = categorySelect.value;
@@ -1487,11 +1511,8 @@ async function refreshTexts() {
   document.querySelectorAll('.star').forEach(paintStar);
   if (syncStatus) showSyncInfo(syncStatus);
   if ($('app').hidden) return;
-  for (const select of [categorySelect, $('guide-category')]) {
-    if (select.options.length < 2) continue;
-    select.options[0].text = t('list.allCategories');
-    select.options[1].text = t('list.favorites');
-  }
+  labelCategories(categorySelect);
+  labelCategories($('guide-category'));
   const ficheClosed = document.body.classList.contains('fiche-closed');
   if (currentType === 'settings') await renderManagedItems();
   else if (currentType === 'live') await renderGuide({ refresh: true });
