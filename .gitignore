@@ -14,6 +14,9 @@ config.json
 # Clé TMDB (fournie au build par le secret GitHub TMDB_KEY)
 tmdb.key
 
+# Clé OpenSubtitles (fournie au build par le secret GitHub OPENSUBTITLES_KEY)
+opensubtitles.key
+
 # Base locale (recréée par l'import)
 tv.db
 tv.db-*

@@ -8,6 +8,7 @@ const xtream = require('./lib/xtream');
 const hls = require('./lib/hls');
 const media = require('./lib/media');
 const tmdb = require('./lib/tmdb');
+const opensubtitles = require('./lib/opensubtitles');
 
 tmdb.useStore(db.tmdbCache);
 
@@ -40,7 +41,46 @@ async function vodInfo(id, language) {
     rating: Number(info.rating) || null,
     director: info.director || '',
     cast: info.cast || info.actors || '',
+    tmdbId: /^\d+$/.test(String(info.tmdb_id || '')) ? String(info.tmdb_id) : '',
   }, translated);
+}
+
+// --- Sous-titres en ligne (voir lib/opensubtitles.js) ------------------------------
+
+// Film ou épisode : « movie:12 », « series:34 ».
+function mediaKey(kind, id) {
+  if (!MEDIA_KINDS.includes(kind) || !/^\d+$/.test(String(id || ''))) throw Object.assign(new Error('Paramètres invalides'), { status: 400 });
+  return `${kind}:${id}`;
+}
+
+async function searchSubtitles(params) {
+  mediaKey(params.get('kind'), params.get('id'));
+  const languages = params.get('languages') || '';
+  if (!/^[a-z]{2}(-[a-z]{2})?(,[a-z]{2}(-[a-z]{2})?)*$/.test(languages)) throw Object.assign(new Error('Langue invalide'), { status: 400 });
+  let tmdbId = /^\d+$/.test(params.get('tmdb') || '') ? params.get('tmdb') : '';
+  // Film lancé sans sa fiche (playlist) : l'identifiant TMDB est chez le fournisseur.
+  if (!tmdbId && params.get('kind') === 'movie') {
+    const { info = {} } = await xtream.api('get_vod_info', { vod_id: params.get('id') }).catch(() => ({}));
+    if (/^\d+$/.test(String(info.tmdb_id || ''))) tmdbId = String(info.tmdb_id);
+  }
+  const title = tmdb.cleanName(params.get('title') || '').replace(/\s+—\s+S\d+E\d+$/, '');
+  if (!tmdbId && !title) return [];
+  return opensubtitles.search({ tmdbId, title, languages, fps: Number(params.get('fps')) || null });
+}
+
+// Déjà téléchargé (pour ce film ou un doublon du catalogue) : ne recoûte rien.
+async function downloadSubtitle({ kind, id, fileId, language, release }) {
+  const media = mediaKey(kind, id);
+  if (!/^\d+$/.test(String(fileId || ''))) throw Object.assign(new Error('Paramètres invalides'), { status: 400 });
+  const entry = { fileId: String(fileId), language: String(language || '').slice(0, 10), release: String(release || '').slice(0, 300) };
+  let cues = db.savedSubtitles.cues(media, entry.fileId);
+  let remaining = null;
+  if (!cues) {
+    cues = db.savedSubtitles.anyCues(entry.fileId);
+    if (!cues) ({ cues, remaining } = await opensubtitles.download(entry.fileId));
+    db.savedSubtitles.save(media, entry, cues);
+  }
+  return { ...entry, cues, remaining };
 }
 
 async function seriesInfo(id, language) {
@@ -81,8 +121,7 @@ async function seriesInfo(id, language) {
       if (found) overlay(e, { title: found.title, plot: found.plot, image: e.image ? '' : found.image });
     }
   }
-  for (const e of seasons.flatMap((s) => s.episodes)) delete e.tmdbId;
-  return result;
+  return result; // tmdbId gardé sur les épisodes : il sert à chercher leurs sous-titres
 }
 
 const decode = (b64) => Buffer.from(b64 || '', 'base64').toString('utf8');
@@ -181,7 +220,7 @@ function codecsParam(params) {
 }
 
 const routes = [
-  ['GET', /^\/api\/status$/, (req, res) => sendJson(res, { ...db.status(), tmdb: tmdb.enabled(), languages: tmdb.LANGUAGES })],
+  ['GET', /^\/api\/status$/, (req, res) => sendJson(res, { ...db.status(), tmdb: tmdb.enabled(), opensubtitles: opensubtitles.enabled(), languages: tmdb.LANGUAGES })],
   ['POST', /^\/api\/login$/, async (req, res) => {
     await xtream.login(await readJson(req));
     sendJson(res, db.status());
@@ -239,6 +278,24 @@ const routes = [
     const audio = Math.max(0, parseInt(params.get('audio'), 10) || 0);
     sendJson(res, { start: await media.seekPoint(mediaUrl(params), start, { audio, codecs: codecsParam(params) }) });
   }],
+  ['GET', /^\/api\/media\/subtitles$/, async (req, res, { params }) => {
+    sendJson(res, await media.subtitles(
+      mediaUrl(params),
+      Math.max(0, Number(params.get('start')) || 0),
+      Math.max(0, parseInt(params.get('track'), 10) || 0),
+      Math.max(0, parseInt(params.get('from'), 10) || 0),
+    ));
+  }],
+  ['GET', /^\/api\/subtitles\/saved$/, (req, res, { params }) => {
+    sendJson(res, db.savedSubtitles.list(mediaKey(params.get('kind'), params.get('id'))));
+  }],
+  ['GET', /^\/api\/subtitles\/cues$/, (req, res, { params }) => {
+    const cues = db.savedSubtitles.cues(mediaKey(params.get('kind'), params.get('id')), params.get('file') || '');
+    if (!cues) return sendText(res, 404, 'Introuvable');
+    sendJson(res, cues);
+  }],
+  ['GET', /^\/api\/subtitles\/search$/, async (req, res, { params }) => sendJson(res, await searchSubtitles(params))],
+  ['POST', /^\/api\/subtitles\/download$/, async (req, res) => sendJson(res, await downloadSubtitle(await readJson(req)))],
   ['GET', /^\/media\/stream$/, async (req, res, { params }) => {
     await media.stream(res, mediaUrl(params), {
       start: Math.max(0, Number(params.get('start')) || 0),

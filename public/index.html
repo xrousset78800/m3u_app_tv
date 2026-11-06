@@ -120,16 +120,39 @@
         <div id="fullscreen-button" data-i18n-title="player.fullscreen" title="Plein écran"></div>
         <div class="controls">
           <div id="seek" hidden>
-            <span id="time-current">0:00</span>
-            <input id="seek-bar" type="range" min="0" step="1" value="0">
             <div id="seek-preview" hidden><img alt=""><span></span></div>
-            <span id="time-total">0:00</span>
+            <!-- Barre de lecture sur toute la largeur, menus en dessous. -->
+            <div class="timeline">
+              <span id="time-current">0:00</span>
+              <input id="seek-bar" type="range" min="0" step="1" value="0">
+              <span id="time-total">0:00</span>
+            </div>
+            <div class="options">
             <select id="audio-track" data-i18n-title="player.audio" title="Piste audio"></select>
+            <select id="subtitle-track" data-i18n-title="player.subtitles" title="Sous-titres" hidden></select>
+            <span id="subtitle-delay" data-i18n-title="player.subtitleDelay" title="Décalage des sous-titres (touches G et H)" hidden>
+              <button type="button" class="secondary" data-step="-0.5">−</button><span></span><button type="button" class="secondary" data-step="0.5">+</button><button type="button" class="secondary speed" data-i18n-title="player.subtitleSpeed" title="Sous-titres prévus pour une version à 25 images par seconde (touche J)"></button>
+            </span>
             <button id="next" class="secondary" data-i18n="player.next" data-i18n-title="player.nextTitle" title="Passer à la suite de la playlist" hidden>⏭ Suivant</button>
+            </div>
           </div>
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- Sous-titres à télécharger (OpenSubtitles) pour le film en cours. -->
+  <div id="subtitle-search" hidden>
+    <div class="panel" role="dialog" aria-labelledby="subtitle-search-title">
+      <div class="head">
+        <h2 id="subtitle-search-title" data-i18n="subtitles.title">Sous-titres en ligne</h2>
+        <button type="button" class="secondary close" data-i18n-title="subtitles.close" title="Fermer">✕</button>
+      </div>
+      <select class="language" data-i18n-title="subtitles.language" title="Langue des sous-titres"></select>
+      <p class="note muted"></p>
+      <ul class="results"></ul>
+      <p class="credit muted" data-i18n="subtitles.credit">Sous-titres fournis par OpenSubtitles.com</p>
+    </div>
   </div>
 
   <!-- Colonne masquée : une erreur de lecture doit se voir quand même. -->

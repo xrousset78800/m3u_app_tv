@@ -7,6 +7,7 @@ const categorySelect = $('category');
 const searchInput = $('search');
 const seekBar = $('seek-bar');
 const audioSelect = $('audio-track');
+const subtitleSelect = $('subtitle-track');
 
 // Formats que ce lecteur décode : le serveur les copie tels quels, et réencode les autres en H.264.
 const CODECS = Object.entries({
@@ -228,6 +229,7 @@ function stopPlayback() {
   if (hls) hls.destroy();
   hls = null;
   media = null;
+  stopSubtitles();
   unfreeze();
   video.removeAttribute('src');
   video.load();
@@ -282,7 +284,7 @@ function playHls(src, label) {
 // Films et épisodes : MP4 produit par ffmpeg, relancé à chaque déplacement.
 async function playMedia(item, start = 0) {
   stopPlayback();
-  markPlayingTab(item.kind === 'movie' ? 'vod' : 'series'); // la playlist se lance depuis n'importe quel onglet
+  markPlayingTab(item.kind === 'series' ? 'series' : 'vod'); // la playlist se lance depuis n'importe quel onglet
   say('player.analysing', { title: item.title });
   const query = new URLSearchParams({ kind: item.kind, id: item.id, ext: item.ext });
   let info;
@@ -293,16 +295,23 @@ async function playMedia(item, start = 0) {
   }
 
   // Piste française par défaut si elle existe.
-  const french = info.audio.findIndex((a) => /^fr/.test(a.lang) || /\bVF/i.test(a.title));
+  const french = info.audio.findIndex((a) => /^fr/i.test(a.lang) || /\bVF|fran[cç]ais|french/i.test(a.title));
   media = { ...item, duration: info.duration || 0, audio: Math.max(0, french) };
   thumbs.clear();
   audioSelect.replaceChildren(
     ...info.audio.map((a, i) =>
-      new Option([a.title, a.lang, a.codec, a.channels].filter(Boolean).join(' · ') || t('player.track', { number: i + 1 }), i),
+      new Option([trackName(a), a.codec, a.channels].filter(Boolean).join(' · ') || t('player.track', { number: i + 1 }), i),
     ),
   );
   audioSelect.value = media.audio;
   audioSelect.hidden = info.audio.length < 2;
+  media.subtitles = info.subtitles || [];
+  media.fps = info.fps;
+  const current = media;
+  const saved = await getJson(`/api/subtitles/saved?${new URLSearchParams({ kind: item.kind, id: item.id })}`).catch(() => []);
+  if (media !== current) return; // autre film lancé entre-temps
+  media.online = saved;
+  fillSubtitles();
   seekBar.max = Math.floor(media.duration);
   $('time-total').textContent = formatTime(media.duration);
   $('seek').hidden = false;
@@ -342,6 +351,7 @@ async function startMediaAt(start) {
   const current = media;
   const load = ++mediaLoad;
   freeze();
+  stopSubtitles();
   // Le serveur va couper le flux en cours : on le lâche d'abord, sinon il finirait en faux « ended ».
   video.removeAttribute('src');
   video.load();
@@ -367,7 +377,339 @@ async function startMediaAt(start) {
   video.src = `/media/stream?${query}`;
   video.play().catch(() => {});
   updateSeek();
+  followSubtitles();
 }
+
+// --- Sous-titres (pistes texte du fichier, extraites par le serveur pendant la lecture) ---
+
+const subtitleTrack = video.addTextTrack('subtitles');
+subtitleTrack.mode = 'disabled';
+const SUBTITLE_KEY = 'subtitleLanguage'; // langue choisie la dernière fois, '' pour aucun
+let subtitleFeed = null;
+const delayBox = $('subtitle-delay');
+// Décalage choisi à la main, retenu par film : certains fichiers ont des sous-titres pris d'une autre version.
+let subtitleDelay = 0;
+// Ligne d'affichage comptée depuis le bas : un peu au-dessus des commandes du lecteur.
+const SUBTITLE_LINE = -3;
+
+// Par film et par piste : une piste téléchargée bien calée n'a pas le décalage de celle du fichier.
+function delayKey() {
+  const track = subtitleSelect.value;
+  return `subtitleDelay:${media.kind}:${media.id}${track.startsWith('os:') ? `:${track}` : ''}`;
+}
+
+// Vitesse : une piste prise d'une version européenne (25 images/s, film joué ~4 % plus vite) dérive
+// peu à peu sur une vidéo à 23,976 ou 24 images/s. On étale ses horaires d'autant : rapport 25 / fps.
+// Seulement dans ce sens : le texte arrive alors plus tard que le serveur ne le lit, jamais plus tôt.
+const speedButton = delayBox.querySelector('.speed');
+let subtitleSpeed = 1;
+const speedKey = () => `subtitleSpeed:${media.kind}:${media.id}:${subtitleSelect.value}`;
+const speedUsable = () => media?.fps > 23 && media.fps < 24.5;
+// ffmpeg annonce « 23.98 » : la vraie valeur est 24000/1001, l'écart ferait ~1 s sur un film.
+const videoFps = () => (Math.abs(media.fps - 23.976) < 0.01 ? 24000 / 1001 : media.fps);
+
+function loadDelay() {
+  subtitleDelay = 0;
+  subtitleSpeed = 1;
+  try {
+    subtitleDelay = Number(localStorage.getItem(delayKey())) || 0;
+    if (speedUsable() && localStorage.getItem(speedKey())) subtitleSpeed = 25 / videoFps();
+  } catch {}
+  showDelay();
+}
+
+function showDelay() {
+  delayBox.hidden = subtitleSelect.hidden || subtitleSelect.value === '';
+  const value = subtitleDelay.toLocaleString(language, { minimumFractionDigits: 1, signDisplay: 'exceptZero' });
+  delayBox.querySelector('span').textContent = `${value} s`;
+  speedButton.hidden = !speedUsable();
+  if (speedUsable()) speedButton.textContent = `25 → ${(Math.round(videoFps() * 1000) / 1000).toLocaleString(language)}`;
+  speedButton.classList.toggle('on', subtitleSpeed !== 1);
+}
+
+function toggleSpeed() {
+  if (!media || delayBox.hidden || !speedUsable()) return;
+  subtitleSpeed = subtitleSpeed === 1 ? 25 / videoFps() : 1;
+  try {
+    if (subtitleSpeed !== 1) localStorage.setItem(speedKey(), '1');
+    else localStorage.removeItem(speedKey());
+  } catch {}
+  showDelay();
+  followSubtitles(); // le serveur garde ce qu'il a déjà lu : tout revient, recalé
+}
+
+// Positif : le texte arrive plus tard. Plus tôt, la limite est ce que le serveur a déjà lu du film
+// (quelques secondes d'avance) : un sous-titre reçu en retard s'affiche pour le temps qui lui reste.
+function shiftSubtitles(step) {
+  if (!media || delayBox.hidden) return;
+  const next = Math.round(Math.max(-30, Math.min(30, subtitleDelay + step)) * 10) / 10;
+  const diff = next - subtitleDelay;
+  subtitleDelay = next;
+  for (const cue of [...(subtitleTrack.cues || [])]) {
+    cue.startTime = Math.max(0, cue.startTime + diff);
+    cue.endTime += diff;
+  }
+  try {
+    if (next) localStorage.setItem(delayKey(), next);
+    else localStorage.removeItem(delayKey());
+  } catch {}
+  showDelay();
+}
+
+delayBox.addEventListener('click', (e) => {
+  const step = Number(e.target.dataset.step);
+  if (step) shiftSubtitles(step);
+  if (e.target === speedButton) toggleSpeed();
+});
+
+// Codes de langue des fichiers (souvent « fre », « ger ») -> nom dans la langue de l'appli.
+const BIBLIOGRAPHIC = { fre: 'fra', ger: 'deu', dut: 'nld', chi: 'zho', cze: 'ces', gre: 'ell', per: 'fas', rum: 'ron', slo: 'slk', alb: 'sqi', arm: 'hye', baq: 'eus', geo: 'kat', ice: 'isl', mac: 'mkd', may: 'msa', wel: 'cym' };
+
+// « fre » (fichiers), « pt-br » (OpenSubtitles) -> nom dans la langue de l'appli.
+function languageName(code) {
+  if (!code || code === 'und') return '';
+  try {
+    const tag = (BIBLIOGRAPHIC[code] || code).replace(/-(\w+)$/, (all, region) => `-${region.toUpperCase()}`);
+    return new Intl.DisplayNames([language], { type: 'language' }).of(tag);
+  } catch {
+    return code;
+  }
+}
+
+// Nom d'une piste du fichier : la langue d'abord, le titre seul (« Complet », « SDH »…) ne la dit pas.
+function trackName({ lang, title = '' }) {
+  const language = languageName(lang);
+  const named = language && language[0].toLocaleUpperCase() + language.slice(1);
+  return [named, title.toLowerCase() !== language.toLowerCase() && title].filter(Boolean).join(' · ');
+}
+
+// Sous-titres téléchargés (OpenSubtitles), proposés si l'appli a une clé.
+let onlineSubtitles = false;
+const onlineCues = new Map(); // fileId -> sous-titres, déjà chargés
+
+const choiceKey = () => `subtitleChoice:${media.kind}:${media.id}`;
+
+function shortRelease(release) {
+  return release.length > 40 ? `${release.slice(0, 38)}…` : release;
+}
+
+// Piste téléchargée choisie pour ce film, sinon même langue que la dernière fois si le fichier l'a
+// (de préférence la piste complète, pas « forcés »).
+function fillSubtitles() {
+  const tracks = media.subtitles;
+  const online = media.online || [];
+  let saved = '';
+  let choice = '';
+  try {
+    saved = localStorage.getItem(SUBTITLE_KEY) || '';
+    choice = localStorage.getItem(choiceKey()) || '';
+  } catch {}
+  subtitleSelect.replaceChildren(
+    new Option(t('player.subtitlesOff'), ''),
+    ...tracks.map((s, i) => {
+      const name = [trackName(s), s.forced && !/forc/i.test(s.title) && t('player.forced')].filter(Boolean).join(' · ');
+      return new Option(name || t('player.track', { number: i + 1 }), i);
+    }),
+    ...online.map((s) => new Option(`🌐 ${[languageName(s.language), shortRelease(s.release)].filter(Boolean).join(' · ')}`, `os:${s.fileId}`)),
+    ...(onlineSubtitles ? [new Option(t('player.subtitlesSearch'), 'search')] : []),
+  );
+  const pick = online.some((s) => `os:${s.fileId}` === choice)
+    ? choice
+    : saved && [...tracks.keys()].sort((a, b) => tracks[a].forced - tracks[b].forced).find((i) => tracks[i].lang === saved);
+  subtitleSelect.value = pick ?? '';
+  subtitleSelect.hidden = subtitleSelect.options.length < 2;
+  loadDelay();
+}
+
+function stopSubtitles() {
+  clearTimeout(subtitleFeed?.timer);
+  subtitleFeed?.abort.abort(); // la demande en attente ne doit pas garder une connexion pour rien
+  subtitleFeed = null;
+  while (subtitleTrack.cues?.length) subtitleTrack.removeCue(subtitleTrack.cues[0]);
+  subtitleTrack.mode = 'disabled';
+}
+
+// Les sous-titres arrivent au fur et à mesure que le serveur lit le film, à peine quelques secondes
+// avant leur affichage : une demande reste en attente chez le serveur, qui répond dès qu'il y en a un nouveau.
+// Horaires comptés depuis le début du film ; le lecteur, lui, compte depuis le point de départ.
+function addCue(start, end, text) {
+  const at = (time) => time * subtitleSpeed - media.start + subtitleDelay;
+  if (at(end) <= 0) return;
+  const cue = new VTTCue(Math.max(0, at(start)), at(end), text);
+  cue.line = SUBTITLE_LINE;
+  subtitleTrack.addCue(cue);
+}
+
+// Piste téléchargée : tout est déjà là, horaires comptés depuis le début du film.
+async function showOnlineSubtitles(fileId) {
+  const current = media;
+  const feed = (subtitleFeed = { timer: null, abort: new AbortController() });
+  let cues = onlineCues.get(fileId);
+  if (!cues) {
+    const query = new URLSearchParams({ kind: media.kind, id: media.id, file: fileId });
+    cues = await getJson(`/api/subtitles/cues?${query}`, { signal: feed.abort.signal }).catch(() => null);
+    if (cues) onlineCues.set(fileId, cues);
+  }
+  if (subtitleFeed !== feed || media !== current || !cues) return;
+  for (const { start, end, text } of cues) addCue(start, end, text);
+}
+
+function followSubtitles() {
+  stopSubtitles();
+  if (!media || subtitleSelect.value === '' || subtitleSelect.value === 'search') return;
+  subtitleTrack.mode = 'showing';
+  if (subtitleSelect.value.startsWith('os:')) return showOnlineSubtitles(subtitleSelect.value.slice(3));
+  const query = new URLSearchParams({ kind: media.kind, id: media.id, ext: media.ext, start: media.start, track: subtitleSelect.value });
+  const feed = (subtitleFeed = { from: 0, timer: null, abort: new AbortController() });
+  const poll = async () => {
+    let reply = null;
+    try {
+      reply = await getJson(`/api/media/subtitles?${query}&from=${feed.from}`, { signal: feed.abort.signal });
+    } catch {}
+    if (subtitleFeed !== feed) return;
+    for (const { start, end, text } of reply?.cues ?? []) addCue(start + media.start, end + media.start, text);
+    feed.from += reply?.cues.length ?? 0;
+    if (reply?.done) return;
+    // Flux pas encore parti, ou erreur : on réessaie un peu plus tard ; sinon tout de suite.
+    feed.timer = setTimeout(poll, reply?.ready ? 0 : 500);
+  };
+  poll();
+}
+
+let subtitleChosen = ''; // piste affichée avant d'ouvrir la recherche, rétablie si on n'y prend rien
+
+subtitleSelect.addEventListener('focus', () => (subtitleChosen = subtitleSelect.value));
+subtitleSelect.addEventListener('change', () => {
+  if (!media) return;
+  if (subtitleSelect.value === 'search') {
+    subtitleSelect.value = subtitleChosen;
+    return openSubtitleSearch();
+  }
+  subtitleChosen = subtitleSelect.value;
+  const track = media.subtitles[subtitleSelect.value];
+  try {
+    // Piste du fichier : sa langue vaut pour les films suivants. Piste téléchargée : pour ce film seulement.
+    if (subtitleSelect.value.startsWith('os:')) localStorage.setItem(choiceKey(), subtitleSelect.value);
+    else {
+      localStorage.removeItem(choiceKey());
+      localStorage.setItem(SUBTITLE_KEY, track?.lang ?? '');
+    }
+  } catch {}
+  loadDelay();
+  followSubtitles();
+});
+
+// --- Recherche sur OpenSubtitles ---
+
+const searchBox = $('subtitle-search');
+const searchLanguage = searchBox.querySelector('.language');
+const searchNote = searchBox.querySelector('.note');
+const searchResults = searchBox.querySelector('.results');
+const SEARCH_LANGUAGE_KEY = 'subtitleSearchLanguage';
+const SEARCH_LANGUAGES = ['fr', 'en', 'de', 'es', 'it', 'pt-pt', 'pt-br', 'nl', 'pl', 'ro', 'ru', 'tr', 'ar', 'el', 'he', 'sv', 'da', 'no', 'fi', 'cs', 'hu', 'zh-cn', 'ja', 'ko'];
+let searchTurn = 0;
+
+function note(text, isError = false) {
+  searchNote.textContent = text;
+  searchNote.classList.toggle('error', isError);
+}
+
+function closeSubtitleSearch() {
+  searchTurn++;
+  searchBox.hidden = true;
+}
+
+function openSubtitleSearch() {
+  let chosen = '';
+  try {
+    chosen = localStorage.getItem(SEARCH_LANGUAGE_KEY) || '';
+  } catch {}
+  const appLanguage = language === 'pt-PT' ? 'pt-pt' : language.slice(0, 2);
+  searchLanguage.replaceChildren(
+    ...SEARCH_LANGUAGES.map((code) => new Option(languageName(code), code)).sort((a, b) => a.text.localeCompare(b.text, language)),
+  );
+  searchLanguage.value = SEARCH_LANGUAGES.includes(chosen) ? chosen : appLanguage;
+  searchBox.hidden = false;
+  searchSubtitles();
+}
+
+async function searchSubtitles() {
+  const turn = ++searchTurn;
+  const current = media;
+  searchResults.replaceChildren();
+  note(t('subtitles.searching'));
+  const query = new URLSearchParams({ kind: media.kind, id: media.id, tmdb: media.tmdb || '', title: media.title, languages: searchLanguage.value, fps: media.fps || '' });
+  let results;
+  try {
+    results = await getJson(`/api/subtitles/search?${query}`);
+  } catch (err) {
+    if (turn === searchTurn) note(err.message, true);
+    return;
+  }
+  if (turn !== searchTurn || current !== media) return;
+  const saved = new Set((media.online || []).map((s) => s.fileId));
+  note(results.length ? t('subtitles.quotaNote') : t('subtitles.none'));
+  searchResults.replaceChildren(...results.map((s) => el('li', {}, subtitleResult(s, saved.has(s.fileId)))));
+}
+
+function subtitleResult(s, saved) {
+  const tags = [
+    saved && el('span', { className: 'good' }, t('subtitles.saved')),
+    s.speed === 0 && el('span', { className: 'good' }, t('subtitles.sameSpeed')),
+    s.speed === 2 && el('span', { className: 'warn' }, t('subtitles.otherSpeed', { fps: s.fps })),
+    s.hearingImpaired && el('span', {}, t('subtitles.hearingImpaired')),
+    s.foreignOnly && el('span', { className: 'warn' }, t('player.forced')),
+    s.automatic && el('span', { className: 'warn' }, t('subtitles.automatic')),
+    el('span', {}, t('subtitles.downloads', { count: s.downloads, number: s.downloads.toLocaleString(language) })),
+  ];
+  return el(
+    'button',
+    { type: 'button', onclick: () => downloadSubtitle(s) },
+    el('span', { className: 'release' }, `${languageName(s.language)} · ${s.release}`),
+    el('span', { className: 'tags' }, ...tags),
+  );
+}
+
+async function downloadSubtitle(s) {
+  const turn = ++searchTurn;
+  const current = media;
+  searchResults.querySelectorAll('button').forEach((b) => (b.disabled = true));
+  note(t('subtitles.downloading'));
+  let reply;
+  try {
+    reply = await getJson('/api/subtitles/download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: media.kind, id: media.id, fileId: s.fileId, language: s.language, release: s.release }),
+    });
+  } catch (err) {
+    if (turn !== searchTurn) return;
+    searchResults.querySelectorAll('button').forEach((b) => (b.disabled = false));
+    return note(err.message, true);
+  }
+  if (turn !== searchTurn || current !== media) return;
+  const { cues, remaining, ...entry } = reply;
+  onlineCues.set(entry.fileId, cues);
+  media.online = [...(media.online || []).filter((o) => o.fileId !== entry.fileId), entry];
+  try {
+    localStorage.setItem(SEARCH_LANGUAGE_KEY, searchLanguage.value);
+    localStorage.setItem(choiceKey(), `os:${entry.fileId}`);
+  } catch {}
+  closeSubtitleSearch();
+  fillSubtitles();
+  subtitleChosen = subtitleSelect.value;
+  followSubtitles();
+  if (remaining != null) say('subtitles.remaining', { count: remaining });
+}
+
+searchLanguage.addEventListener('change', searchSubtitles);
+searchBox.querySelector('.close').addEventListener('click', closeSubtitleSearch);
+searchBox.addEventListener('click', (e) => {
+  if (e.target === searchBox) closeSubtitleSearch();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !searchBox.hidden) closeSubtitleSearch();
+});
 
 function position() {
   return media ? media.start + video.currentTime : 0;
@@ -707,6 +1049,10 @@ document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   if (key === 'f') toggleFullscreen();
   if (key === 'l') toggleList();
+  // Comme VLC : G avance les sous-titres, H les retarde.
+  if (key === 'g') shiftSubtitles(-0.5);
+  if (key === 'h') shiftSubtitles(0.5);
+  if (key === 'j') toggleSpeed();
 });
 
 // --- TV : direct, guide des programmes et replay -----------------------------------
@@ -883,7 +1229,7 @@ async function showMovie(movie) {
   closeFiche(false); // rien ne se lance tout seul : la fiche (lecture) doit être visible
   details.replaceChildren(el('p', { className: 'muted' }, t('list.loading')));
   const info = await getJson(`/api/vod/${movie.id}?${languageParam()}`).catch(() => ({ name: movie.name, cover: movie.logo }));
-  const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, title: info.name || movie.name, key: `movie:${movie.id}` };
+  const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, tmdb: info.tmdbId, title: info.name || movie.name, key: `movie:${movie.id}` };
   details.replaceChildren(infoBlock(info, resumeButtons(item), favoriteStar('vod', movie.id)));
 }
 
@@ -906,6 +1252,7 @@ async function showSeries(series) {
         kind: 'series',
         id: e.id,
         ext: e.ext,
+        tmdb: e.tmdbId,
         title: `${info.name} — S${String(s.number).padStart(2, '0')}E${String(e.num).padStart(2, '0')}`,
         key: `episode:${e.id}`,
       },
@@ -1502,6 +1849,7 @@ function showSyncInfo(status) {
     : '';
   $('sync').hidden = $('logout').hidden = !status.syncedAt;
   $('tmdb-note').hidden = !status.tmdb; // attribution demandée par TMDB
+  onlineSubtitles = false; // recherche OpenSubtitles mise de côté pour l'instant (status.opensubtitles)
 }
 
 // Tout ce qui est déjà affiché passe dans la nouvelle langue, sans toucher à la lecture.
@@ -1513,6 +1861,12 @@ async function refreshTexts() {
   if ($('app').hidden) return;
   labelCategories(categorySelect);
   labelCategories($('guide-category'));
+  if (media?.subtitles) {
+    const chosen = subtitleSelect.value;
+    fillSubtitles();
+    subtitleSelect.value = chosen;
+    showDelay();
+  }
   const ficheClosed = document.body.classList.contains('fiche-closed');
   if (currentType === 'settings') await renderManagedItems();
   else if (currentType === 'live') await renderGuide({ refresh: true });
