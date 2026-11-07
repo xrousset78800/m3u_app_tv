@@ -232,5 +232,13 @@
   "guide.channels": "Chaînes",
   "guide.onAir": "En direct",
   "guide.morePrograms": {"one": "Voir l'autre programme", "other": "Voir les {count} autres programmes"},
-  "guide.noResult": "Aucune chaîne ni aucun programme trouvé."
+  "guide.noResult": "Aucune chaîne ni aucun programme trouvé.",
+  "settings.preferences": "Préférences",
+  "view.title": "Présentation des listes",
+  "view.note": "Aussi accessible depuis l'icône d'affichage, en haut de la colonne.",
+  "view.compact": "Compacte",
+  "view.list": "Liste",
+  "view.large": "Grandes vignettes",
+  "sleep.custom": "Personnalisé",
+  "sleep.customTitle": "Durée en minutes avant l'arrêt de la lecture"
 }

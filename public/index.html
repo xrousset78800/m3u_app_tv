@@ -59,6 +59,7 @@
           <button data-pane="subscription" data-i18n="settings.subscription">Abonnement</button>
           <button data-pane="profiles" data-i18n="profiles.title">Comptes</button>
           <button data-pane="manage" data-i18n="settings.manage">Chaînes et groupes</button>
+          <button data-pane="preferences" data-i18n="settings.preferences">Préférences</button>
         </nav>
 
         <div class="settings-pane" data-pane="subscription" hidden>
@@ -75,6 +76,14 @@
           <ul id="profile-list"></ul>
           <div><button id="profile-add" class="secondary" data-i18n="profiles.add">+ Ajouter un compte</button></div>
           <p class="muted small" data-i18n="profiles.note">Chaque compte a ses favoris, ses reprises et sa playlist.</p>
+        </div>
+
+        <div class="settings-pane" data-pane="preferences" hidden>
+          <h3 data-i18n="language.choose">Langue de l'appli</h3>
+          <div id="language-choices" class="choices" role="radiogroup"></div>
+          <h3 data-i18n="view.title">Présentation des listes</h3>
+          <div id="view-choices" class="choices" role="radiogroup"></div>
+          <p class="muted small" data-i18n="view.note">Aussi accessible depuis l'icône d'affichage, en haut de la colonne.</p>
         </div>
 
         <div class="settings-pane" data-pane="manage" hidden>
@@ -110,9 +119,9 @@
         <span class="spacer"></span>
         <button id="profile-button" hidden></button>
         <button id="show-player" data-i18n-title="player.show" title="Revenir au lecteur" hidden>+</button>
-        <div id="language-picker">
-          <button id="language-button" data-i18n-title="language.choose" title="Langue de l'appli" aria-haspopup="listbox"><img alt=""></button>
-          <ul id="language-menu" role="listbox" hidden></ul>
+        <div id="view-picker">
+          <button id="view-button" data-i18n-title="view.title" title="Présentation des listes" aria-haspopup="listbox"></button>
+          <ul id="view-menu" class="header-menu" role="listbox" hidden></ul>
         </div>
         <button id="list-toggle" data-i18n-title="tabs.toggle" title="Afficher ou masquer les colonnes (L)">☰</button>
       </nav>

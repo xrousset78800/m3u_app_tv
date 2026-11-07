@@ -119,6 +119,7 @@ async function loadLanguage(code) {
   document.documentElement.lang = code.split('-')[0];
   translatePage();
   paintLanguagePicker();
+  paintView();
   window.tvWindow?.setLanguage?.(code); // pour les fenêtres de l'appli elle-même (mise à jour)
 }
 
@@ -131,49 +132,85 @@ function translatePage() {
   document.querySelectorAll('[data-i18n-title]').forEach((node) => (node.title = t(node.dataset.i18nTitle)));
 }
 
-// Sélecteur discret de l'en-tête : un drapeau, et la liste des langues au clic.
+// Langue : choisie dans les réglages (Préférences), chacune avec son drapeau.
 const flagUrl = (code) => `i18n/flags/${code}.svg`;
-const languageMenu = $('language-menu');
+
+// Boutons à choix unique des Préférences.
+function choiceButton(active, onclick, ...children) {
+  const button = el('button', { type: 'button', className: active ? 'active' : '', onclick }, ...children);
+  button.setAttribute('role', 'radio');
+  button.setAttribute('aria-checked', active);
+  return button;
+}
 
 function paintLanguagePicker() {
-  $('language-button').querySelector('img').src = flagUrl(language);
-  languageMenu.replaceChildren(
-    ...Object.entries(LANGUAGES).map(([code, name]) => {
-      const item = el(
-        'li',
-        { role: 'option', className: code === language ? 'active' : '', onclick: () => chooseLanguage(code) },
-        el('img', { src: flagUrl(code), alt: '' }),
-        el('span', {}, name),
-      );
-      item.setAttribute('aria-selected', code === language);
-      return item;
-    }),
+  $('language-choices').replaceChildren(
+    ...Object.entries(LANGUAGES).map(([code, name]) =>
+      choiceButton(code === language, () => chooseLanguage(code), el('img', { src: flagUrl(code), alt: '' }), el('span', {}, name)),
+    ),
   );
 }
 
-// Placée par rapport au bouton, pour ne pas être coupée par la colonne.
-function openLanguageMenu(open) {
-  languageMenu.hidden = !open;
-  $('language-button').setAttribute('aria-expanded', open);
-  if (!open) return;
-  const box = $('language-button').getBoundingClientRect();
-  languageMenu.style.top = `${box.bottom + 4}px`;
-  languageMenu.style.left = `${Math.max(8, box.right - languageMenu.offsetWidth)}px`;
+// Présentation des listes (chaînes, films, séries) : compacte, normale, ou grandes vignettes
+// (les affiches des films et séries en grille). Choisie depuis l'icône de l'en-tête ou les Préférences.
+const VIEWS = {
+  compact: '<path d="M2 3h12M2 6.3h12M2 9.7h12M2 13h12"/>',
+  list: '<rect x="2" y="2.5" width="3.5" height="4" rx=".6"/><rect x="2" y="9.5" width="3.5" height="4" rx=".6"/><path d="M8 4.5h6M8 11.5h6"/>',
+  large: '<rect x="2" y="2" width="5" height="5" rx=".8"/><rect x="9" y="2" width="5" height="5" rx=".8"/><rect x="2" y="9" width="5" height="5" rx=".8"/><rect x="9" y="9" width="5" height="5" rx=".8"/>',
+};
+let view = VIEWS[storage.getItem('view')] ? storage.getItem('view') : 'list';
+const viewMenu = $('view-menu');
+
+function viewIcon(mode) {
+  const icon = el('span', { className: 'view-icon' });
+  icon.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">${VIEWS[mode]}</svg>`;
+  return icon;
 }
 
-$('language-button').onclick = (e) => {
+function paintView() {
+  Object.keys(VIEWS).forEach((mode) => document.body.classList.toggle(`view-${mode}`, mode === view));
+  $('view-button').replaceChildren(viewIcon(view));
+  viewMenu.replaceChildren(
+    ...Object.keys(VIEWS).map((mode) => {
+      const item = el('li', { role: 'option', className: mode === view ? 'active' : '', onclick: () => chooseView(mode) }, viewIcon(mode), el('span', {}, t(`view.${mode}`)));
+      item.setAttribute('aria-selected', mode === view);
+      return item;
+    }),
+  );
+  $('view-choices').replaceChildren(
+    ...Object.keys(VIEWS).map((mode) => choiceButton(mode === view, () => chooseView(mode), viewIcon(mode), el('span', {}, t(`view.${mode}`)))),
+  );
+}
+
+function chooseView(mode) {
+  openViewMenu(false);
+  view = mode;
+  storage.setItem('view', mode);
+  paintView();
+}
+
+// Placée par rapport au bouton, pour ne pas être coupée par la colonne.
+function openViewMenu(open) {
+  viewMenu.hidden = !open;
+  $('view-button').setAttribute('aria-expanded', open);
+  if (!open) return;
+  const box = $('view-button').getBoundingClientRect();
+  viewMenu.style.top = `${box.bottom + 4}px`;
+  viewMenu.style.left = `${Math.max(8, box.right - viewMenu.offsetWidth)}px`;
+}
+
+$('view-button').onclick = (e) => {
   e.stopPropagation();
-  openLanguageMenu(languageMenu.hidden);
+  openViewMenu(viewMenu.hidden);
 };
 document.addEventListener('click', (e) => {
-  if (!$('language-picker').contains(e.target)) openLanguageMenu(false);
+  if (!$('view-picker').contains(e.target)) openViewMenu(false);
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !languageMenu.hidden) openLanguageMenu(false);
+  if (e.key === 'Escape' && !viewMenu.hidden) openViewMenu(false);
 });
 
 async function chooseLanguage(code) {
-  openLanguageMenu(false);
   if (code === language) return;
   try {
     localStorage.setItem(LANGUAGE_KEY, code);
@@ -267,7 +304,7 @@ function stopPlayback() {
   unfreeze();
   video.removeAttribute('src');
   video.load();
-  video.classList.remove('media');
+  video.classList.remove('media', 'live');
   $('seek').hidden = true;
   showSkipButton();
   renderPlaylist();
@@ -338,8 +375,32 @@ function openSleepMenu() {
     choice(t('sleep.off'), null, !sleepAt),
     ...SLEEP_CHOICES.map((m) => choice(t('sleep.minutes', { count: m }), m, false)),
     ...(media ? [choice(t('sleep.end'), 'end', sleepAt === 'end')] : []),
+    customSleep(),
   );
   sleepMenu.hidden = false;
+}
+
+// Durée libre, en minutes ; la dernière saisie est proposée la fois suivante.
+function customSleep() {
+  const input = el('input', { type: 'number', min: 1, max: 1440, step: 1, required: true, value: storage.getItem('sleep-custom') || '', placeholder: '75' });
+  input.title = t('sleep.customTitle');
+  return el(
+    'form',
+    {
+      className: 'sleep-custom',
+      onsubmit: (e) => {
+        e.preventDefault();
+        const minutes = Math.round(Number(input.value));
+        if (!(minutes >= 1 && minutes <= 1440)) return;
+        storage.setItem('sleep-custom', String(minutes));
+        setSleep(minutes);
+      },
+    },
+    el('span', {}, t('sleep.custom')),
+    input,
+    el('span', { className: 'muted' }, 'min'),
+    el('button', { type: 'submit', className: 'secondary' }, 'OK'),
+  );
 }
 
 sleepButton.addEventListener('click', (e) => {
@@ -1481,6 +1542,7 @@ async function playLive(channel, { exact = false } = {}) {
   if (chosen) channel = chosen;
   const id = String(channel.id);
   const remember = () => {
+    video.classList.add('live'); // pas de retour en arrière possible : barre native masquée
     liveChannel = { id, name: channel.name };
     paintVersionsButton();
   };
@@ -2506,8 +2568,8 @@ function selectManagedType(type) {
 // Fiches des films et séries dans la langue de l'appli (traduites par TMDB côté serveur).
 const languageParam = () => new URLSearchParams({ language });
 
-// Réglages en trois rubriques, une seule affichée à la fois ; la dernière ouverte est retenue.
-const SETTINGS_PANES = ['subscription', 'profiles', 'manage'];
+// Réglages en rubriques, une seule affichée à la fois ; la dernière ouverte est retenue.
+const SETTINGS_PANES = ['subscription', 'profiles', 'manage', 'preferences'];
 let settingsPane = SETTINGS_PANES.includes(storage.getItem('settingsPane')) ? storage.getItem('settingsPane') : 'subscription';
 
 function showPane(name) {

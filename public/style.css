@@ -52,17 +52,12 @@ select, input {
 #list-toggle { font-size: 1.15em; }
 #tabs .spacer { flex: 1; }
 
-/* Langue : un petit drapeau dans l'en-tête, la liste s'ouvre au clic (placée par le script). */
-#language-button { display: flex; align-items: center; padding: 4px 6px; opacity: 0.75; }
-#language-button:hover, #language-button[aria-expanded="true"] { opacity: 1; }
-#language-button img, #language-menu img {
-  width: 20px;
-  height: 14px;
-  object-fit: cover;
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
-}
-#language-menu {
+/* Présentation des listes : une icône dans l'en-tête, la liste des modes s'ouvre au clic (placée par le script). */
+#view-button { display: flex; align-items: center; padding: 4px 6px; opacity: 0.75; }
+#view-button:hover, #view-button[aria-expanded="true"] { opacity: 1; }
+.view-icon { display: inline-flex; flex-shrink: 0; }
+.view-icon svg { width: 16px; height: 16px; }
+.header-menu {
   position: fixed;
   z-index: 10;
   margin: 0;
@@ -73,7 +68,7 @@ select, input {
   border-radius: 6px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
 }
-#language-menu li {
+.header-menu li {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -83,9 +78,58 @@ select, input {
   cursor: pointer;
   white-space: nowrap;
 }
-#language-menu li:hover { background: #2a2a2a; color: #fff; }
-#language-menu li.active { color: #fff; font-weight: 600; }
-body > #tabs #language-picker { display: none; }
+.header-menu li:hover { background: #2a2a2a; color: #fff; }
+.header-menu li.active { color: #fff; font-weight: 600; }
+body > #tabs #view-picker { display: none; }
+
+/* Préférences : boutons à choix unique (langue, présentation). */
+.settings-pane h3 { margin: 4px 0 0; font-size: 0.95em; color: #ccc; }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.choices button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #1b1b1b;
+  color: #ccc;
+}
+.choices button:hover { border-color: #555; color: #fff; }
+.choices button.active { border-color: #3c7ee6; background: #1f3357; color: #fff; }
+.choices img { width: 20px; height: 14px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15); }
+
+/* Compacte : lignes serrées, sans affiches pour les films et séries. */
+body.view-compact .guide-row { height: 26px; font-size: 0.86em; }
+body.view-compact .guide-logo, body.view-compact .guide-logo img { height: 16px; }
+body.view-compact .guide-play { width: 20px; height: 20px; line-height: 20px; }
+body.view-compact.no-player .guide-row { height: 32px; }
+body.view-compact #list li { padding: 3px 8px; font-size: 0.92em; }
+body.view-compact #list li img { display: none; }
+
+/* Grandes vignettes : chaînes plus hautes, affiches des films et séries en grille. */
+body.view-large .guide-row { height: 46px; }
+body.view-large .guide-logo { height: 32px; }
+body.view-large .guide-logo img { height: 32px; }
+body.view-large.no-player .guide-row { height: 60px; }
+body.view-large.no-player .guide-logo, body.view-large.no-player .guide-logo img { height: 40px; }
+body.view-large #list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px 8px; align-content: start; padding: 4px; }
+body.view-large #list li { position: relative; flex-direction: column; align-items: stretch; gap: 5px; padding: 4px; }
+body.view-large #list li.poster img { width: 100%; height: auto; aspect-ratio: 2 / 3; }
+body.view-large #list li.poster:not(:has(img))::before { content: ''; aspect-ratio: 2 / 3; border-radius: 3px; background: #222; }
+body.view-large #list li span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.82em;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+}
+body.view-large #list li .star { position: absolute; top: 6px; right: 6px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); font-size: 1em; }
+body.view-large #list li.now-playing { box-shadow: inset 0 0 0 2px #3c7ee6; }
+body.view-large #list li.empty { grid-column: 1 / -1; }
+
 #tabs button[data-playing]::after {
   content: attr(data-playing);
   margin-left: 7px;
@@ -586,6 +630,9 @@ video.media ~ #fullscreen-button.large { margin-bottom: 14px; }
 #sleep-menu button { padding: 5px 10px; border: 0; border-radius: 5px; background: none; color: #ddd; text-align: left; white-space: nowrap; }
 #sleep-menu button:hover { background: #2a2a2a; }
 #sleep-menu button.active { color: #7fa8ee; }
+.sleep-custom { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 6px 10px 2px; border-top: 1px solid #2c2c2c; color: #ddd; white-space: nowrap; }
+.sleep-custom input { width: 64px; padding: 3px 6px; }
+#sleep-menu .sleep-custom button { padding: 3px 10px; background: #2a2a2a; }
 @keyframes pop-down { from { opacity: 0; transform: translateY(-6px); } }
 /* Lecteur masqué mais en lecture : son pendant « + », en haut de la colonne. */
 body:not(.no-player) #show-player, #settings #show-player { display: none; }
@@ -619,6 +666,10 @@ body.no-player #guide-head, body.no-player .guide-more .guide-programme { animat
 video.media::-webkit-media-controls-timeline,
 video.media::-webkit-media-controls-current-time-display,
 video.media::-webkit-media-controls-time-remaining-display { display: none; }
+/* Direct : impossible de revenir en arrière, la barre native n'aurait aucun sens. */
+video.live::-webkit-media-controls-timeline,
+video.live::-webkit-media-controls-current-time-display,
+video.live::-webkit-media-controls-time-remaining-display { display: none; }
 
 .controls {
   display: flex;

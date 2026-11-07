@@ -232,5 +232,13 @@
   "guide.channels": "Sender",
   "guide.onAir": "Läuft jetzt",
   "guide.morePrograms": {"one": "1 weitere Sendung anzeigen", "other": "{count} weitere Sendungen anzeigen"},
-  "guide.noResult": "Kein Sender und keine Sendung gefunden."
+  "guide.noResult": "Kein Sender und keine Sendung gefunden.",
+  "settings.preferences": "Einstellungen",
+  "view.title": "Listendarstellung",
+  "view.note": "Auch über das Anzeigesymbol oben in der Spalte erreichbar.",
+  "view.compact": "Kompakt",
+  "view.list": "Liste",
+  "view.large": "Große Kacheln",
+  "sleep.custom": "Eigene",
+  "sleep.customTitle": "Minuten bis zum Stopp der Wiedergabe"
 }

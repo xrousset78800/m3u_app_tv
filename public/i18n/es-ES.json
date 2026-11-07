@@ -232,5 +232,13 @@
   "guide.channels": "Canales",
   "guide.onAir": "En directo",
   "guide.morePrograms": {"one": "Ver 1 programa más", "other": "Ver {count} programas más"},
-  "guide.noResult": "No se ha encontrado ningún canal ni programa."
+  "guide.noResult": "No se ha encontrado ningún canal ni programa.",
+  "settings.preferences": "Preferencias",
+  "view.title": "Presentación de las listas",
+  "view.note": "También accesible desde el icono de visualización, arriba de la columna.",
+  "view.compact": "Compacta",
+  "view.list": "Lista",
+  "view.large": "Miniaturas grandes",
+  "sleep.custom": "Personalizado",
+  "sleep.customTitle": "Minutos antes de detener la reproducción"
 }

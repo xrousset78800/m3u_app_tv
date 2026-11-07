@@ -232,5 +232,13 @@
   "guide.channels": "Channels",
   "guide.onAir": "On air",
   "guide.morePrograms": {"one": "Show 1 more program", "other": "Show {count} more programs"},
-  "guide.noResult": "No channel or program found."
+  "guide.noResult": "No channel or program found.",
+  "settings.preferences": "Preferences",
+  "view.title": "List layout",
+  "view.note": "Also available from the display icon at the top of the column.",
+  "view.compact": "Compact",
+  "view.list": "List",
+  "view.large": "Large thumbnails",
+  "sleep.custom": "Custom",
+  "sleep.customTitle": "Minutes before playback stops"
 }

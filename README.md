@@ -24,8 +24,13 @@ guide des programmes et replay, dans le navigateur.
 - Tout est à gauche du lecteur, sur deux colonnes : d'abord le menu, les chaînes ou la liste, le statut et la playlist ;
   puis la fiche (programme de la chaîne, film, épisodes), qui n'apparaît que lorsqu'il y a quelque chose à y montrer
   et se referme quand la souris rejoint la vidéo. Les longs résumés sont coupés, avec un lien « voir plus ».
-- **Langue** : le drapeau à côté de ☰ change la langue de toute l'appli (français, anglais, allemand,
-  espagnol, italien, portugais) et des fiches traduites. Au premier lancement, c'est celle du système, sinon le français.
+- **Préférences** (⚙ › Préférences) : la langue de toute l'appli (français, anglais, allemand,
+  espagnol, italien, portugais) et des fiches traduites — au premier lancement, celle du système, sinon le français —
+  et la présentation des listes.
+- **Présentation** : l'icône à côté de ☰ passe les listes en compacte, liste, ou grandes vignettes
+  (affiches des films et séries en grille, chaînes plus hautes). Retenue pour chaque compte.
+- **Mise en veille** (☾ dans le lecteur) : 15 min à 2 h, à la fin du film ou de l'épisode, ou une durée personnalisée.
+- En direct, la barre de temps du lecteur est masquée : on ne peut pas revenir en arrière (le replay la garde).
 - Les colonnes ne s'ouvrent et ne se ferment qu'avec le bouton ☰ ou la touche `L`.
 - Vrai plein écran (bouton du lecteur, touche `F` ou double-clic sur la vidéo, `Échap` pour en sortir) : les colonnes restent comme elles étaient,
   et ☰ ou `L` les ferment pour laisser tout l'écran à la vidéo.
