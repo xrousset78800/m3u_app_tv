@@ -1,7 +1,7 @@
 {
   "name": "tv",
   "productName": "TV",
-  "version": "1.0.26",
+  "version": "2.0.0",
   "private": true,
   "description": "Lecteur IPTV local pour abonnement Xtream Codes : chaînes, films, séries, guide des programmes et replay",
   "author": "xrousset78800",
