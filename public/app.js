@@ -28,6 +28,23 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
+// Données du navigateur propres à chaque compte (favoris, reprises, playlist, génériques…).
+// Le premier compte, l'administrateur, garde les clés d'avant les comptes : rien n'est perdu.
+// Le compte est retenu pour la session de la fenêtre ; en changer recharge la page.
+const profileId = (() => {
+  try {
+    return sessionStorage.getItem('profile') || '1';
+  } catch {
+    return '1';
+  }
+})();
+const scoped = (key, id = profileId) => (String(id) === '1' ? key : `p${id}:${key}`);
+const storage = {
+  getItem: (key) => localStorage.getItem(scoped(key)),
+  setItem: (key, value) => localStorage.setItem(scoped(key), value),
+  removeItem: (key) => localStorage.removeItem(scoped(key)),
+};
+
 // Les erreurs prévues du serveur arrivent aussi sous forme de clé, à traduire ici (en-tête X-Error).
 async function getJson(url, options) {
   const res = await fetch(url, options);
@@ -179,14 +196,14 @@ const formatHour = (ts) => new Date(ts * 1000).toLocaleTimeString(language, { ho
 const progress = {
   get(key) {
     try {
-      return JSON.parse(localStorage.getItem(`progress:${key}`)) || null;
+      return JSON.parse(storage.getItem(`progress:${key}`)) || null;
     } catch {
       return null;
     }
   },
   set(key, value) {
     try {
-      localStorage.setItem(`progress:${key}`, JSON.stringify(value));
+      storage.setItem(`progress:${key}`, JSON.stringify(value));
     } catch {}
   },
 };
@@ -211,6 +228,15 @@ function paintPlayingChannel() {
   });
 }
 
+// Film ou série en cours mis en évidence dans la liste, et l'épisode dans la fiche,
+// même fiche repliée ou après être passé par un autre onglet.
+function paintNowPlaying() {
+  const type = media && (media.kind === 'movie' ? 'vod' : 'series');
+  const id = media && String(media.kind === 'movie' ? media.id : media.series);
+  list.querySelectorAll('li[data-id]').forEach((li) => li.classList.toggle('now-playing', currentType === type && li.dataset.id === id));
+  document.querySelectorAll('.episodes li[data-key]').forEach((li) => li.classList.toggle('now-playing', li.dataset.key === media?.key));
+}
+
 function markPlayingTab(type) {
   playingTab = type;
   $('show-player').hidden = !type;
@@ -230,6 +256,7 @@ function stopPlayback() {
   if (hls) hls.destroy();
   hls = null;
   media = null;
+  paintNowPlaying();
   stopSubtitles();
   unfreeze();
   video.removeAttribute('src');
@@ -378,7 +405,8 @@ async function playMedia(item, start = 0) {
   showPlayer(true);
   markPlayingTab(item.kind === 'series' ? 'series' : 'vod'); // la playlist se lance depuis n'importe quel onglet
   say('player.analysing', { title: item.title });
-  const query = new URLSearchParams({ kind: item.kind, id: item.id, ext: item.ext });
+  // `series` : un compte restreint doit pouvoir montrer que l'épisode est d'une série autorisée.
+  const query = new URLSearchParams({ kind: item.kind, id: item.id, ext: item.ext, series: item.series ?? '' });
   let info;
   try {
     info = await getJson(`/api/media/probe?${query}`);
@@ -389,6 +417,7 @@ async function playMedia(item, start = 0) {
   // Piste française par défaut si elle existe.
   const french = info.audio.findIndex((a) => /^fr/i.test(a.lang) || /\bVF|fran[cç]ais|french/i.test(a.title));
   media = { ...item, duration: info.duration || 0, audio: Math.max(0, french) };
+  paintNowPlaying();
   thumbs.clear();
   audioSelect.replaceChildren(
     ...info.audio.map((a, i) =>
@@ -457,7 +486,7 @@ async function startMediaAt(start) {
   media.start = Math.max(0, Math.min(start, media.duration - 5));
   updateSeek();
   say('player.loading', { label: media.title });
-  const query = new URLSearchParams({ kind: media.kind, id: media.id, ext: media.ext, codecs: CODECS });
+  const query = new URLSearchParams({ kind: media.kind, id: media.id, ext: media.ext, series: media.series ?? '', codecs: CODECS });
   let point;
   try {
     point = await getJson(`/api/media/seek?${query}&start=${Math.floor(media.start)}&audio=${media.audio}`);
@@ -511,8 +540,8 @@ function loadDelay() {
   subtitleDelay = 0;
   subtitleSpeed = 1;
   try {
-    subtitleDelay = Number(localStorage.getItem(delayKey())) || 0;
-    if (speedUsable() && localStorage.getItem(speedKey())) subtitleSpeed = 25 / videoFps();
+    subtitleDelay = Number(storage.getItem(delayKey())) || 0;
+    if (speedUsable() && storage.getItem(speedKey())) subtitleSpeed = 25 / videoFps();
   } catch {}
   showDelay();
 }
@@ -530,8 +559,8 @@ function toggleSpeed() {
   if (!media || delayBox.hidden || !speedUsable()) return;
   subtitleSpeed = subtitleSpeed === 1 ? 25 / videoFps() : 1;
   try {
-    if (subtitleSpeed !== 1) localStorage.setItem(speedKey(), '1');
-    else localStorage.removeItem(speedKey());
+    if (subtitleSpeed !== 1) storage.setItem(speedKey(), '1');
+    else storage.removeItem(speedKey());
   } catch {}
   showDelay();
   followSubtitles(); // le serveur garde ce qu'il a déjà lu : tout revient, recalé
@@ -549,8 +578,8 @@ function shiftSubtitles(step) {
     cue.endTime += diff;
   }
   try {
-    if (next) localStorage.setItem(delayKey(), next);
-    else localStorage.removeItem(delayKey());
+    if (next) storage.setItem(delayKey(), next);
+    else storage.removeItem(delayKey());
   } catch {}
   showDelay();
 }
@@ -600,8 +629,8 @@ function fillSubtitles() {
   let saved = '';
   let choice = '';
   try {
-    saved = localStorage.getItem(SUBTITLE_KEY) || '';
-    choice = localStorage.getItem(choiceKey()) || '';
+    saved = storage.getItem(SUBTITLE_KEY) || '';
+    choice = storage.getItem(choiceKey()) || '';
   } catch {}
   subtitleSelect.replaceChildren(
     new Option(t('player.subtitlesOff'), ''),
@@ -658,7 +687,7 @@ function followSubtitles() {
   if (!media || subtitleSelect.value === '' || subtitleSelect.value === 'search') return;
   subtitleTrack.mode = 'showing';
   if (subtitleSelect.value.startsWith('os:')) return showOnlineSubtitles(subtitleSelect.value.slice(3));
-  const query = new URLSearchParams({ kind: media.kind, id: media.id, ext: media.ext, start: media.start, track: subtitleSelect.value });
+  const query = new URLSearchParams({ kind: media.kind, id: media.id, ext: media.ext, series: media.series ?? '', start: media.start, track: subtitleSelect.value });
   const feed = (subtitleFeed = { from: 0, timer: null, abort: new AbortController() });
   const poll = async () => {
     let reply = null;
@@ -688,10 +717,10 @@ subtitleSelect.addEventListener('change', () => {
   const track = media.subtitles[subtitleSelect.value];
   try {
     // Piste du fichier : sa langue vaut pour les films suivants. Piste téléchargée : pour ce film seulement.
-    if (subtitleSelect.value.startsWith('os:')) localStorage.setItem(choiceKey(), subtitleSelect.value);
+    if (subtitleSelect.value.startsWith('os:')) storage.setItem(choiceKey(), subtitleSelect.value);
     else {
-      localStorage.removeItem(choiceKey());
-      localStorage.setItem(SUBTITLE_KEY, track?.lang ?? '');
+      storage.removeItem(choiceKey());
+      storage.setItem(SUBTITLE_KEY, track?.lang ?? '');
     }
   } catch {}
   loadDelay();
@@ -792,7 +821,7 @@ async function downloadSubtitle(s) {
   media.online = [...(media.online || []).filter((o) => o.fileId !== entry.fileId), entry];
   try {
     localStorage.setItem(SEARCH_LANGUAGE_KEY, searchLanguage.value);
-    localStorage.setItem(choiceKey(), `os:${entry.fileId}`);
+    storage.setItem(choiceKey(), `os:${entry.fileId}`);
   } catch {}
   closeSubtitleSearch();
   fillSubtitles();
@@ -916,7 +945,7 @@ audioSelect.addEventListener('change', () => {
 
 const skips = (() => {
   try {
-    return JSON.parse(localStorage.getItem('skips')) || {};
+    return JSON.parse(storage.getItem('skips')) || {};
   } catch {
     return {};
   }
@@ -928,7 +957,7 @@ const skipsFor = (item) => (item?.kind === 'series' && item.series ? skips[item.
 
 function saveSkips() {
   try {
-    localStorage.setItem('skips', JSON.stringify(skips));
+    storage.setItem('skips', JSON.stringify(skips));
   } catch {}
 }
 
@@ -1020,7 +1049,7 @@ function skipCredits() {
 // Un élément y reste tant qu'il n'est pas terminé ou passé : on peut fermer l'appli et reprendre.
 const playlist = (() => {
   try {
-    return JSON.parse(localStorage.getItem('playlist')) || [];
+    return JSON.parse(storage.getItem('playlist')) || [];
   } catch {
     return [];
   }
@@ -1028,7 +1057,7 @@ const playlist = (() => {
 
 function savePlaylist() {
   try {
-    localStorage.setItem('playlist', JSON.stringify(playlist));
+    storage.setItem('playlist', JSON.stringify(playlist));
   } catch {}
   renderPlaylist();
 }
@@ -1161,7 +1190,7 @@ const playerResized = new ResizeObserver(() => {
 // n'y touche pas, et il est conservé d'une fois sur l'autre.
 let listClosed = (() => {
   try {
-    return localStorage.getItem('listClosed') === '1';
+    return storage.getItem('listClosed') === '1';
   } catch {
     return false;
   }
@@ -1179,7 +1208,7 @@ function toggleList() {
   if (currentType === 'settings' || document.body.classList.contains('no-player')) return;
   listClosed = !listClosed;
   try {
-    localStorage.setItem('listClosed', listClosed ? '1' : '0');
+    storage.setItem('listClosed', listClosed ? '1' : '0');
   } catch {}
   placeMenu();
   wakeControls();
@@ -1493,9 +1522,9 @@ async function showSeries(series) {
       ...allEpisodes.filter((e) => e.season === number).map((e) => {
         const saved = progress.get(e.item.key);
         const watched = saved && saved.position >= saved.duration * 0.95;
-        return el(
+        const li = el(
           'li',
-          { className: `${watched ? 'watched' : ''}${e === resume ? ' playing' : ''}` },
+          { className: `${watched ? 'watched' : ''}${e === resume ? ' playing' : ''}${e.item.key === media?.key ? ' now-playing' : ''}` },
           e.image && el('img', { src: e.image, loading: 'lazy', onerror: (ev) => ev.target.remove() }),
           el(
             'div',
@@ -1506,6 +1535,8 @@ async function showSeries(series) {
           ),
           el('div', { className: 'buttons' }, ...resumeButtons(e.item)),
         );
+        li.dataset.key = e.item.key;
+        return li;
       }),
     );
   }
@@ -1532,7 +1563,7 @@ const FAVORITE_STORES = { live: 'favorites', vod: 'favorites-vod', series: 'favo
 const favoriteSets = Object.fromEntries(
   Object.entries(FAVORITE_STORES).map(([type, store]) => {
     try {
-      return [type, new Set(JSON.parse(localStorage.getItem(store)))];
+      return [type, new Set(JSON.parse(storage.getItem(store)))];
     } catch {
       return [type, new Set()];
     }
@@ -1550,7 +1581,7 @@ function paintStar(star) {
 
 function saveFavorites(type) {
   try {
-    localStorage.setItem(FAVORITE_STORES[type], JSON.stringify([...favoriteSets[type]]));
+    storage.setItem(FAVORITE_STORES[type], JSON.stringify([...favoriteSets[type]]));
   } catch {}
 }
 
@@ -1825,6 +1856,7 @@ async function loadList(append = false) {
     list.scrollTop = 0;
     if (!nodes.length && favoritesOnly) list.append(noFavorite());
   }
+  paintNowPlaying();
 }
 
 const chosenCategory = {}; // par onglet : la catégorie retrouvée en y revenant
@@ -2039,7 +2071,21 @@ function selectManagedType(type) {
 // Fiches des films et séries dans la langue de l'appli (traduites par TMDB côté serveur).
 const languageParam = () => new URLSearchParams({ language });
 
+// Réglages en trois rubriques, une seule affichée à la fois ; la dernière ouverte est retenue.
+const SETTINGS_PANES = ['subscription', 'profiles', 'manage'];
+let settingsPane = SETTINGS_PANES.includes(storage.getItem('settingsPane')) ? storage.getItem('settingsPane') : 'subscription';
+
+function showPane(name) {
+  settingsPane = name;
+  storage.setItem('settingsPane', name);
+  document.querySelectorAll('#settings-menu button').forEach((b) => b.classList.toggle('active', b.dataset.pane === name));
+  document.querySelectorAll('.settings-pane').forEach((pane) => (pane.hidden = pane.dataset.pane !== name));
+  if (name === 'profiles') renderAccounts();
+  if (name === 'manage') return selectManagedType(managedType);
+}
+
 function showSettings() {
+  document.querySelectorAll('#settings-menu button').forEach((b) => (b.onclick = () => showPane(b.dataset.pane)));
   if (!$('manage-types').children.length) {
     $('manage-types').append(
       ...MANAGED_TYPES.map((type) => {
@@ -2062,8 +2108,277 @@ function showSettings() {
     $('manage-check').onclick = () => setShownGroups(false);
     $('manage-uncheck').onclick = () => setShownGroups(true);
   }
-  return selectManagedType(managedType);
+  return showPane(settingsPane);
 }
+
+// --- Comptes ----------------------------------------------------------------------
+
+let account = null; // compte en cours : { id, name, role, locked, groups }
+let accounts = []; // tous les comptes, sans leurs mots de passe
+const isAdmin = () => account?.role === 'admin';
+const ROLE_KEYS = { admin: 'profiles.roleAdmin', standard: 'profiles.roleStandard', child: 'profiles.roleChild' };
+const fold = (text) => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+const sendJson = (url, method, body) =>
+  getJson(url, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+
+// Pastille avec l'initiale, d'une couleur propre au compte.
+function avatar(profile, className = 'avatar') {
+  const node = el('span', { className, textContent: [...profile.name.trim()][0]?.toUpperCase() || '?' });
+  node.style.background = `hsl(${(profile.id * 137) % 360} 45% 38%)`;
+  return node;
+}
+
+// Les données du navigateur sont rangées par compte : la page est rechargée pour prendre les bonnes.
+function enterProfile(id) {
+  try {
+    sessionStorage.setItem('profile', id);
+  } catch {}
+  location.reload();
+}
+
+async function leaveProfile() {
+  stopPlayback();
+  await getJson('/api/profiles/leave', { method: 'POST' }).catch(() => {});
+  try {
+    sessionStorage.removeItem('profile');
+  } catch {}
+  location.reload();
+}
+
+// Écran « Qui regarde ? », à l'ouverture.
+function showProfiles(list) {
+  $('profiles').hidden = false;
+  const form = $('profile-unlock');
+  let chosen = null;
+  const enter = async (profile, password) => {
+    $('profiles-text').textContent = '';
+    try {
+      await sendJson('/api/profiles/select', 'POST', { id: profile.id, password });
+      enterProfile(profile.id);
+    } catch (err) {
+      $('profiles-text').textContent = err.message;
+      $('profile-password').select();
+    }
+  };
+  const cards = list.map((profile) => {
+    const card = el(
+      'button',
+      { type: 'button', className: 'profile-card' },
+      avatar(profile, 'avatar big'),
+      el('span', {}, profile.name),
+      profile.locked && el('small', { className: 'lock', textContent: '🔒' }),
+    );
+    card.onclick = () => {
+      if (!profile.locked) return enter(profile);
+      chosen = profile;
+      cards.forEach((c) => c.classList.toggle('active', c === card));
+      form.hidden = false;
+      $('profiles-text').textContent = '';
+      $('profile-password').value = '';
+      $('profile-password').focus();
+    };
+    return card;
+  });
+  $('profile-cards').replaceChildren(...cards);
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    if (chosen) enter(chosen, $('profile-password').value);
+  };
+}
+
+// Pastille du compte dans la barre d'onglets : un clic pour changer de compte.
+function showAccount() {
+  const button = $('profile-button');
+  button.hidden = accounts.length < 2 && !account.locked;
+  button.replaceChildren(avatar(account));
+  button.title = t('profiles.switch', { name: account.name });
+  document.querySelector('#tabs button[data-type="settings"]').hidden = !isAdmin();
+}
+$('profile-button').onclick = leaveProfile;
+
+async function loadAccounts() {
+  accounts = (await getJson('/api/profiles')).profiles;
+}
+
+// Efface les données d'un compte supprimé (ou d'un ancien compte au même numéro).
+function forgetProfileData(id) {
+  const prefix = scoped('', id);
+  if (!prefix) return;
+  try {
+    Object.keys(localStorage).filter((key) => key.startsWith(prefix)).forEach((key) => localStorage.removeItem(key));
+  } catch {}
+}
+
+function groupSummary(profile) {
+  if (!profile.groups) return t('profiles.allGroups');
+  return t('profiles.groupCount', { count: Object.values(profile.groups).reduce((sum, ids) => sum + ids.length, 0) });
+}
+
+function renderAccounts() {
+  if (!isAdmin()) return;
+  $('profile-list').replaceChildren(
+    ...accounts.map((profile) =>
+      el(
+        'li',
+        {},
+        avatar(profile),
+        el('span', { className: 'name' }, profile.name),
+        el('small', { className: 'muted' }, [
+          t(ROLE_KEYS[profile.role]),
+          profile.role !== 'admin' && groupSummary(profile),
+          profile.locked && `🔒 ${t('profiles.locked')}`,
+          profile.id === account.id && t('profiles.current'),
+        ].filter(Boolean).join(' · ')),
+        el('button', { className: 'secondary', textContent: t('profiles.edit'), onclick: () => editProfile(profile) }),
+        profile.id !== account.id && el('button', { className: 'secondary', textContent: t('profiles.delete'), onclick: () => deleteProfile(profile) }),
+      ),
+    ),
+  );
+}
+
+async function deleteProfile(profile) {
+  if (!confirm(t('profiles.deleteConfirm', { name: profile.name }))) return;
+  try {
+    await sendJson(`/api/profiles/${profile.id}`, 'DELETE');
+  } catch (err) {
+    return alert(err.message);
+  }
+  forgetProfileData(profile.id);
+  await loadAccounts();
+  renderAccounts();
+  showAccount();
+}
+
+// Éditeur d'un compte : nom, type, mot de passe et groupes visibles.
+const editor = { profile: null, groups: {}, type: 'live', categories: {} };
+
+async function editProfile(profile) {
+  editor.profile = profile; // null : nouveau compte
+  editor.categories = {};
+  editor.groups = Object.fromEntries(MANAGED_TYPES.map((type) => [type, new Set(profile?.groups?.[type] ?? [])]));
+  $('profile-editor-title').textContent = profile ? t('profiles.editTitle', { name: profile.name }) : t('profiles.addTitle');
+  $('profile-name').value = profile?.name ?? '';
+  $('profile-role').value = profile?.role ?? 'child';
+  $('profile-new-password').value = '';
+  $('profile-new-password').dataset.i18nPlaceholder = profile?.locked ? 'profiles.passwordKeep' : 'profiles.passwordNone';
+  $('profile-new-password').placeholder = t($('profile-new-password').dataset.i18nPlaceholder);
+  $('profile-no-password').checked = false;
+  $('profile-no-password-row').hidden = !profile?.locked;
+  $('profile-all-groups').checked = profile ? !profile.groups : false;
+  $('profile-group-search').value = '';
+  $('profile-error').textContent = '';
+  $('profile-editor').hidden = false;
+  paintRole();
+  $('profile-name').focus();
+  await pickGroupType('live');
+}
+
+function paintRole() {
+  const role = $('profile-role').value;
+  $('profile-role-note').textContent = t(`profiles.note${role[0].toUpperCase()}${role.slice(1)}`);
+  $('profile-groups').hidden = role === 'admin';
+  $('profile-group-picker').hidden = $('profile-all-groups').checked;
+  paintGroupCount();
+}
+
+function paintGroupCount() {
+  const count = Object.values(editor.groups).reduce((sum, set) => sum + set.size, 0);
+  $('profile-group-count').textContent = t('profiles.groupCount', { count });
+}
+
+async function pickGroupType(type) {
+  editor.type = type;
+  if (!$('profile-types').children.length) {
+    $('profile-types').append(
+      ...MANAGED_TYPES.map((value) => {
+        const button = el('button', { type: 'button', className: 'secondary', onclick: () => pickGroupType(value) });
+        button.dataset.type = value;
+        button.dataset.i18n = `tabs.${value}`;
+        button.textContent = t(button.dataset.i18n);
+        return button;
+      }),
+    );
+  }
+  $('profile-types').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
+  try {
+    editor.categories[type] ??= await getJson(`/api/manage/categories?type=${type}`);
+  } catch (err) {
+    $('profile-error').textContent = err.message;
+    editor.categories[type] = [];
+  }
+  if (editor.type === type) renderGroupChoices();
+}
+
+const shownGroupChoices = () => {
+  const q = fold($('profile-group-search').value.trim());
+  return (editor.categories[editor.type] || []).filter((c) => !q || fold(c.name).includes(q));
+};
+
+function renderGroupChoices() {
+  const chosen = editor.groups[editor.type];
+  $('profile-group-list').replaceChildren(
+    ...shownGroupChoices().map((c) => {
+      const box = el('input', { type: 'checkbox', checked: chosen.has(c.id) });
+      const li = el('li', { className: c.hidden ? 'removed' : '' }, box, el('span', {}, c.name), el('small', { className: 'muted' }, String(c.total)));
+      li.onclick = (event) => {
+        if (event.target !== box) box.checked = !box.checked;
+        if (box.checked) chosen.add(c.id);
+        else chosen.delete(c.id);
+        paintGroupCount();
+      };
+      return li;
+    }),
+  );
+  paintGroupCount();
+}
+
+function closeEditor() {
+  $('profile-editor').hidden = true;
+}
+
+$('profile-add').onclick = () => editProfile(null);
+$('profile-role').onchange = () => {
+  // Nouveau compte : un enfant part de rien, un compte standard de tout.
+  if (!editor.profile) $('profile-all-groups').checked = $('profile-role').value === 'standard';
+  paintRole();
+};
+$('profile-all-groups').onchange = paintRole;
+$('profile-group-search').oninput = renderGroupChoices;
+for (const [id, on] of [['profile-check', true], ['profile-uncheck', false]]) {
+  $(id).onclick = () => {
+    const chosen = editor.groups[editor.type];
+    shownGroupChoices().forEach((c) => (on ? chosen.add(c.id) : chosen.delete(c.id)));
+    renderGroupChoices();
+  };
+}
+$('profile-editor').querySelector('.close').onclick = closeEditor;
+$('profile-cancel').onclick = closeEditor;
+$('profile-editor').addEventListener('mousedown', (event) => event.target === $('profile-editor') && closeEditor());
+document.addEventListener('keydown', (event) => event.key === 'Escape' && !$('profile-editor').hidden && closeEditor());
+
+$('profile-form').onsubmit = async (event) => {
+  event.preventDefault();
+  const role = $('profile-role').value;
+  const body = { name: $('profile-name').value.trim(), role };
+  const password = $('profile-new-password').value;
+  if (password) body.password = password;
+  else if ($('profile-no-password').checked) body.password = '';
+  if (role !== 'admin') {
+    body.groups = $('profile-all-groups').checked ? null : Object.fromEntries(MANAGED_TYPES.map((type) => [type, [...editor.groups[type]]]));
+  }
+  try {
+    if (editor.profile) await sendJson(`/api/profiles/${editor.profile.id}`, 'PUT', body);
+    else forgetProfileData((await sendJson('/api/profiles', 'POST', body)).id);
+  } catch (err) {
+    $('profile-error').textContent = err.message;
+    return;
+  }
+  closeEditor();
+  if (editor.profile?.id === account.id) return location.reload(); // ses propres droits ont pu changer
+  await loadAccounts();
+  renderAccounts();
+  showAccount();
+};
 
 // --- Démarrage et import -----------------------------------------------------------
 
@@ -2072,13 +2387,16 @@ let syncStatus = null; // dernier état connu, réaffiché si la langue change
 function showSyncInfo(status) {
   syncStatus = status;
   const format = (date) => new Date(date).toLocaleString(language, { dateStyle: 'short', timeStyle: 'short' });
-  $('sync-info').textContent = status.syncedAt
-    ? [
-        `${status.account?.username} @ ${status.account?.server}`,
-        t('settings.catalogueOf', { date: format(status.syncedAt) }),
-        status.epgSyncedAt && t('settings.guideOf', { date: format(status.epgSyncedAt) }),
-      ].filter(Boolean).join(' · ')
-    : '';
+  const counts = MANAGED_TYPES.filter((type) => status.counts?.[type])
+    .map((type) => t(`settings.count.${type}`, { count: status.counts[type] })).join(' · ');
+  const rows = status.syncedAt ? [
+    ['settings.user', status.account?.username],
+    ['settings.server', status.account?.server],
+    ['settings.catalogue', `${format(status.syncedAt)}${counts ? ` — ${counts}` : ''}`],
+    ['settings.guide', status.epgSyncedAt && format(status.epgSyncedAt)],
+  ] : [];
+  $('sync-info').replaceChildren(...rows.filter(([, value]) => value)
+    .flatMap(([key, value]) => [el('dt', {}, t(key)), el('dd', {}, value)]));
   $('sync').hidden = $('logout').hidden = !status.syncedAt;
   $('tmdb-note').hidden = !status.tmdb; // attribution demandée par TMDB
   onlineSubtitles = false; // recherche OpenSubtitles mise de côté pour l'instant (status.opensubtitles)
@@ -2090,6 +2408,8 @@ async function refreshTexts() {
   renderPlaylist();
   document.querySelectorAll('.star').forEach(paintStar);
   if (syncStatus) showSyncInfo(syncStatus);
+  if (account) showAccount();
+  if (!$('profile-editor').hidden) paintRole();
   if ($('app').hidden) return;
   labelCategories(categorySelect);
   labelCategories($('guide-category'));
@@ -2100,7 +2420,10 @@ async function refreshTexts() {
     showDelay();
   }
   const ficheClosed = document.body.classList.contains('fiche-closed');
-  if (currentType === 'settings') await renderManagedItems();
+  if (currentType === 'settings') {
+    renderAccounts();
+    if (settingsPane === 'manage') await renderManagedItems();
+  }
   else if (currentType === 'live') await renderGuide({ refresh: true });
   else list.querySelector('.empty')?.replaceWith(noFavorite());
   await shownFiche?.();
@@ -2142,16 +2465,27 @@ async function startApp() {
 
 async function init() {
   await loadLanguage(initialLanguage());
+  const { current, profiles } = await getJson('/api/profiles');
+  accounts = profiles;
+  if (!current) return showProfiles(profiles);
+  // Compte choisi d'office (un seul, sans mot de passe) ou autre que celui de la page : on recharge.
+  if (String(current.id) !== profileId) {
+    enterProfile(current.id);
+    return new Promise(() => {}); // l'écran de chargement reste jusqu'au rechargement
+  }
+  account = current;
+  showAccount();
   say('player.idle');
   renderPlaylist();
   const status = await getJson('/api/status');
   showSyncInfo(status);
   $('sync').onclick = async () => {
+    $('sync-error').textContent = '';
     try {
       await runImport($('sync'));
       await selectType(currentType);
     } catch (err) {
-      $('sync-info').textContent = t('settings.syncFailed', { error: err.message });
+      $('sync-error').textContent = t('settings.syncFailed', { error: err.message });
     }
   };
 
@@ -2164,11 +2498,12 @@ async function init() {
       savePlaylist();
       location.reload();
     } catch (err) {
-      $('sync-info').textContent = t('settings.logoutFailed', { error: err.message });
+      $('sync-error').textContent = t('settings.logoutFailed', { error: err.message });
     }
   };
 
   if (Object.keys(status.counts).length) return startApp();
+  if (!isAdmin()) throw new Error(t('profiles.noCatalog'));
 
   showOnboarding();
 }

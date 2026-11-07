@@ -40,36 +40,62 @@
     <p id="onboarding-text"></p>
   </section>
 
+  <!-- Choix du compte à l'ouverture, s'il y en a plusieurs ou si le seul a un mot de passe. -->
+  <section id="profiles" hidden>
+    <h1 data-i18n="profiles.who">Qui regarde ?</h1>
+    <div id="profile-cards"></div>
+    <form id="profile-unlock" hidden>
+      <input id="profile-password" type="password" data-i18n-placeholder="profiles.password" placeholder="Mot de passe" autocomplete="current-password">
+      <button data-i18n="profiles.enter">Entrer</button>
+    </form>
+    <p id="profiles-text" class="error"></p>
+  </section>
+
   <div id="app" hidden>
     <section id="settings" hidden>
       <div class="guide-bar"></div>
       <div id="settings-content">
-        <h2 data-i18n="settings.account">Compte</h2>
-        <div class="account">
-          <span id="sync-info"></span>
-          <button id="sync" class="secondary" data-i18n="settings.sync">Mettre à jour le catalogue</button>
-          <button id="logout" class="secondary" data-i18n="settings.logout" data-i18n-title="settings.logoutTitle" title="Vider le catalogue et oublier les identifiants">Se déconnecter</button>
-        </div>
-        <p id="tmdb-note" class="muted" data-i18n="settings.tmdb" hidden></p>
+        <nav id="settings-menu">
+          <button data-pane="subscription" data-i18n="settings.subscription">Abonnement</button>
+          <button data-pane="profiles" data-i18n="profiles.title">Comptes</button>
+          <button data-pane="manage" data-i18n="settings.manage">Chaînes et groupes</button>
+        </nav>
 
-        <h2 data-i18n="settings.manage">Chaînes et groupes</h2>
-        <p id="manage-note" class="muted" data-i18n="settings.manageNote">
-          Décoche ce que tu ne veux plus voir (Maj + clic pour toute une plage). Rien n'est définitif : il suffit de recocher, et tes choix sont conservés quand le catalogue est mis à jour.
-        </p>
-        <div id="manage-types" class="days"></div>
-        <div class="manage">
-          <div class="manage-column">
-            <input id="manage-group-search" type="search" data-i18n-placeholder="settings.groupFilter" placeholder="Filtrer les groupes…">
-            <div class="buttons">
-              <button id="manage-check" class="secondary" data-i18n="settings.checkAll">Tout cocher</button>
-              <button id="manage-uncheck" class="secondary" data-i18n="settings.uncheckAll">Tout décocher</button>
-            </div>
-            <ul id="manage-groups"></ul>
+        <div class="settings-pane" data-pane="subscription" hidden>
+          <dl id="sync-info"></dl>
+          <div class="account">
+            <button id="sync" class="secondary" data-i18n="settings.sync">Mettre à jour le catalogue</button>
+            <button id="logout" class="secondary" data-i18n="settings.logout" data-i18n-title="settings.logoutTitle" title="Vider le catalogue et oublier les identifiants">Se déconnecter</button>
           </div>
-          <div class="manage-column">
-            <input id="manage-search" type="search" data-i18n-placeholder="settings.searchAll" placeholder="Rechercher dans tout le catalogue…">
-            <ul id="manage-items"></ul>
-            <button id="manage-more" class="secondary" data-i18n="list.more" hidden>Afficher plus</button>
+          <p id="sync-error" class="error"></p>
+          <p id="tmdb-note" class="muted small" data-i18n="settings.tmdb" hidden></p>
+        </div>
+
+        <div class="settings-pane" data-pane="profiles" hidden>
+          <ul id="profile-list"></ul>
+          <div><button id="profile-add" class="secondary" data-i18n="profiles.add">+ Ajouter un compte</button></div>
+          <p class="muted small" data-i18n="profiles.note">Chaque compte a ses favoris, ses reprises et sa playlist.</p>
+        </div>
+
+        <div class="settings-pane" data-pane="manage" hidden>
+          <p id="manage-note" class="muted small" data-i18n="settings.manageNote">
+            Décoche ce que tu ne veux plus voir (Maj + clic pour toute une plage). Rien n'est définitif : il suffit de recocher, et tes choix sont conservés quand le catalogue est mis à jour.
+          </p>
+          <div id="manage-types" class="days"></div>
+          <div class="manage">
+            <div class="manage-column">
+              <input id="manage-group-search" type="search" data-i18n-placeholder="settings.groupFilter" placeholder="Filtrer les groupes…">
+              <div class="buttons">
+                <button id="manage-check" class="secondary" data-i18n="settings.checkAll">Tout cocher</button>
+                <button id="manage-uncheck" class="secondary" data-i18n="settings.uncheckAll">Tout décocher</button>
+              </div>
+              <ul id="manage-groups"></ul>
+            </div>
+            <div class="manage-column">
+              <input id="manage-search" type="search" data-i18n-placeholder="settings.searchAll" placeholder="Rechercher dans tout le catalogue…">
+              <ul id="manage-items"></ul>
+              <button id="manage-more" class="secondary" data-i18n="list.more" hidden>Afficher plus</button>
+            </div>
           </div>
         </div>
       </div>
@@ -82,6 +108,7 @@
         <button data-type="vod" data-i18n="tabs.vod">Films</button>
         <button data-type="series" data-i18n="tabs.series">Séries</button>
         <span class="spacer"></span>
+        <button id="profile-button" hidden></button>
         <button id="show-player" data-i18n-title="player.show" title="Revenir au lecteur" hidden>+</button>
         <div id="language-picker">
           <button id="language-button" data-i18n-title="language.choose" title="Langue de l'appli" aria-haspopup="listbox"><img alt=""></button>
@@ -190,6 +217,49 @@
       <ul class="results"></ul>
       <p class="credit muted" data-i18n="subtitles.credit">Sous-titres fournis par OpenSubtitles.com</p>
     </div>
+  </div>
+
+  <!-- Création ou modification d'un compte (réglages, administrateur). -->
+  <div id="profile-editor" hidden>
+    <form id="profile-form" class="panel" role="dialog" aria-labelledby="profile-editor-title">
+      <div class="head">
+        <h2 id="profile-editor-title"></h2>
+        <button type="button" class="secondary close" data-i18n-title="subtitles.close" title="Fermer">✕</button>
+      </div>
+      <div class="profile-fields">
+        <label><span data-i18n="profiles.name">Nom</span><input id="profile-name" maxlength="40" required></label>
+        <label><span data-i18n="profiles.role">Type</span>
+          <select id="profile-role">
+            <option value="admin" data-i18n="profiles.roleAdmin">Administrateur</option>
+            <option value="standard" data-i18n="profiles.roleStandard">Standard</option>
+            <option value="child" data-i18n="profiles.roleChild">Enfant</option>
+          </select>
+        </label>
+        <label><span data-i18n="profiles.password">Mot de passe</span><input id="profile-new-password" type="password" autocomplete="new-password"></label>
+      </div>
+      <label id="profile-no-password-row" class="profile-switch"><input type="checkbox" id="profile-no-password"> <span data-i18n="profiles.removePassword">Retirer le mot de passe</span></label>
+      <p id="profile-role-note" class="muted"></p>
+      <div id="profile-groups">
+        <label class="profile-switch"><input type="checkbox" id="profile-all-groups"> <span data-i18n="profiles.allGroups">Tous les groupes</span></label>
+        <div id="profile-group-picker" class="manage">
+          <div class="manage-column">
+            <div id="profile-types" class="days"></div>
+            <div class="buttons">
+              <input id="profile-group-search" type="search" data-i18n-placeholder="settings.groupFilter" placeholder="Filtrer les groupes…">
+              <button type="button" id="profile-check" class="secondary" data-i18n="settings.checkAll">Tout cocher</button>
+              <button type="button" id="profile-uncheck" class="secondary" data-i18n="settings.uncheckAll">Tout décocher</button>
+            </div>
+            <ul id="profile-group-list"></ul>
+            <p id="profile-group-count" class="muted"></p>
+          </div>
+        </div>
+      </div>
+      <p id="profile-error" class="error"></p>
+      <div class="buttons end">
+        <button type="button" id="profile-cancel" class="secondary" data-i18n="profiles.cancel">Annuler</button>
+        <button id="profile-save" data-i18n="profiles.save">Enregistrer</button>
+      </div>
+    </form>
   </div>
 
   <!-- Colonne masquée : une erreur de lecture doit se voir quand même. -->

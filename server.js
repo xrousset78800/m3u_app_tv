@@ -9,6 +9,7 @@ const hls = require('./lib/hls');
 const media = require('./lib/media');
 const tmdb = require('./lib/tmdb');
 const opensubtitles = require('./lib/opensubtitles');
+const profiles = require('./lib/profiles');
 
 tmdb.useStore(db.tmdbCache);
 
@@ -210,6 +211,34 @@ function mediaUrl(params) {
   return xtream.urls.media(kind, id, ext);
 }
 
+// --- Comptes : ce qu'un compte restreint peut voir ----------------------------------
+
+// Groupes autorisés pour ce type ; undefined pour un compte qui voit tout.
+const groupsFor = (profile, type) => (profile.groups ? profile.groups[type] ?? [] : undefined);
+const notAllowed = () => Object.assign(new Error('Non autorisé'), { status: 403, key: 'notAllowed' });
+
+function allow(profile, type, id) {
+  const groups = groupsFor(profile, type);
+  if (groups && !db.itemAllowed(type, id, groups)) throw notAllowed();
+}
+
+// Épisode : il doit appartenir à une série autorisée. Ceux des fiches déjà ouvertes sont connus ;
+// sinon (reprise depuis la playlist), la liste des épisodes de la série est redemandée.
+async function allowMedia(profile, params) {
+  if (!profile.groups) return;
+  const id = String(params.get('id'));
+  if (params.get('kind') === 'movie') return allow(profile, 'vod', id);
+  const { episodes } = profile.session;
+  if (episodes.has(id)) return;
+  const series = params.get('series') || '';
+  if (/^\d+$/.test(series)) {
+    allow(profile, 'series', series);
+    const info = await xtream.api('get_series_info', { series_id: series });
+    for (const list of Object.values(info.episodes || {})) for (const e of list) episodes.add(String(e.id));
+  }
+  if (!episodes.has(id)) throw notAllowed();
+}
+
 // Liste d'identifiants (les favoris), absente si le paramètre n'est pas fourni.
 function idsParam(params) {
   return params.has('ids') ? params.get('ids').split(',').filter((id) => /^\d+$/.test(id)) : undefined;
@@ -219,16 +248,50 @@ function codecsParam(params) {
   return (params.get('codecs') || '').split(',');
 }
 
+// Accès (4e élément) : 'public' sans compte choisi, 'admin' pour l'administrateur ; sinon tout compte.
 const routes = [
-  ['GET', /^\/api\/status$/, (req, res) => sendJson(res, { ...db.status(), tmdb: tmdb.enabled(), opensubtitles: opensubtitles.enabled(), languages: tmdb.LANGUAGES })],
+  // Compte en cours et écran de choix. Un seul compte, sans mot de passe : il est choisi d'office.
+  ['GET', /^\/api\/profiles$/, (req, res, { profile }) => {
+    let current = profile && { id: profile.id, name: profile.name, role: profile.role, locked: profile.locked, groups: profile.groups };
+    const automatic = !profile && profiles.automatic();
+    if (automatic) {
+      res.setHeader('Set-Cookie', profiles.open(automatic));
+      current = { id: automatic.id, name: automatic.name, role: automatic.role, locked: false, groups: automatic.groups };
+    }
+    sendJson(res, { current, profiles: profiles.list() });
+  }, 'public'],
+  ['POST', /^\/api\/profiles\/select$/, async (req, res) => {
+    const { id, password } = await readJson(req);
+    res.setHeader('Set-Cookie', await profiles.select(id, password));
+    sendJson(res, { ok: true });
+  }, 'public'],
+  ['POST', /^\/api\/profiles\/leave$/, (req, res) => {
+    res.setHeader('Set-Cookie', profiles.close(req));
+    sendJson(res, { ok: true });
+  }, 'public'],
+  ['POST', /^\/api\/profiles$/, async (req, res) => sendJson(res, { id: profiles.create(await readJson(req)) }), 'admin'],
+  ['PUT', /^\/api\/profiles\/(\d+)$/, async (req, res, { match }) => {
+    profiles.update(Number(match[1]), await readJson(req));
+    sendJson(res, { ok: true });
+  }, 'admin'],
+  ['DELETE', /^\/api\/profiles\/(\d+)$/, (req, res, { match, profile }) => {
+    profiles.remove(Number(match[1]), profile.id);
+    sendJson(res, { ok: true });
+  }, 'admin'],
+  // Identifiants du fournisseur : pour l'administrateur seulement.
+  ['GET', /^\/api\/status$/, (req, res, { profile }) => {
+    const status = { ...db.status(), tmdb: tmdb.enabled(), opensubtitles: opensubtitles.enabled(), languages: tmdb.LANGUAGES };
+    if (profile.role !== 'admin') delete status.account;
+    sendJson(res, status);
+  }],
   ['POST', /^\/api\/login$/, async (req, res) => {
     await xtream.login(await readJson(req));
     sendJson(res, db.status());
-  }],
+  }, 'admin'],
   ['POST', /^\/api\/sync$/, async (req, res) => {
     await db.sync();
     sendJson(res, db.status());
-  }],
+  }, 'admin'],
   ['POST', /^\/api\/logout$/, async (req, res) => {
     await media.stopActive();
     db.reset();
@@ -236,27 +299,27 @@ const routes = [
     hls.reset();
     epgCache.clear();
     sendJson(res, db.status());
-  }],
-  ['GET', /^\/api\/categories$/, (req, res, { params }) => {
+  }, 'admin'],
+  ['GET', /^\/api\/categories$/, (req, res, { params, profile }) => {
     const type = params.get('type');
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
-    sendJson(res, db.categories(type));
+    sendJson(res, db.categories(type, groupsFor(profile, type)));
   }],
-  ['GET', /^\/api\/list$/, (req, res, { params }) => {
+  ['GET', /^\/api\/list$/, (req, res, { params, profile }) => {
     const type = params.get('type');
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
-    sendJson(res, db.list({ type, category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset') }));
+    sendJson(res, db.list({ type, category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), groups: groupsFor(profile, type) }));
   }],
   ['GET', /^\/api\/manage\/categories$/, (req, res, { params }) => {
     const type = params.get('type');
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
     sendJson(res, db.manageCategories(type));
-  }],
+  }, 'admin'],
   ['GET', /^\/api\/manage\/items$/, (req, res, { params }) => {
     const type = params.get('type');
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
     sendJson(res, db.list({ type, category: params.get('category'), q: params.get('q'), offset: params.get('offset'), includeHidden: true }));
-  }],
+  }, 'admin'],
   ['POST', /^\/api\/hidden$/, async (req, res) => {
     const { type, kind, ids, hidden } = await readJson(req);
     if (!TYPES.includes(type) || !['category', 'item'].includes(kind) || !Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) {
@@ -264,21 +327,37 @@ const routes = [
     }
     db.setHidden({ type, kind, ids, hidden: Boolean(hidden) });
     sendJson(res, { ok: true });
-  }],
-  ['GET', /^\/api\/guide$/, (req, res, { params }) => {
+  }, 'admin'],
+  ['GET', /^\/api\/guide$/, (req, res, { params, profile }) => {
     const at = Number(params.get('at')) || Math.floor(Date.now() / 1000);
-    sendJson(res, db.guide({ category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), at, evening: Number(params.get('evening')) || null }));
+    sendJson(res, db.guide({ category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), at, evening: Number(params.get('evening')) || null, groups: groupsFor(profile, 'live') }));
   }],
-  ['GET', /^\/api\/vod\/(\d+)$/, async (req, res, { match, params }) => sendJson(res, await vodInfo(match[1], params.get('language')))],
-  ['GET', /^\/api\/series\/(\d+)$/, async (req, res, { match, params }) => sendJson(res, await seriesInfo(match[1], params.get('language')))],
-  ['GET', /^\/api\/epg\/(\d+)$/, async (req, res, { match }) => sendJson(res, await epg(match[1]))],
-  ['GET', /^\/api\/media\/probe$/, async (req, res, { params }) => sendJson(res, await media.probe(mediaUrl(params)))],
-  ['GET', /^\/api\/media\/seek$/, async (req, res, { params }) => {
+  ['GET', /^\/api\/vod\/(\d+)$/, async (req, res, { match, params, profile }) => {
+    allow(profile, 'vod', match[1]);
+    sendJson(res, await vodInfo(match[1], params.get('language')));
+  }],
+  ['GET', /^\/api\/series\/(\d+)$/, async (req, res, { match, params, profile }) => {
+    allow(profile, 'series', match[1]);
+    const info = await seriesInfo(match[1], params.get('language'));
+    for (const season of info.seasons) for (const e of season.episodes) profile.session.episodes.add(String(e.id));
+    sendJson(res, info);
+  }],
+  ['GET', /^\/api\/epg\/(\d+)$/, async (req, res, { match, profile }) => {
+    allow(profile, 'live', match[1]);
+    sendJson(res, await epg(match[1]));
+  }],
+  ['GET', /^\/api\/media\/probe$/, async (req, res, { params, profile }) => {
+    await allowMedia(profile, params);
+    sendJson(res, await media.probe(mediaUrl(params)));
+  }],
+  ['GET', /^\/api\/media\/seek$/, async (req, res, { params, profile }) => {
+    await allowMedia(profile, params);
     const start = Math.max(0, Number(params.get('start')) || 0);
     const audio = Math.max(0, parseInt(params.get('audio'), 10) || 0);
     sendJson(res, { start: await media.seekPoint(mediaUrl(params), start, { audio, codecs: codecsParam(params) }) });
   }],
-  ['GET', /^\/api\/media\/subtitles$/, async (req, res, { params }) => {
+  ['GET', /^\/api\/media\/subtitles$/, async (req, res, { params, profile }) => {
+    await allowMedia(profile, params);
     sendJson(res, await media.subtitles(
       mediaUrl(params),
       Math.max(0, Number(params.get('start')) || 0),
@@ -296,18 +375,21 @@ const routes = [
   }],
   ['GET', /^\/api\/subtitles\/search$/, async (req, res, { params }) => sendJson(res, await searchSubtitles(params))],
   ['POST', /^\/api\/subtitles\/download$/, async (req, res) => sendJson(res, await downloadSubtitle(await readJson(req)))],
-  ['GET', /^\/media\/stream$/, async (req, res, { params }) => {
+  ['GET', /^\/media\/stream$/, async (req, res, { params, profile }) => {
+    await allowMedia(profile, params);
     await media.stream(res, mediaUrl(params), {
       start: Math.max(0, Number(params.get('start')) || 0),
       audio: Math.max(0, parseInt(params.get('audio'), 10) || 0),
       codecs: codecsParam(params),
     });
   }],
-  ['GET', /^\/live\/(\d+)\.m3u8$/, async (req, res, { match }) => {
+  ['GET', /^\/live\/(\d+)\.m3u8$/, async (req, res, { match, profile }) => {
+    allow(profile, 'live', match[1]);
     await media.stopActive();
     await hls.servePlaylist(res, `live ${match[1]}`, xtream.urls.live(match[1]));
   }],
-  ['GET', /^\/replay\/(\d+)\.m3u8$/, async (req, res, { match, params }) => {
+  ['GET', /^\/replay\/(\d+)\.m3u8$/, async (req, res, { match, params, profile }) => {
+    allow(profile, 'live', match[1]);
     const start = params.get('start') || '';
     const minutes = parseInt(params.get('minutes'), 10);
     if (!/^\d{4}-\d{2}-\d{2}:\d{2}-\d{2}$/.test(start) || !(minutes > 0)) return sendText(res, 400, 'Paramètres invalides');
@@ -318,15 +400,19 @@ const routes = [
   ['GET', /^\/vendor\/hls\.min\.js$/, (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/javascript' });
     fs.createReadStream(require.resolve('hls.js/dist/hls.min.js')).pipe(res);
-  }],
+  }, 'public'],
 ];
 
 const server = http.createServer(async (req, res) => {
   const { pathname, searchParams: params } = new URL(req.url, `http://${req.headers.host}`);
   try {
-    for (const [method, pattern, handler] of routes) {
+    for (const [method, pattern, handler, access] of routes) {
       const match = pathname.match(pattern);
-      if (match && req.method === method) return await handler(req, res, { match, params });
+      if (!match || req.method !== method) continue;
+      const profile = profiles.fromRequest(req);
+      if (access !== 'public' && !profile) return sendText(res, 401, 'Aucun compte choisi', { key: 'noProfile' });
+      if (access === 'admin' && profile.role !== 'admin') return sendText(res, 403, "Réservé à l'administrateur", { key: 'adminOnly' });
+      return await handler(req, res, { match, params, profile });
     }
     if (req.method === 'GET') return serveStatic(res, decodeURIComponent(pathname));
     sendText(res, 404, 'Introuvable');
