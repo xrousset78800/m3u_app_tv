@@ -213,6 +213,7 @@ function paintPlayingChannel() {
 
 function markPlayingTab(type) {
   playingTab = type;
+  $('show-player').hidden = !type;
   const icon = video.paused ? '❚❚' : '▶';
   document.querySelectorAll('#tabs button').forEach((b) => {
     if (b.dataset.type === type) b.dataset.playing = icon;
@@ -235,8 +236,97 @@ function stopPlayback() {
   video.load();
   video.classList.remove('media');
   $('seek').hidden = true;
+  showSkipButton();
   renderPlaylist();
 }
+
+// Sans lecteur (au lancement, ou fermé par ✕), la colonne prend sa place : la grille s'élargit
+// et montre la suite et la soirée. La fiche garde la sienne, à droite.
+function showPlayer(shown) {
+  if (document.body.classList.contains('no-player') !== shown) return;
+  document.body.classList.toggle('no-player', !shown);
+  placeMenu();
+  if (!$('guide').hidden) renderGuide({ refresh: true });
+}
+
+function closePlayer() {
+  if (isFullscreen()) leaveFullscreen();
+  cancelSleep();
+  stopPlayback();
+  say('player.idle');
+  showPlayer(false);
+}
+$('close-player').addEventListener('click', closePlayer);
+
+// Mise en veille : le lecteur se ferme au bout du temps choisi, ou à la fin du film ou de l'épisode.
+// Elle survit aux changements de chaîne ; seul ✕ (ou « Désactivée ») l'annule.
+const SLEEP_CHOICES = [15, 30, 45, 60, 90, 120];
+const sleepButton = $('sleep-button');
+const sleepMenu = $('sleep-menu');
+let sleepAt = null; // heure d'arrêt (ms), ou 'end'
+let sleepTimer;
+
+function cancelSleep() {
+  sleepAt = null;
+  clearInterval(sleepTimer);
+  paintSleep();
+}
+
+function setSleep(choice) {
+  clearInterval(sleepTimer);
+  sleepAt = choice === 'end' ? 'end' : choice ? Date.now() + choice * 60000 : null;
+  if (typeof sleepAt === 'number') sleepTimer = setInterval(tickSleep, 5000);
+  sleepMenu.hidden = true;
+  paintSleep();
+}
+
+function tickSleep() {
+  if (typeof sleepAt !== 'number') return;
+  if (Date.now() >= sleepAt) return sleepNow();
+  paintSleep();
+}
+
+function sleepNow() {
+  closePlayer();
+  say('sleep.done');
+}
+
+function paintSleep() {
+  const minutes = typeof sleepAt === 'number' ? Math.max(1, Math.ceil((sleepAt - Date.now()) / 60000)) : null;
+  sleepButton.classList.toggle('on', Boolean(sleepAt));
+  sleepButton.querySelector('small').textContent = minutes ?? (sleepAt === 'end' ? '⏹' : '');
+  sleepButton.title = minutes ? t('sleep.left', { count: minutes }) : sleepAt === 'end' ? t('sleep.end') : t('sleep.title');
+}
+
+function openSleepMenu() {
+  const choice = (label, value, active) =>
+    el('button', { className: active ? 'active' : '', textContent: label, onclick: (e) => { e.stopPropagation(); setSleep(value); } });
+  sleepMenu.replaceChildren(
+    choice(t('sleep.off'), null, !sleepAt),
+    ...SLEEP_CHOICES.map((m) => choice(t('sleep.minutes', { count: m }), m, false)),
+    ...(media ? [choice(t('sleep.end'), 'end', sleepAt === 'end')] : []),
+  );
+  sleepMenu.hidden = false;
+}
+
+sleepButton.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (sleepMenu.hidden) openSleepMenu();
+  else sleepMenu.hidden = true;
+});
+document.addEventListener('click', (e) => {
+  if (!sleepMenu.hidden && !sleepMenu.contains(e.target)) sleepMenu.hidden = true;
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !sleepMenu.hidden) sleepMenu.hidden = true;
+});
+
+// Masqué, le lecteur continue : on écoute en parcourant la grille large, et on y revient d'un clic.
+$('hide-player').addEventListener('click', () => {
+  if (isFullscreen()) leaveFullscreen();
+  showPlayer(false);
+});
+$('show-player').addEventListener('click', () => showPlayer(true));
 
 // Le serveur répond 502 pour tout problème côté fournisseur : le vrai motif est dans sa réponse.
 function hlsErrorText(data) {
@@ -251,6 +341,7 @@ const HLS_RETRIES = 3;
 // Direct et replay : HLS via le proxy du serveur.
 function playHls(src, label) {
   stopPlayback();
+  showPlayer(true);
   markPlayingTab('live');
   playingChannel = src.match(/(\d+)\.m3u8/)?.[1] ?? null;
   paintPlayingChannel();
@@ -284,6 +375,7 @@ function playHls(src, label) {
 // Films et épisodes : MP4 produit par ffmpeg, relancé à chaque déplacement.
 async function playMedia(item, start = 0) {
   stopPlayback();
+  showPlayer(true);
   markPlayingTab(item.kind === 'series' ? 'series' : 'vod'); // la playlist se lance depuis n'importe quel onglet
   say('player.analysing', { title: item.title });
   const query = new URLSearchParams({ kind: item.kind, id: item.id, ext: item.ext });
@@ -317,6 +409,13 @@ async function playMedia(item, start = 0) {
   $('seek').hidden = false;
   video.classList.add('media');
   renderPlaylist();
+  showSkipButton();
+  // Reprise au milieu du générique de début : on part directement après.
+  const skip = skipsFor(media);
+  if (skip?.intro && start >= skip.introStart - 1 && start < skip.introEnd) {
+    media.introSkipped = true;
+    start = skip.introEnd;
+  }
   startMediaAt(start);
 }
 
@@ -775,15 +874,21 @@ seekBar.addEventListener('mouseleave', () => {
 video.addEventListener('timeupdate', () => {
   updateSeek();
   if (media) captureThumb();
+  if (media && !seeking) skipCredits();
   if (!media || Date.now() - lastSave < 5000) return;
   lastSave = Date.now();
   progress.set(media.key, { position: position(), duration: media.duration });
 });
 
-video.addEventListener('ended', () => {
-  if (!media) return;
+// Fin d'un film ou d'un épisode : à la vraie fin, ou à l'entrée dans le générique de fin passé.
+function finishMedia() {
   progress.set(media.key, { position: media.duration, duration: media.duration });
+  if (sleepAt === 'end') return sleepNow(); // mise en veille « à la fin » : pas d'épisode suivant
   if (!playNext()) media.onEnded?.();
+}
+
+video.addEventListener('ended', () => {
+  if (media) finishMedia();
 });
 
 video.addEventListener('error', () => {
@@ -804,6 +909,111 @@ audioSelect.addEventListener('change', () => {
   media.audio = Number(audioSelect.value);
   startMediaAt(position());
 });
+
+// --- Génériques des séries ------------------------------------------------------------
+// Par série : début (de… à…, en secondes depuis le début) et fin (durée avant le bout de l'épisode),
+// pour enchaîner les épisodes sans revoir les mêmes génériques.
+
+const skips = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('skips')) || {};
+  } catch {
+    return {};
+  }
+})();
+const skipPanel = $('skip-panel');
+const skipButton = $('skip-button');
+
+const skipsFor = (item) => (item?.kind === 'series' && item.series ? skips[item.series] : null);
+
+function saveSkips() {
+  try {
+    localStorage.setItem('skips', JSON.stringify(skips));
+  } catch {}
+}
+
+// « 1:30 », « 1:02:03 » ou « 90 » ; vide ou illisible : null.
+function parseTime(text) {
+  const parts = text.trim().split(/[:h']/).filter(Boolean).map(Number);
+  if (!parts.length || parts.some((n) => !Number.isFinite(n) || n < 0)) return null;
+  return parts.reduce((total, n) => total * 60 + n, 0);
+}
+
+function showSkipButton() {
+  const series = media?.kind === 'series' && Boolean(media.series);
+  skipButton.hidden = !series;
+  if (!series) skipPanel.hidden = true;
+  const skip = skipsFor(media);
+  skipButton.classList.toggle('on', Boolean(skip?.intro || skip?.outro));
+  if (!skipPanel.hidden) fillSkipPanel();
+}
+
+function fillSkipPanel() {
+  const skip = skipsFor(media) || {};
+  $('skip-intro-on').checked = Boolean(skip.intro);
+  $('skip-intro-start').value = skip.introStart != null ? formatTime(skip.introStart) : '';
+  $('skip-intro-end').value = skip.introEnd != null ? formatTime(skip.introEnd) : '';
+  $('skip-outro-on').checked = Boolean(skip.outro);
+  $('skip-outro-length').value = skip.outroLength ? formatTime(skip.outroLength) : '';
+}
+
+// Relit le panneau ; un horaire saisi active sa ligne.
+function readSkipPanel(changed) {
+  if (!media?.series) return;
+  const introStart = parseTime($('skip-intro-start').value) ?? 0;
+  const introEnd = parseTime($('skip-intro-end').value);
+  const outroLength = parseTime($('skip-outro-length').value);
+  if (['skip-intro-start', 'skip-intro-end'].includes(changed) && introEnd != null) $('skip-intro-on').checked = true;
+  if (changed === 'skip-outro-length' && outroLength) $('skip-outro-on').checked = true;
+  skips[media.series] = {
+    intro: $('skip-intro-on').checked && introEnd > introStart,
+    introStart,
+    introEnd,
+    outro: $('skip-outro-on').checked && outroLength > 0,
+    outroLength,
+  };
+  saveSkips();
+  fillSkipPanel();
+  showSkipButton();
+}
+
+skipButton.addEventListener('click', () => {
+  skipPanel.hidden = !skipPanel.hidden;
+  if (!skipPanel.hidden) fillSkipPanel();
+});
+skipPanel.addEventListener('change', (e) => readSkipPanel(e.target.id));
+skipPanel.querySelectorAll('[data-now]').forEach((button) =>
+  button.addEventListener('click', () => {
+    // Fin : le temps qui reste d'ici le bout de l'épisode, valable pour les épisodes plus longs ou plus courts.
+    const outro = button.dataset.now === 'skip-outro-length';
+    $(button.dataset.now).value = formatTime(outro ? media.duration - position() : position());
+    readSkipPanel(button.dataset.now);
+  }),
+);
+document.addEventListener('click', (e) => {
+  if (!skipPanel.hidden && !skipPanel.contains(e.target) && e.target !== skipButton) skipPanel.hidden = true;
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !skipPanel.hidden) skipPanel.hidden = true;
+});
+
+// Pendant la lecture : saute le début une fois par épisode (on peut toujours y revenir à la main),
+// et passe à la suite à l'entrée dans la fin. Panneau ouvert : on est en train de régler, rien ne saute.
+function skipCredits() {
+  const skip = skipsFor(media);
+  if (!skip || !skipPanel.hidden) return;
+  const at = position();
+  if (skip.intro && !media.introSkipped && at >= skip.introStart && at < skip.introEnd - 1) {
+    media.introSkipped = true;
+    say('skip.introSkipped');
+    startMediaAt(skip.introEnd);
+    return;
+  }
+  if (skip.outro && !media.outroSkipped && media.duration && at >= media.duration - skip.outroLength && at < media.duration - 1) {
+    media.outroSkipped = true;
+    finishMedia();
+  }
+}
 
 // --- Playlist (films et épisodes) -----------------------------------------------------
 
@@ -830,9 +1040,9 @@ function removeFromPlaylist(key) {
   savePlaylist();
 }
 
-function togglePlaylist({ kind, id, ext, title, key }) {
+function togglePlaylist({ kind, id, ext, title, key, series }) {
   if (playlist.some((p) => p.key === key)) return removeFromPlaylist(key);
-  playlist.push({ kind, id, ext, title, key });
+  playlist.push({ kind, id, ext, title, key, series });
   savePlaylist();
 }
 
@@ -959,14 +1169,14 @@ let listClosed = (() => {
 
 // Colonne fermée, le menu se réduit à ☰, posé sur la vidéo. Les réglages ont leur propre barre.
 function placeMenu() {
-  const closed = currentType !== 'settings' && listClosed;
+  const closed = currentType !== 'settings' && listClosed && !document.body.classList.contains('no-player');
   document.body.classList.toggle('list-closed', closed);
   const home = closed ? document.body : currentType === 'settings' ? document.querySelector('#settings .guide-bar') : aside;
   home.prepend(menu);
 }
 
 function toggleList() {
-  if (currentType === 'settings') return;
+  if (currentType === 'settings' || document.body.classList.contains('no-player')) return;
   listClosed = !listClosed;
   try {
     localStorage.setItem('listClosed', listClosed ? '1' : '0');
@@ -978,6 +1188,8 @@ function toggleList() {
 // Deuxième colonne : ouverte au clic sur une ligne, elle rend sa place à la vidéo dès que la souris
 // y retourne. Le court délai pardonne un passage involontaire.
 let ficheTimer;
+
+const ficheOpen = () => !document.body.classList.contains('fiche-closed') && details.childElementCount > 0;
 
 function closeFiche(closed) {
   clearTimeout(ficheTimer);
@@ -1255,6 +1467,7 @@ async function showSeries(series) {
         tmdb: e.tmdbId,
         title: `${info.name} — S${String(s.number).padStart(2, '0')}E${String(e.num).padStart(2, '0')}`,
         key: `episode:${e.id}`,
+        series: String(series.id),
       },
     })),
   );
@@ -1414,7 +1627,17 @@ function sortFavoritesIn(container, type, refresh) {
 sortFavoritesIn($('guide-list'), 'live', () => renderGuide({ refresh: true })); // la mise à jour de la minute a pu être sautée
 sortFavoritesIn(list, () => currentType);
 
-// Le programme de la ligne : une seule ligne de texte, le détail est dans l'infobulle et la fiche.
+// Soirée : 21h15, pour tomber sur le programme de début de soirée (souvent 21h10).
+// Passé cette heure, c'est celle du lendemain.
+function evening() {
+  const date = new Date();
+  date.setHours(21, 15, 0, 0);
+  const tomorrow = Date.now() >= date;
+  if (tomorrow) date.setDate(date.getDate() + 1);
+  return { at: Math.floor(date / 1000), label: t(tomorrow ? 'guide.tomorrowNight' : 'guide.tonight') };
+}
+
+// Un programme de la ligne : une seule ligne de texte, le détail est dans l'infobulle et la fiche.
 function guideProgramme(programme) {
   const now = Date.now() / 1000;
   const live = programme.start <= now && programme.stop > now;
@@ -1441,6 +1664,7 @@ function guidePage(pageOffset) {
   const category = $('guide-category').value;
   const q = $('guide-search').value.trim();
   const query = new URLSearchParams({ at: Math.floor(Date.now() / 1000), q, offset: pageOffset });
+  if (document.body.classList.contains('no-player')) query.set('evening', evening().at);
   if (category === FAVORITES && !q) query.set('ids', [...favorites].join());
   else if (category !== FAVORITES) query.set('category', category);
   return getJson(`/api/guide?${query}`);
@@ -1448,13 +1672,18 @@ function guidePage(pageOffset) {
 
 function guideRow(channel, sortable) {
   if (channel.separator) return el('div', { className: 'guide-separator' }, channel.name.replace(/^#+\s*|\s*#+$/g, ''));
-  const [programme] = channel.programmes;
+  const [programme, next] = channel.programmes;
+  // Grille large : maintenant, à suivre, ce soir. Les deux dernières ne s'affichent qu'à côté de la première.
+  const cell = (p) => (p ? guideProgramme(p) : el('div', { className: 'guide-programme' }));
+  const any = programme || channel.evening;
   const row = el(
     'div',
     {
       className: 'guide-row',
       title: t('guide.rowTitle', { name: channel.name }),
       onclick: () => {
+        // Même ligne : la fiche se replie, ou se rouvre telle quelle.
+        if (selectedChannel === String(channel.id)) return closeFiche(ficheOpen());
         closeFiche(false);
         showChannel(channel);
       },
@@ -1469,8 +1698,9 @@ function guideRow(channel, sortable) {
       },
     }),
     el('div', { className: 'guide-logo' }, channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() })),
-    el('span', { className: `guide-name${programme ? '' : ' wide'}` }, channel.name),
-    programme && guideProgramme(programme),
+    el('span', { className: `guide-name${any ? '' : ' wide'}` }, channel.name),
+    any && cell(programme),
+    any && el('div', { className: 'guide-more' }, cell(next), cell(channel.evening)),
     el('div', { className: 'guide-replay' }, channel.archiveDays > 0 && el('small', { className: 'badge', title: t('guide.replayDays', { count: channel.archiveDays }) }, '⟲')),
     favoriteStar('live', channel.id),
   );
@@ -1493,6 +1723,7 @@ async function renderGuide({ append = false, refresh = false } = {}) {
   } while (refresh && page.length === PAGE && channels.length < guideOffset);
 
   const box = $('guide-list');
+  $('guide-evening').textContent = evening().label;
   const q = $('guide-search').value.trim();
   const showFavorites = $('guide-category').value === FAVORITES && !q;
   const nodes = channels.map((channel) => guideRow(channel, showFavorites));
@@ -1581,6 +1812,7 @@ async function loadList(append = false) {
     li.dataset.id = item.id;
     li.draggable = favoritesOnly; // les favoris se réordonnent en les faisant glisser
     li.onclick = () => {
+      if (li.classList.contains('active')) return closeFiche(ficheOpen()); // même ligne : repliée ou rouverte
       list.querySelector('.active')?.classList.remove('active');
       li.classList.add('active');
       handlers[type](item);

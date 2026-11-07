@@ -6,7 +6,7 @@
   <title>TV</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="no-player">
   <!-- Textes : data-i18n (contenu), data-i18n-html, data-i18n-placeholder, data-i18n-title,
        remplacés par ceux de public/i18n/<langue>.json. Le français reste en place en attendant. -->
 
@@ -82,6 +82,7 @@
         <button data-type="vod" data-i18n="tabs.vod">Films</button>
         <button data-type="series" data-i18n="tabs.series">Séries</button>
         <span class="spacer"></span>
+        <button id="show-player" data-i18n-title="player.show" title="Revenir au lecteur" hidden>+</button>
         <div id="language-picker">
           <button id="language-button" data-i18n-title="language.choose" title="Langue de l'appli" aria-haspopup="listbox"><img alt=""></button>
           <ul id="language-menu" role="listbox" hidden></ul>
@@ -92,6 +93,13 @@
         <div class="guide-bar">
           <select id="guide-category"></select>
           <input id="guide-search" type="search" data-i18n-placeholder="guide.search" placeholder="Rechercher une chaîne…">
+        </div>
+        <!-- Sans lecteur, la grille s'élargit : ce qui passe, la suite et la soirée. -->
+        <div id="guide-head">
+          <span></span>
+          <span data-i18n="guide.now">En ce moment</span>
+          <span data-i18n="guide.next">À suivre</span>
+          <span id="guide-evening"></span>
         </div>
         <div id="guide-list"></div>
       </section>
@@ -118,9 +126,37 @@
         <video id="video" controls controlslist="nofullscreen" autoplay playsinline></video>
         <div id="frozen" hidden><canvas></canvas></div>
         <div id="fullscreen-button" data-i18n-title="player.fullscreen" title="Plein écran"></div>
+        <div id="player-buttons">
+          <div id="sleep">
+            <button id="sleep-button" data-i18n-title="sleep.title" title="Mise en veille : arrêter la lecture au bout d'un moment">☾<small></small></button>
+            <div id="sleep-menu" hidden></div>
+          </div>
+          <button id="hide-player" data-i18n-title="player.hide" title="Masquer le lecteur (la lecture continue)">—</button>
+          <button id="close-player" data-i18n-title="player.close" title="Fermer le lecteur">✕</button>
+        </div>
         <div class="controls">
           <div id="seek" hidden>
             <div id="seek-preview" hidden><img alt=""><span></span></div>
+            <!-- Génériques à passer, réglés une fois pour toute la série. -->
+            <div id="skip-panel" hidden>
+              <h3 data-i18n="skip.title">Génériques de la série</h3>
+              <label class="skip-switch"><input type="checkbox" id="skip-intro-on"> <span data-i18n="skip.intro">Passer le générique de début</span></label>
+              <div class="skip-times">
+                <span data-i18n="skip.from">de</span>
+                <input id="skip-intro-start" inputmode="numeric" placeholder="0:00">
+                <button type="button" class="secondary" data-now="skip-intro-start" data-i18n-title="skip.now" title="Position actuelle">⏱</button>
+                <span data-i18n="skip.to">à</span>
+                <input id="skip-intro-end" inputmode="numeric" placeholder="1:30">
+                <button type="button" class="secondary" data-now="skip-intro-end" data-i18n-title="skip.now" title="Position actuelle">⏱</button>
+              </div>
+              <label class="skip-switch"><input type="checkbox" id="skip-outro-on"> <span data-i18n="skip.outro">Passer le générique de fin (épisode suivant)</span></label>
+              <div class="skip-times">
+                <span data-i18n="skip.length">durée</span>
+                <input id="skip-outro-length" inputmode="numeric" placeholder="1:30">
+                <button type="button" class="secondary" data-now="skip-outro-length" data-i18n-title="skip.nowLeft" title="Temps restant depuis la position actuelle">⏱</button>
+              </div>
+              <p class="muted" data-i18n="skip.note">Retenu pour toute la série. ⏱ prend la position actuelle. La durée de fin est comptée depuis le bout de chaque épisode, quelle que soit sa longueur.</p>
+            </div>
             <!-- Barre de lecture sur toute la largeur, menus en dessous. -->
             <div class="timeline">
               <span id="time-current">0:00</span>
@@ -133,6 +169,7 @@
             <span id="subtitle-delay" data-i18n-title="player.subtitleDelay" title="Décalage des sous-titres (touches G et H)" hidden>
               <button type="button" class="secondary" data-step="-0.5">−</button><span></span><button type="button" class="secondary" data-step="0.5">+</button><button type="button" class="secondary speed" data-i18n-title="player.subtitleSpeed" title="Sous-titres prévus pour une version à 25 images par seconde (touche J)"></button>
             </span>
+            <button id="skip-button" class="icon" data-i18n-title="skip.buttonTitle" title="Passer les génériques de la série" hidden>⏩</button>
             <button id="next" class="secondary" data-i18n="player.next" data-i18n-title="player.nextTitle" title="Passer à la suite de la playlist" hidden>⏭ Suivant</button>
             </div>
           </div>

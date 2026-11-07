@@ -267,7 +267,7 @@ const routes = [
   }],
   ['GET', /^\/api\/guide$/, (req, res, { params }) => {
     const at = Number(params.get('at')) || Math.floor(Date.now() / 1000);
-    sendJson(res, db.guide({ category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), at }));
+    sendJson(res, db.guide({ category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), at, evening: Number(params.get('evening')) || null }));
   }],
   ['GET', /^\/api\/vod\/(\d+)$/, async (req, res, { match, params }) => sendJson(res, await vodInfo(match[1], params.get('language')))],
   ['GET', /^\/api\/series\/(\d+)$/, async (req, res, { match, params }) => sendJson(res, await seriesInfo(match[1], params.get('language')))],
