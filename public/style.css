@@ -108,8 +108,8 @@ body.view-compact .guide-row { height: 26px; font-size: 0.86em; }
 body.view-compact .guide-logo, body.view-compact .guide-logo img { height: 16px; }
 body.view-compact .guide-play { width: 20px; height: 20px; line-height: 20px; }
 body.view-compact.no-player .guide-row { height: 32px; }
-body.view-compact #list li { padding: 3px 8px; font-size: 0.92em; }
-body.view-compact #list li img { display: none; }
+body #list.view-compact li { padding: 3px 8px; font-size: 0.92em; }
+body #list.view-compact li img { display: none; }
 
 /* Grandes vignettes : chaînes plus hautes, affiches des films et séries en grille. */
 body.view-large .guide-row { height: 46px; }
@@ -117,11 +117,11 @@ body.view-large .guide-logo { height: 32px; }
 body.view-large .guide-logo img { height: 32px; }
 body.view-large.no-player .guide-row { height: 60px; }
 body.view-large.no-player .guide-logo, body.view-large.no-player .guide-logo img { height: 40px; }
-body.view-large #list { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px 8px; align-content: start; padding: 4px; }
-body.view-large #list li { position: relative; flex-direction: column; align-items: stretch; gap: 5px; padding: 4px; }
-body.view-large #list li.poster img { width: 100%; height: auto; aspect-ratio: 2 / 3; }
-body.view-large #list li.poster:not(:has(img))::before { content: ''; aspect-ratio: 2 / 3; border-radius: 3px; background: #222; }
-body.view-large #list li span {
+body #list.view-large { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px 8px; align-content: start; padding: 4px; }
+body #list.view-large li { position: relative; flex-direction: column; align-items: stretch; gap: 5px; padding: 4px; }
+body #list.view-large li.poster img { width: 100%; height: auto; aspect-ratio: 2 / 3; }
+body #list.view-large li.poster:not(:has(img))::before { content: ''; aspect-ratio: 2 / 3; border-radius: 3px; background: #222; }
+body #list.view-large li span {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -130,9 +130,9 @@ body.view-large #list li span {
   text-align: center;
   white-space: normal;
 }
-body.view-large #list li .star { position: absolute; top: 6px; right: 6px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); font-size: 1em; }
-body.view-large #list li.now-playing { box-shadow: inset 0 0 0 2px #3c7ee6; }
-body.view-large #list li.empty { grid-column: 1 / -1; }
+body #list.view-large li .star { position: absolute; top: 6px; right: 6px; border-radius: 4px; background: rgba(0, 0, 0, 0.65); font-size: 1em; }
+body #list.view-large li.now-playing { box-shadow: inset 0 0 0 2px #3c7ee6; }
+body #list.view-large li.empty { grid-column: 1 / -1; }
 
 #tabs button[data-playing]::after {
   content: attr(data-playing);

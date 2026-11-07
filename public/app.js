@@ -176,10 +176,18 @@ function viewIcon(mode) {
   return icon;
 }
 
+// Films et Séries partagent la même liste : elle prend la présentation de ce qu'elle affiche, au moment
+// où elle l'affiche. Sinon, en changeant d'onglet, l'ancien contenu sauterait d'abord dans le mode du nouveau.
+function paintListView() {
+  const view = views[$('list').dataset.type];
+  Object.keys(VIEWS).forEach((mode) => $('list').classList.toggle(`view-${mode}`, mode === view));
+}
+
 function paintView() {
   const shown = VIEW_TABS.includes(currentType);
   const view = views[currentType];
-  Object.keys(VIEWS).forEach((mode) => document.body.classList.toggle(`view-${mode}`, mode === view));
+  Object.keys(VIEWS).forEach((mode) => document.body.classList.toggle(`view-${mode}`, mode === view)); // grille TV
+  paintListView();
   $('view-picker').hidden = !shown; // rien à présenter sur la page des réglages
   if (shown) $('view-button').replaceChildren(viewIcon(view));
   viewMenu.replaceChildren(
@@ -2371,6 +2379,8 @@ async function loadList(append = false) {
   if (append) list.append(...nodes);
   else {
     list.replaceChildren(...nodes);
+    list.dataset.type = type;
+    paintListView();
     list.scrollTop = 0;
     if (!nodes.length && favoritesOnly) list.append(noFavorite());
   }
