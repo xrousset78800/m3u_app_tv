@@ -310,6 +310,16 @@ const routes = [
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
     sendJson(res, db.list({ type, category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), groups: groupsFor(profile, type) }));
   }],
+  // Autres qualités de la chaîne ou du film en cours (bouton ⇄ du lecteur).
+  ['GET', /^\/api\/versions$/, (req, res, { params, profile }) => {
+    const type = params.get('type');
+    if (!['live', 'vod'].includes(type)) return sendText(res, 400, 'Type inconnu');
+    allow(profile, type, params.get('id') || '');
+    const q = params.has('q') ? params.get('q') : undefined;
+    const result = db.versions({ type, id: params.get('id') || '', q, groups: groupsFor(profile, type) });
+    if (!result) return sendText(res, 404, 'Introuvable');
+    sendJson(res, result);
+  }],
   ['GET', /^\/api\/manage\/categories$/, (req, res, { params }) => {
     const type = params.get('type');
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
@@ -331,6 +341,10 @@ const routes = [
   ['GET', /^\/api\/guide$/, (req, res, { params, profile }) => {
     const at = Number(params.get('at')) || Math.floor(Date.now() / 1000);
     sendJson(res, db.guide({ category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), at, evening: Number(params.get('evening')) || null, groups: groupsFor(profile, 'live') }));
+  }],
+  ['GET', /^\/api\/programmes$/, (req, res, { params, profile }) => {
+    const at = Number(params.get('at')) || Math.floor(Date.now() / 1000);
+    sendJson(res, db.searchProgrammes({ q: params.get('q'), at, groups: groupsFor(profile, 'live') }));
   }],
   ['GET', /^\/api\/vod\/(\d+)$/, async (req, res, { match, params, profile }) => {
     allow(profile, 'vod', match[1]);
@@ -418,8 +432,11 @@ const server = http.createServer(async (req, res) => {
     sendText(res, 404, 'Introuvable');
   } catch (err) {
     if (err.name === 'AbortError') return;
-    console.error(`${pathname} :`, err.message);
-    sendText(res, err.status || 502, err.message, err);
+    // « fetch failed » seul ne dit rien : le motif réseau (connexion refusée, coupée…) est dans `cause`.
+    const cause = err.cause?.code || err.cause?.name;
+    const message = cause && !err.message.includes(cause) ? `${err.message} : ${cause}` : err.message;
+    console.error(`${pathname} :`, message);
+    sendText(res, err.status || 502, message, err);
   }
 });
 

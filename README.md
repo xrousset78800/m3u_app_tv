@@ -6,9 +6,12 @@ guide des programmes et replay, dans le navigateur.
 ## Fonctionnalités
 
 - **TV** : chaînes en direct (HLS) avec ce qui passe en ce moment, chaîne par chaîne.
-  Recherche, catégories et sélection personnelle de favoris (étoile, à réordonner en les faisant glisser).
+  Recherche par chaîne ou par programme (en cours, à venir, ou passé et encore en replay), catégories
+  et favoris répartis sur plusieurs pages à nommer (étoile, à réordonner en les faisant glisser).
   Un clic sur une chaîne ouvre sa fiche, avec le guide complet par jour et le replay des programmes déjà diffusés ;
   le bouton ▶ de la ligne lance le direct.
+- **Versions** (⇄ dans le lecteur) : la même chaîne ou le même film dans une autre qualité ou langue,
+  retrouvés par leur nom. Le choix est retenu et remplace l'ancienne version dans les favoris.
 - **Films / Séries** : favoris comme pour la TV (étoile sur la ligne ou dans la fiche ; pour une série,
   c'est la série entière), fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
@@ -107,7 +110,7 @@ par exemple pour changer d'abonnement.
 | Contenu | Ce que fait le serveur |
 | --- | --- |
 | Direct et replay | Résout les redirections authentifiées du fournisseur et réécrit la playlist HLS pour que les segments passent par `/proxy`. Lu dans le navigateur avec hls.js. |
-| Films et épisodes | Convertit à la volée avec ffmpeg en MP4 fragmenté : vidéo copiée si le lecteur la décode (H.264, HEVC, VP9, AV1), sinon réencodée en H.264 (carte NVIDIA si disponible, HDR ramené en SDR) ; audio converti en AAC stéréo, calé sur l'image. Un déplacement repart de l'image clé précédente, parfois quelques secondes avant le point demandé : la dernière image reste affichée en attendant, et une ouverture restée sans réponse est relancée toute seule. Au survol de la barre, l'heure visée et l'image du passage s'il a déjà été vu pendant cette lecture : une seule connexion est permise au fournisseur, on ne peut pas chercher d'images ailleurs dans le film. |
+| Films et épisodes | Convertit à la volée avec ffmpeg en MP4 fragmenté : vidéo copiée si le lecteur la décode (H.264, HEVC, VP9, AV1), sinon réencodée en H.264 (carte NVIDIA si disponible, image ramenée en 1080p puis HDR ramené en SDR) ; audio converti en AAC stéréo, calé sur l'image. Un déplacement repart de l'image clé précédente, parfois quelques secondes avant le point demandé : la dernière image reste affichée en attendant, et une ouverture restée sans réponse est relancée toute seule. Au survol de la barre, l'heure visée et l'image du passage s'il a déjà été vu pendant cette lecture : une seule connexion est permise au fournisseur, on ne peut pas chercher d'images ailleurs dans le film. |
 
 L'abonnement n'autorise qu'**une connexion à la fois** : lancer une lecture arrête la précédente.
 

@@ -222,8 +222,9 @@ let selectedChannel = null; // chaîne dont la fiche est affichée
 let shownFiche = null; // réaffiche la fiche en cours (changement de langue)
 
 function paintPlayingChannel() {
-  document.querySelectorAll('.guide-row').forEach((row) => {
-    row.classList.toggle('playing', row.dataset.id === playingChannel);
+  document.querySelectorAll('.guide-row[data-id]').forEach((row) => {
+    // Une autre version de la chaîne, retenue à sa place, compte aussi.
+    row.classList.toggle('playing', Boolean(playingChannel) && (row.dataset.id === playingChannel || preferredId('live', row.dataset.id) === playingChannel));
     row.classList.toggle('selected', row.dataset.id === selectedChannel);
   });
 }
@@ -233,7 +234,8 @@ function paintPlayingChannel() {
 function paintNowPlaying() {
   const type = media && (media.kind === 'movie' ? 'vod' : 'series');
   const id = media && String(media.kind === 'movie' ? media.id : media.series);
-  list.querySelectorAll('li[data-id]').forEach((li) => li.classList.toggle('now-playing', currentType === type && li.dataset.id === id));
+  const playing = (li) => li.dataset.id === id || (type === 'vod' && preferredId('vod', li.dataset.id) === id);
+  list.querySelectorAll('li[data-id]').forEach((li) => li.classList.toggle('now-playing', currentType === type && playing(li)));
   document.querySelectorAll('.episodes li[data-key]').forEach((li) => li.classList.toggle('now-playing', li.dataset.key === media?.key));
 }
 
@@ -252,11 +254,13 @@ video.addEventListener('pause', () => markPlayingTab(playingTab));
 function stopPlayback() {
   markPlayingTab(null);
   playingChannel = null;
+  liveChannel = null;
   paintPlayingChannel();
   if (hls) hls.destroy();
   hls = null;
   media = null;
   paintNowPlaying();
+  paintVersionsButton();
   stopSubtitles();
   unfreeze();
   video.removeAttribute('src');
@@ -348,6 +352,146 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !sleepMenu.hidden) sleepMenu.hidden = true;
 });
 
+// --- Versions : la même chaîne ou le même film dans une autre qualité ---------------
+// Le choix est retenu : un clic sur n'importe quelle version lance ensuite la préférée,
+// et les favoris passent à celle-ci.
+
+let liveChannel = null; // chaîne en cours, en direct ou en replay : { id, name }
+let shownMovie = null; // film dont la fiche est affichée
+const versionsBox = $('versions');
+const versionsPanel = $('versions-panel');
+const versionsSearch = $('versions-search');
+const versionsList = $('versions-list');
+let versionsOf = null; // { type, id, same } : la version en cours et celles qui portent le même nom
+let versionsLoad = 0;
+
+function readPreferred() {
+  try {
+    return { live: {}, vod: {}, ...JSON.parse(storage.getItem('versions')) };
+  } catch {
+    return { live: {}, vod: {} };
+  }
+}
+const preferred = readPreferred(); // par type : identifiant → version retenue
+
+function savePreferred() {
+  try {
+    storage.setItem('versions', JSON.stringify(preferred));
+  } catch {}
+}
+
+// Version retenue pour `id`, en suivant les choix successifs (A → B, puis B → C).
+function preferredId(type, id) {
+  let target = String(id);
+  for (let hops = 0; hops < 5 && preferred[type][target]; hops++) target = preferred[type][target];
+  return target === String(id) ? null : target;
+}
+
+// La version retenue, si elle est toujours là ; retirée du catalogue ou hors des groupes du compte, on l'oublie.
+async function preferredItem(type, id) {
+  const target = preferredId(type, id);
+  if (!target) return null;
+  const items = await getJson(`/api/list?${new URLSearchParams({ type, ids: target })}`).catch(() => null);
+  if (items?.length) return items[0];
+  if (items) {
+    delete preferred[type][String(id)];
+    savePreferred();
+  }
+  return null;
+}
+
+const versionsTarget = () =>
+  media?.kind === 'movie' ? { type: 'vod', id: String(media.id) } : liveChannel && { type: 'live', id: liveChannel.id };
+
+function paintVersionsButton() {
+  versionsBox.hidden = !versionsTarget();
+  if (versionsBox.hidden) versionsPanel.hidden = true;
+}
+
+// Sans `q` : recherche proposée d'après le nom en cours, qu'on peut ensuite modifier.
+async function openVersions(q) {
+  const target = versionsTarget();
+  if (!target) return;
+  const load = ++versionsLoad;
+  versionsPanel.hidden = false;
+  const params = new URLSearchParams(target);
+  if (q === undefined) versionsList.replaceChildren(el('li', { className: 'muted' }, t('list.loading')));
+  else params.set('q', q);
+  let result;
+  try {
+    result = await getJson(`/api/versions?${params}`);
+  } catch (err) {
+    if (load === versionsLoad) versionsList.replaceChildren(el('li', { className: 'muted' }, err.message));
+    return;
+  }
+  if (load !== versionsLoad) return;
+  if (q === undefined) {
+    versionsSearch.value = result.query;
+    versionsOf = { ...target, same: result.items.filter((item) => item.same).map((item) => String(item.id)) };
+  }
+  const row = (item) => {
+    const current = String(item.id) === target.id;
+    return el(
+      'li',
+      {
+        className: current ? 'current' : '',
+        title: item.name,
+        onclick: (e) => {
+          e.stopPropagation();
+          if (!current) chooseVersion(item);
+        },
+      },
+      el('span', { className: 'name' }, item.name, current && el('small', { className: 'badge' }, t('versions.current'))),
+      el('small', { className: 'muted' }, item.category || ''),
+    );
+  };
+  const same = result.items.filter((item) => item.same);
+  const others = result.items.filter((item) => !item.same);
+  versionsList.replaceChildren(
+    ...same.map(row),
+    ...(others.length && same.length ? [el('li', { className: 'versions-heading' }, t('versions.others'))] : []),
+    ...others.map(row),
+  );
+  if (!result.items.length) versionsList.append(el('li', { className: 'muted' }, t('versions.none')));
+}
+
+// La version choisie remplace la version en cours et ses homonymes : partout, et pour la suite.
+function chooseVersion(item) {
+  const target = versionsTarget();
+  if (!target) return;
+  const { type, id } = target;
+  const chosen = String(item.id);
+  const same = versionsOf?.type === type && versionsOf.id === id ? versionsOf.same : [];
+  const replaced = [...new Set([id, ...same])].filter((other) => other !== chosen);
+  replaced.forEach((other) => (preferred[type][other] = chosen));
+  delete preferred[type][chosen];
+  savePreferred();
+  replaceFavorites(type, replaced, chosen);
+  versionsPanel.hidden = true;
+  if (type === 'live') return playLive(item, { exact: true });
+  const start = Math.floor(position());
+  playMedia({ kind: 'movie', id: chosen, ext: item.ext, title: item.name, key: `movie:${chosen}` }, start);
+  if (replaced.includes(shownMovie)) showMovie(item, { exact: true });
+}
+
+$('versions-button').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (versionsPanel.hidden) openVersions();
+  else versionsPanel.hidden = true;
+});
+versionsPanel.addEventListener('click', (e) => e.stopPropagation());
+let versionsTimer;
+versionsSearch.addEventListener('input', () => {
+  clearTimeout(versionsTimer);
+  versionsTimer = setTimeout(() => openVersions(versionsSearch.value.trim()), 250);
+});
+document.addEventListener('click', () => {
+  versionsPanel.hidden = true;
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !versionsPanel.hidden) versionsPanel.hidden = true;
+});
+
 // Masqué, le lecteur continue : on écoute en parcourant la grille large, et on y revient d'un clic.
 $('hide-player').addEventListener('click', () => {
   if (isFullscreen()) leaveFullscreen();
@@ -360,7 +504,8 @@ function hlsErrorText(data) {
   const xhr = data.networkDetails;
   const reply = ['', 'text'].includes(xhr?.responseType) ? xhr.responseText : '';
   const code = reply.match(/^Fournisseur : HTTP (\d+)/)?.[1] ?? (data.response?.code !== 502 && data.response?.code);
-  return code ? ['player.refused', { code }] : ['player.unreachable', { details: data.details }];
+  // Sinon le motif renvoyé par le serveur (erreur réseau vers le fournisseur) dit plus que le code de hls.js.
+  return code ? ['player.refused', { code }] : ['player.unreachable', { details: reply.trim().slice(0, 120) || data.details }];
 }
 
 const HLS_RETRIES = 3;
@@ -418,6 +563,7 @@ async function playMedia(item, start = 0) {
   const french = info.audio.findIndex((a) => /^fr/i.test(a.lang) || /\bVF|fran[cç]ais|french/i.test(a.title));
   media = { ...item, duration: info.duration || 0, audio: Math.max(0, french) };
   paintNowPlaying();
+  paintVersionsButton();
   thumbs.clear();
   audioSelect.replaceChildren(
     ...info.audio.map((a, i) =>
@@ -1302,15 +1448,23 @@ function playReplay(channel, programme) {
   const minutes = Math.ceil((programme.stop - programme.start) / 60);
   const query = new URLSearchParams({ start: programme.replayStart, minutes });
   playHls(`/replay/${channel.id}.m3u8?${query}`, `${channel.name} — ${programme.title} (replay)`);
+  liveChannel = { id: String(channel.id), name: channel.name };
+  paintVersionsButton();
 }
 
-function playLive(channel) {
+// La version retenue de la chaîne (⇄ du lecteur), si elle en a une ; `exact` : celle-ci, telle quelle.
+async function playLive(channel, { exact = false } = {}) {
+  const chosen = !exact && (await preferredItem('live', channel.id));
+  if (chosen) channel = chosen;
   playHls(`/live/${channel.id}.m3u8`, channel.name);
+  liveChannel = { id: String(channel.id), name: channel.name };
+  paintVersionsButton();
 }
 
 // Affiche la fiche de la chaîne, sans rien lancer : le direct part de ▶ sur la ligne ou de « Direct » ici.
 async function showChannel(channel) {
   selectedChannel = String(channel.id);
+  shownMovie = null;
   shownFiche = () => showChannel(channel);
   paintPlayingChannel();
 
@@ -1464,11 +1618,15 @@ function infoBlock(info, buttons, star) {
   );
 }
 
-async function showMovie(movie) {
+// La fiche de la version retenue (⇄ du lecteur), si le film en a une ; `exact` : celle-ci, telle quelle.
+async function showMovie(movie, { exact = false } = {}) {
   selectedChannel = null;
-  shownFiche = () => showMovie(movie);
+  shownFiche = () => showMovie(movie, { exact });
   closeFiche(false); // rien ne se lance tout seul : la fiche (lecture) doit être visible
   details.replaceChildren(el('p', { className: 'muted' }, t('list.loading')));
+  const chosen = !exact && (await preferredItem('vod', movie.id));
+  if (chosen) movie = chosen;
+  shownMovie = String(movie.id);
   const info = await getJson(`/api/vod/${movie.id}?${languageParam()}`).catch(() => ({ name: movie.name, cover: movie.logo }));
   const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, tmdb: info.tmdbId, title: info.name || movie.name, key: `movie:${movie.id}` };
   details.replaceChildren(infoBlock(info, resumeButtons(item), favoriteStar('vod', movie.id)));
@@ -1478,6 +1636,7 @@ async function showMovie(movie) {
 
 async function showSeries(series) {
   selectedChannel = null;
+  shownMovie = null;
   shownFiche = () => showSeries(series);
   closeFiche(false);
   details.replaceChildren(el('p', { className: 'muted' }, t('list.loading')));
@@ -1555,45 +1714,103 @@ async function showSeries(series) {
 // --- TV : grille des chaînes, avec leurs programmes ----------------------------------
 
 let guideTimer;
-const FAVORITES = 'favorites'; // entrée « Favoris » de la liste des catégories
 const PAGE = 200; // taille d'une page de résultats du serveur
 
-// Favoris propres à ce navigateur, un jeu par onglet : chaînes, films, séries (la série entière).
+// Favoris propres au compte, par onglet : chaînes, films, séries (la série entière).
+// Chaque onglet en a une ou plusieurs pages, nommées ; l'étoile ajoute à la page choisie en dernier.
+// La première garde son ancien emplacement de stockage, les autres et les noms sont à côté.
 const FAVORITE_STORES = { live: 'favorites', vod: 'favorites-vod', series: 'favorites-series' };
-const favoriteSets = Object.fromEntries(
+const NEW_PAGE = 'fav:new'; // entrée « Nouvelle page de favoris » de la liste des catégories
+const pageValue = (index) => `fav:${index}`;
+const favoritePageOf = (value) => (/^fav:\d+$/.test(value) ? Number(value.slice(4)) : -1);
+
+function readJson(key) {
+  try {
+    return JSON.parse(storage.getItem(key));
+  } catch {
+    return null;
+  }
+}
+const idSet = (ids) => new Set(Array.isArray(ids) ? ids.map(String) : []);
+
+const favoritePages = Object.fromEntries(
   Object.entries(FAVORITE_STORES).map(([type, store]) => {
-    try {
-      return [type, new Set(JSON.parse(storage.getItem(store)))];
-    } catch {
-      return [type, new Set()];
-    }
+    const saved = readJson(`${store}-pages`);
+    const pages = Array.isArray(saved) ? saved : [];
+    return [type, [
+      { name: String(pages[0]?.name || ''), ids: idSet(readJson(store)) },
+      ...pages.slice(1).map((page) => ({ name: String(page?.name || ''), ids: idSet(page?.ids) })),
+    ]];
   }),
 );
-const favorites = favoriteSets.live;
+const activePage = Object.fromEntries(
+  Object.entries(FAVORITE_STORES).map(([type, store]) => [type, Math.min(Number(storage.getItem(`${store}-page`)) || 0, favoritePages[type].length - 1)]),
+);
+const favoriteSet = (type) => favoritePages[type][activePage[type]].ids;
+const pageName = (type, index) => favoritePages[type][index].name || t('favorites.defaultName');
+const pageLabel = (type, index) => (favoritePages[type][index].name ? `★ ${favoritePages[type][index].name}` : t('list.favorites'));
+// Au premier affichage : la page de favoris en cours, s'il y a des favoris.
+const defaultCategory = (type) => (favoritePages[type].some((page) => page.ids.size) ? pageValue(activePage[type]) : '');
 
 function paintStar(star) {
-  const on = favoriteSets[star.dataset.type].has(star.dataset.favorite);
+  const type = star.dataset.type;
+  const on = favoriteSet(type).has(star.dataset.favorite);
   star.textContent = on ? '★' : '☆';
-  star.title = t(on ? 'favorites.remove' : 'favorites.add');
+  // Plusieurs pages : l'infobulle dit laquelle.
+  star.title = favoritePages[type].length > 1
+    ? t(on ? 'favorites.removeFrom' : 'favorites.addTo', { name: pageName(type, activePage[type]) })
+    : t(on ? 'favorites.remove' : 'favorites.add');
   star.classList.toggle('on', on);
   star.setAttribute('aria-pressed', on);
 }
 
 function saveFavorites(type) {
+  const store = FAVORITE_STORES[type];
+  const pages = favoritePages[type];
   try {
-    storage.setItem(FAVORITE_STORES[type], JSON.stringify([...favoriteSets[type]]));
+    storage.setItem(store, JSON.stringify([...pages[0].ids]));
+    storage.setItem(`${store}-pages`, JSON.stringify(pages.map((page, i) => (i ? { name: page.name, ids: [...page.ids] } : { name: page.name }))));
+    storage.setItem(`${store}-page`, activePage[type]);
   } catch {}
 }
 
+// Après un changement qui ne vient pas d'une étoile : étoiles, nombres, et liste de favoris affichée.
+function refreshFavorites(type) {
+  document.querySelectorAll(`.star[data-type="${type}"]`).forEach(paintStar);
+  for (const select of [categorySelect, $('guide-category')]) if (select.dataset.type === type) labelCategories(select);
+  if (type === 'live') {
+    if (!$('guide').hidden && favoritePageOf($('guide-category').value) >= 0) renderGuide({ refresh: true });
+  } else if (currentType === type && showingFavorites()) loadList();
+}
+
+// Autre version choisie dans le lecteur : elle prend la place des anciennes, dans toutes les pages.
+function replaceFavorites(type, oldIds, newId) {
+  if (!favoritePages[type]) return;
+  let changed = false;
+  for (const page of favoritePages[type]) {
+    const ids = [...page.ids];
+    if (!ids.some((id) => oldIds.includes(id))) continue;
+    const at = ids.findIndex((id) => oldIds.includes(id) || id === newId);
+    const kept = ids.filter((id) => !oldIds.includes(id) && id !== newId);
+    kept.splice(at, 0, newId);
+    page.ids.clear();
+    kept.forEach((id) => page.ids.add(id));
+    changed = true;
+  }
+  if (!changed) return;
+  saveFavorites(type);
+  refreshFavorites(type);
+}
+
 function toggleFavorite(type, key) {
-  const set = favoriteSets[type];
+  const set = favoriteSet(type);
   const added = !set.delete(key);
   if (added) set.add(key);
   saveFavorites(type);
   document.querySelectorAll(`.star[data-type="${type}"][data-favorite="${key}"]`).forEach(paintStar);
   for (const select of [categorySelect, $('guide-category')]) if (select.dataset.type === type) labelCategories(select);
   if (type === 'live') {
-    if (!$('guide').hidden && $('guide-category').value === FAVORITES) renderGuide({ refresh: true });
+    if (!$('guide').hidden && favoritePageOf($('guide-category').value) >= 0) renderGuide({ refresh: true });
     return;
   }
   // Liste des favoris affichée : retirée sur place, sans perdre le défilement ; ajoutée depuis la fiche, on relit.
@@ -1647,7 +1864,7 @@ function sortFavoritesIn(container, type, refresh) {
     // Ceux qui ne sont pas affichés (page suivante, chaîne retirée) gardent leur ordre, à la suite.
     const shown = [...container.querySelectorAll('[draggable="true"]')].map((row) => row.dataset.id);
     const kind = typeof type === 'function' ? type() : type;
-    const set = favoriteSets[kind];
+    const set = favoriteSet(kind);
     const others = [...set].filter((id) => !shown.includes(id));
     set.clear();
     [...shown, ...others].forEach((id) => set.add(id));
@@ -1696,8 +1913,9 @@ function guidePage(pageOffset) {
   const q = $('guide-search').value.trim();
   const query = new URLSearchParams({ at: Math.floor(Date.now() / 1000), q, offset: pageOffset });
   if (document.body.classList.contains('no-player')) query.set('evening', evening().at);
-  if (category === FAVORITES && !q) query.set('ids', [...favorites].join());
-  else if (category !== FAVORITES) query.set('category', category);
+  const page = favoritePageOf(category);
+  if (page >= 0 && !q) query.set('ids', [...favoritePages.live[page].ids].join());
+  else if (page < 0) query.set('category', category);
   return getJson(`/api/guide?${query}`);
 }
 
@@ -1740,10 +1958,81 @@ function guideRow(channel, sortable) {
   return row;
 }
 
+// Recherche dans le guide : les programmes dont le titre correspond, au-dessus des chaînes.
+// En cours et à venir : ▶ lance la chaîne ; passés : ⟲ les revoit (replay). Le reste de la ligne ouvre la fiche.
+const PROGRAMMES_SHOWN = 5;
+let programmesQuery = '';
+let programmesExpanded = false;
+
+function programmeRow(p) {
+  const now = Date.now() / 1000;
+  const onAir = p.start <= now && p.stop > now;
+  const canReplay = p.archive && p.channel.archiveDays > 0;
+  const date = new Date(p.start * 1000);
+  const day = date.toDateString() === new Date().toDateString() ? '' : `${date.toLocaleDateString(language, { weekday: 'short', day: 'numeric', month: 'short' })} · `;
+  return el(
+    'div',
+    {
+      className: `guide-row programme-result${onAir ? ' live' : ''}`,
+      title: [`${formatHour(p.start)} – ${formatHour(p.stop)} · ${p.title}`, p.description].filter(Boolean).join('\n'),
+      onclick: () => {
+        closeFiche(false);
+        showChannel(p.channel);
+      },
+    },
+    p.stop > now || canReplay
+      ? el('button', {
+          className: 'guide-play',
+          textContent: p.stop > now ? '▶' : '⟲',
+          title: p.stop > now ? t('guide.playTitle', { name: p.channel.name }) : t('channel.replayTitle'),
+          onclick: (e) => {
+            e.stopPropagation();
+            if (p.stop > now) playLive(p.channel);
+            else playReplay(p.channel, p);
+          },
+        })
+      : el('span'),
+    el('div', { className: 'guide-logo' }, p.channel.logo && el('img', { src: p.channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() })),
+    el('span', { className: 'guide-name' }, p.title),
+    el(
+      'div',
+      { className: 'programme-when' },
+      el('span', { className: onAir ? 'on-air' : 'muted' }, onAir ? t('guide.onAir') : `${day}${formatHour(p.start)}`),
+      el('span', { className: 'muted' }, p.channel.name),
+      onAir && el('div', { className: 'bar' }, el('div', { style: `width:${((now - p.start) / (p.stop - p.start)) * 100}%` })),
+    ),
+  );
+}
+
+function programmeResults(programmes) {
+  if (!programmes.length) return [];
+  const rows = programmes.map(programmeRow);
+  const hidden = programmesExpanded ? [] : rows.slice(PROGRAMMES_SHOWN);
+  hidden.forEach((row) => (row.hidden = true));
+  const more =
+    hidden.length > 0 &&
+    el('button', {
+      className: 'secondary programmes-more',
+      textContent: t('guide.morePrograms', { count: hidden.length }),
+      onclick: (e) => {
+        programmesExpanded = true;
+        hidden.forEach((row) => (row.hidden = false));
+        e.target.remove();
+      },
+    });
+  return [el('div', { className: 'guide-separator' }, t('guide.programs')), ...rows, more].filter(Boolean);
+}
+
 // `append` : page suivante. `refresh` : relit ce qui est déjà affiché, sans bouger la liste.
 async function renderGuide({ append = false, refresh = false } = {}) {
   clearTimeout(guideTimer);
   const load = ++guideLoad;
+  const search = $('guide-search').value.trim();
+  if (search !== programmesQuery) programmesExpanded = false;
+  programmesQuery = search;
+  const programmes = !append && search
+    ? getJson(`/api/programmes?${new URLSearchParams({ q: search, at: Math.floor(Date.now() / 1000) })}`).catch(() => [])
+    : Promise.resolve([]);
 
   const channels = [];
   let page;
@@ -1756,8 +2045,12 @@ async function renderGuide({ append = false, refresh = false } = {}) {
   const box = $('guide-list');
   $('guide-evening').textContent = evening().label;
   const q = $('guide-search').value.trim();
-  const showFavorites = $('guide-category').value === FAVORITES && !q;
+  const showFavorites = favoritePageOf($('guide-category').value) >= 0 && !q;
   const nodes = channels.map((channel) => guideRow(channel, showFavorites));
+  const found = programmeResults(await programmes);
+  if (load !== guideLoad) return;
+  if (found.length && nodes.length) nodes.unshift(...found, el('div', { className: 'guide-separator' }, t('guide.channels')));
+  else nodes.unshift(...found);
   guideHasMore = page.length === PAGE;
   if (append) {
     guideOffset += channels.length;
@@ -1771,7 +2064,7 @@ async function renderGuide({ append = false, refresh = false } = {}) {
   paintPlayingChannel();
   if (!box.children.length) {
     box.append(
-      el('p', { className: 'muted' }, t(showFavorites ? 'favorites.noneChannels' : 'guide.noChannel')),
+      el('p', { className: 'muted' }, t(showFavorites ? 'favorites.noneChannels' : q ? 'guide.noResult' : 'guide.noChannel')),
     );
   }
   // Ce qui passe se met à jour tout seul chaque minute.
@@ -1785,11 +2078,13 @@ async function showGuide() {
   const categories = await getJson('/api/categories?type=live');
   const chosen = select.value;
   fillCategories(select, 'live', categories);
-  select.value = first ? (favorites.size ? FAVORITES : '') : chosen;
+  select.value = first ? defaultCategory('live') : chosen;
   if (select.selectedIndex < 0) select.value = ''; // catégorie disparue du catalogue
+  select.dataset.current = select.value;
+  paintPageEdit();
   $('guide-search').value = '';
   if (first) {
-    select.onchange = () => renderGuide();
+    select.onchange = () => categoryChanged(select, () => renderGuide());
     let timer;
     $('guide-search').oninput = () => {
       clearTimeout(timer);
@@ -1814,7 +2109,7 @@ async function showGuide() {
 const handlers = { vod: showMovie, series: showSeries };
 
 // Comme pour la TV, la recherche porte sur tout le catalogue, même depuis les favoris.
-const showingFavorites = () => categorySelect.value === FAVORITES && !searchInput.value.trim();
+const showingFavorites = () => favoritePageOf(categorySelect.value) >= 0 && !searchInput.value.trim();
 
 function noFavorite() {
   return el('li', { className: 'muted empty' }, t(currentType === 'series' ? 'favorites.noneSeries' : 'favorites.noneMovies'));
@@ -1825,8 +2120,9 @@ async function loadList(append = false) {
   const type = currentType;
   const favoritesOnly = showingFavorites();
   const params = new URLSearchParams({ type, q: searchInput.value.trim(), offset });
-  if (favoritesOnly) params.set('ids', [...favoriteSets[type]].join());
-  else if (categorySelect.value !== FAVORITES) params.set('category', categorySelect.value);
+  const page = favoritePageOf(categorySelect.value);
+  if (favoritesOnly) params.set('ids', [...favoritePages[type][page].ids].join());
+  else if (page < 0) params.set('category', categorySelect.value);
   const items = await getJson(`/api/list?${params}`);
   if (type !== currentType) return; // onglet changé entre-temps
   offset += items.length;
@@ -1866,10 +2162,16 @@ const withCount = (text, count) => `${text} (${Number(count).toLocaleString(lang
 
 function fillCategories(select, type, categories) {
   select.dataset.type = type;
+  select.categories = categories; // gardées pour refaire la liste quand les pages de favoris changent
   select.dataset.total = categories.reduce((sum, c) => sum + c.count, 0);
   select.replaceChildren(
     new Option('', ''),
-    new Option('', FAVORITES),
+    ...favoritePages[type].map((_, index) => {
+      const option = new Option('', pageValue(index));
+      option.dataset.page = index;
+      return option;
+    }),
+    new Option('', NEW_PAGE),
     ...categories.map((c) => {
       const option = new Option('', c.id);
       Object.assign(option.dataset, { name: c.name, count: c.count });
@@ -1879,13 +2181,17 @@ function fillCategories(select, type, categories) {
   labelCategories(select);
 }
 
-// Les deux premières entrées : traduites, et le nombre de favoris change avec les étoiles.
+// Les premières entrées : traduites, et le nombre de favoris change avec les étoiles.
+// Les nombres des groupes suivent aussi la langue (séparateur des milliers).
 function labelCategories(select) {
-  if (select.options.length < 2) return;
-  select.options[0].text = withCount(t('list.allCategories'), select.dataset.total);
-  select.options[1].text = withCount(t('list.favorites'), favoriteSets[select.dataset.type].size);
-  // Les nombres des groupes suivent aussi la langue (séparateur des milliers).
-  for (const option of [...select.options].slice(2)) option.text = withCount(option.dataset.name, option.dataset.count);
+  const type = select.dataset.type;
+  if (!type) return;
+  for (const option of select.options) {
+    if (option.value === '') option.text = withCount(t('list.allCategories'), select.dataset.total);
+    else if (option.value === NEW_PAGE) option.text = t('favorites.newPage');
+    else if (option.dataset.page) option.text = withCount(pageLabel(type, Number(option.dataset.page)), favoritePages[type][option.dataset.page].ids.size);
+    else option.text = withCount(option.dataset.name, option.dataset.count);
+  }
 }
 
 async function selectType(type) {
@@ -1910,12 +2216,106 @@ async function selectType(type) {
   searchInput.value = '';
   const categories = await getJson(`/api/categories?type=${type}`);
   fillCategories(categorySelect, type, categories);
-  categorySelect.value = chosenCategory[type] ?? (favoriteSets[type].size ? FAVORITES : '');
+  categorySelect.value = chosenCategory[type] ?? defaultCategory(type);
   if (categorySelect.selectedIndex < 0) categorySelect.value = ''; // catégorie disparue du catalogue
   chosenCategory[type] = categorySelect.value;
+  categorySelect.dataset.current = categorySelect.value;
+  paintPageEdit();
   await loadList();
   searchInput.focus();
 }
+
+// --- Pages de favoris : ajout, nom, suppression -------------------------------------
+
+// Choix dans la liste des catégories : une page de favoris devient celle des étoiles ; « Nouvelle page » ouvre l'éditeur.
+function categoryChanged(select, render) {
+  const type = select.dataset.type;
+  if (select.value === NEW_PAGE) {
+    select.value = select.dataset.current ?? '';
+    return editFavoritePage(select, null);
+  }
+  select.dataset.current = select.value;
+  const page = favoritePageOf(select.value);
+  if (page >= 0 && page !== activePage[type]) {
+    activePage[type] = page;
+    saveFavorites(type);
+    document.querySelectorAll(`.star[data-type="${type}"]`).forEach(paintStar);
+  }
+  paintPageEdit();
+  render();
+}
+
+// ✎ à côté de la liste : seulement sur une page de favoris.
+function paintPageEdit() {
+  $('guide-page-edit').hidden = favoritePageOf($('guide-category').value) < 0;
+  $('page-edit').hidden = favoritePageOf(categorySelect.value) < 0;
+}
+
+let pageEditing = null; // { select, type, index } ; index null : nouvelle page
+
+function editFavoritePage(select, index) {
+  const type = select.dataset.type;
+  pageEditing = { select, type, index };
+  $('page-editor-title').textContent = t(index === null ? 'favorites.addPage' : 'favorites.editPage');
+  $('page-name').value = index === null ? '' : favoritePages[type][index].name;
+  $('page-name').placeholder = index === 0 ? t('favorites.defaultName') : '';
+  $('page-name').required = index !== 0; // la première, sans nom, reprend « Favoris »
+  $('page-delete').hidden = !index;
+  $('page-editor').hidden = false;
+  $('page-name').focus();
+}
+
+function closePageEditor() {
+  $('page-editor').hidden = true;
+  pageEditing = null;
+}
+
+// Pages ajoutées, renommées ou supprimées : la liste est refaite ; `page` : celle à afficher.
+function pagesChanged(select, page) {
+  const type = select.dataset.type;
+  const value = page === undefined ? select.value : pageValue(page);
+  fillCategories(select, type, select.categories);
+  select.value = value;
+  if (select.selectedIndex < 0) select.value = pageValue(0);
+  select.dataset.current = select.value;
+  document.querySelectorAll(`.star[data-type="${type}"]`).forEach(paintStar);
+  paintPageEdit();
+  if (page === undefined) return;
+  if (type === 'live') return renderGuide();
+  chosenCategory[type] = select.value;
+  loadList();
+}
+
+$('page-form').onsubmit = (event) => {
+  event.preventDefault();
+  const { select, type, index } = pageEditing;
+  const name = $('page-name').value.trim().slice(0, 40);
+  if (!name && index !== 0) return $('page-name').focus();
+  if (index === null) {
+    favoritePages[type].push({ name, ids: new Set() });
+    activePage[type] = favoritePages[type].length - 1;
+  } else favoritePages[type][index].name = name;
+  saveFavorites(type);
+  closePageEditor();
+  pagesChanged(select, index === null ? activePage[type] : undefined);
+};
+
+$('page-delete').onclick = () => {
+  const { select, type, index } = pageEditing;
+  const page = favoritePages[type][index];
+  if (!confirm(t('favorites.deleteConfirm', { name: page.name, count: page.ids.size }))) return;
+  favoritePages[type].splice(index, 1);
+  activePage[type] = 0;
+  saveFavorites(type);
+  closePageEditor();
+  pagesChanged(select, 0);
+};
+
+$('page-cancel').onclick = closePageEditor;
+$('page-editor').querySelector('.close').onclick = closePageEditor;
+document.addEventListener('keydown', (event) => event.key === 'Escape' && !$('page-editor').hidden && closePageEditor());
+$('guide-page-edit').onclick = () => editFavoritePage($('guide-category'), favoritePageOf($('guide-category').value));
+$('page-edit').onclick = () => editFavoritePage(categorySelect, favoritePageOf(categorySelect.value));
 
 // --- Réglages : chaînes et groupes -------------------------------------------------
 
@@ -2454,11 +2854,12 @@ async function startApp() {
     clearTimeout(timer);
     timer = setTimeout(() => loadList(), 250);
   };
-  categorySelect.onchange = () => {
-    chosenCategory[currentType] = categorySelect.value;
-    searchInput.focus();
-    loadList();
-  };
+  categorySelect.onchange = () =>
+    categoryChanged(categorySelect, () => {
+      chosenCategory[currentType] = categorySelect.value;
+      searchInput.focus();
+      loadList();
+    });
   $('more').onclick = () => loadList(true);
   await selectType('live');
 }

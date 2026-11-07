@@ -119,7 +119,8 @@
       <section id="guide" hidden>
         <div class="guide-bar">
           <select id="guide-category"></select>
-          <input id="guide-search" type="search" data-i18n-placeholder="guide.search" placeholder="Rechercher une chaîne…">
+          <button id="guide-page-edit" class="secondary page-edit" data-i18n-title="favorites.editTitle" title="Renommer ou supprimer cette page de favoris" hidden>✎</button>
+          <input id="guide-search" type="search" data-i18n-placeholder="guide.search" placeholder="Rechercher une chaîne ou un programme…">
         </div>
         <!-- Sans lecteur, la grille s'élargit : ce qui passe, la suite et la soirée. -->
         <div id="guide-head">
@@ -131,7 +132,10 @@
         <div id="guide-list"></div>
       </section>
       <div id="browse">
-        <select id="category"></select>
+        <div class="category-row">
+          <select id="category"></select>
+          <button id="page-edit" class="secondary page-edit" data-i18n-title="favorites.editTitle" title="Renommer ou supprimer cette page de favoris" hidden>✎</button>
+        </div>
         <input id="search" type="search" data-i18n-placeholder="list.search" placeholder="Rechercher…">
         <ul id="list"></ul>
         <button id="more" class="secondary" data-i18n="list.more" hidden>Afficher plus</button>
@@ -154,6 +158,15 @@
         <div id="frozen" hidden><canvas></canvas></div>
         <div id="fullscreen-button" data-i18n-title="player.fullscreen" title="Plein écran"></div>
         <div id="player-buttons">
+          <!-- Autres versions (qualité, langue) de la chaîne ou du film en cours. -->
+          <div id="versions" hidden>
+            <button id="versions-button" data-i18n-title="versions.title" title="Autres versions : qualité, langue">⇄</button>
+            <div id="versions-panel" hidden>
+              <input id="versions-search" type="search" data-i18n-placeholder="versions.search" placeholder="Rechercher une version…">
+              <ul id="versions-list"></ul>
+              <p class="muted small" data-i18n="versions.note">Le choix est retenu : cette version se lance à la place des autres, et remplace les autres dans les favoris.</p>
+            </div>
+          </div>
           <div id="sleep">
             <button id="sleep-button" data-i18n-title="sleep.title" title="Mise en veille : arrêter la lecture au bout d'un moment">☾<small></small></button>
             <div id="sleep-menu" hidden></div>
@@ -217,6 +230,22 @@
       <ul class="results"></ul>
       <p class="credit muted" data-i18n="subtitles.credit">Sous-titres fournis par OpenSubtitles.com</p>
     </div>
+  </div>
+
+  <!-- Page de favoris : nouvelle, ou renommée. -->
+  <div id="page-editor" hidden>
+    <form id="page-form" class="panel" role="dialog" aria-labelledby="page-editor-title">
+      <div class="head">
+        <h2 id="page-editor-title"></h2>
+        <button type="button" class="secondary close" data-i18n-title="subtitles.close" title="Fermer">✕</button>
+      </div>
+      <input id="page-name" maxlength="40" autocomplete="off">
+      <div class="buttons">
+        <button type="button" id="page-delete" class="secondary" data-i18n="favorites.deletePage">Supprimer la page</button>
+        <button type="button" id="page-cancel" class="secondary" data-i18n="profiles.cancel">Annuler</button>
+        <button id="page-save" data-i18n="profiles.save">Enregistrer</button>
+      </div>
+    </form>
   </div>
 
   <!-- Création ou modification d'un compte (réglages, administrateur). -->
