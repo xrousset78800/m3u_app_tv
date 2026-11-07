@@ -218,6 +218,7 @@ let lastSave = 0;
 // Onglet d'où vient la lecture en cours : il garde un repère (▶ / ❚❚) quand on navigue ailleurs.
 let playingTab = null;
 let playingChannel = null; // chaîne en cours, repérée dans le programme
+let rawLive = null; // nom de la chaîne lue en flux brut (voir playRaw)
 let selectedChannel = null; // chaîne dont la fiche est affichée
 let shownFiche = null; // réaffiche la fiche en cours (changement de langue)
 
@@ -255,6 +256,7 @@ function stopPlayback() {
   markPlayingTab(null);
   playingChannel = null;
   liveChannel = null;
+  rawLive = null;
   paintPlayingChannel();
   if (hls) hls.destroy();
   hls = null;
@@ -511,7 +513,8 @@ function hlsErrorText(data) {
 const HLS_RETRIES = 3;
 
 // Direct et replay : HLS via le proxy du serveur.
-function playHls(src, label) {
+// `fallback` : appelé si la playlist n'a jamais pu être chargée.
+function playHls(src, label, fallback) {
   stopPlayback();
   showPlayer(true);
   markPlayingTab('live');
@@ -520,15 +523,18 @@ function playHls(src, label) {
   say('player.loading', { label });
   if (window.Hls && Hls.isSupported()) {
     let retries = 0;
+    let started = false;
     const current = (hls = new Hls({ liveSyncDurationCount: 3 }));
     hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
     hls.on(Hls.Events.FRAG_BUFFERED, () => {
       retries = 0;
+      started = true;
       setStatus(`▶ ${label}`);
     });
     hls.on(Hls.Events.ERROR, (_, data) => {
       if (!data.fatal) return;
       if (data.type === Hls.ErrorTypes.MEDIA_ERROR) return hls.recoverMediaError();
+      if (fallback && !started && /^manifest/.test(data.details)) return fallback();
       if (retries === HLS_RETRIES) return say(...hlsErrorText(data), true);
       // Souvent passager : la connexion unique de l'abonnement met quelques secondes à se libérer.
       retries++;
@@ -998,6 +1004,7 @@ function updateSeek() {
 video.addEventListener('playing', () => {
   unfreeze();
   if (media) setStatus(`▶ ${media.title}`);
+  else if (rawLive) setStatus(`▶ ${rawLive}`);
 });
 
 // Aperçus de la barre. Le fournisseur n'autorise qu'une connexion, déjà prise par la lecture :
@@ -1068,7 +1075,7 @@ video.addEventListener('ended', () => {
 
 video.addEventListener('error', () => {
   unfreeze();
-  if (media) say('player.interrupted', {}, true);
+  if (media || rawLive) say('player.interrupted', {}, true);
 });
 
 seekBar.addEventListener('input', () => {
@@ -1452,13 +1459,41 @@ function playReplay(channel, programme) {
   paintVersionsButton();
 }
 
+// Chaînes dont le fournisseur refuse la playlist HLS (souvent la 4K, qui part sur un autre serveur
+// de diffusion) : leur flux brut passe par ffmpeg, comme les films. Retenu jusqu'à la fermeture.
+const rawChannels = new Set();
+
+function playRaw(channel) {
+  stopPlayback();
+  showPlayer(true);
+  markPlayingTab('live');
+  playingChannel = String(channel.id);
+  rawLive = channel.name;
+  paintPlayingChannel();
+  say('player.loading', { label: channel.name });
+  video.src = `/media/live/${channel.id}?${new URLSearchParams({ codecs: CODECS })}`;
+  video.play().catch(() => {});
+}
+
 // La version retenue de la chaîne (⇄ du lecteur), si elle en a une ; `exact` : celle-ci, telle quelle.
 async function playLive(channel, { exact = false } = {}) {
   const chosen = !exact && (await preferredItem('live', channel.id));
   if (chosen) channel = chosen;
-  playHls(`/live/${channel.id}.m3u8`, channel.name);
-  liveChannel = { id: String(channel.id), name: channel.name };
-  paintVersionsButton();
+  const id = String(channel.id);
+  const remember = () => {
+    liveChannel = { id, name: channel.name };
+    paintVersionsButton();
+  };
+  if (rawChannels.has(id)) playRaw(channel);
+  else {
+    playHls(`/live/${id}.m3u8`, channel.name, () => {
+      console.warn(`HLS refusé pour ${channel.name} : flux brut`);
+      rawChannels.add(id);
+      playRaw(channel);
+      remember();
+    });
+  }
+  remember();
 }
 
 // Affiche la fiche de la chaîne, sans rien lancer : le direct part de ▶ sur la ligne ou de « Direct » ici.

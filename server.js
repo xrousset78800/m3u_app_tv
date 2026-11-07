@@ -402,6 +402,11 @@ const routes = [
     await media.stopActive();
     await hls.servePlaylist(res, `live ${match[1]}`, xtream.urls.live(match[1]));
   }],
+  // Chaîne dont le fournisseur refuse le HLS (souvent la 4K) : son flux brut, converti comme les films.
+  ['GET', /^\/media\/live\/(\d+)$/, async (req, res, { match, params, profile }) => {
+    allow(profile, 'live', match[1]);
+    await media.stream(res, xtream.urls.liveRaw(match[1]), { live: true, codecs: codecsParam(params) });
+  }],
   ['GET', /^\/replay\/(\d+)\.m3u8$/, async (req, res, { match, params, profile }) => {
     allow(profile, 'live', match[1]);
     const start = params.get('start') || '';
