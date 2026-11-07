@@ -235,7 +235,7 @@
   "guide.noResult": "Nessun canale né programma trovato.",
   "settings.preferences": "Preferenze",
   "view.title": "Presentazione degli elenchi",
-  "view.note": "Accessibile anche dall'icona di visualizzazione, in cima alla colonna.",
+  "view.note": "Propria di ogni scheda. L'icona di visualizzazione, in cima alla colonna, cambia quella della scheda attuale.",
   "view.compact": "Compatta",
   "view.list": "Elenco",
   "view.large": "Miniature grandi",

@@ -235,7 +235,7 @@
   "guide.noResult": "Aucune chaîne ni aucun programme trouvé.",
   "settings.preferences": "Préférences",
   "view.title": "Présentation des listes",
-  "view.note": "Aussi accessible depuis l'icône d'affichage, en haut de la colonne.",
+  "view.note": "Propre à chaque onglet. L'icône d'affichage, en haut de la colonne, change celle de l'onglet affiché.",
   "view.compact": "Compacte",
   "view.list": "Liste",
   "view.large": "Grandes vignettes",

@@ -235,7 +235,7 @@
   "guide.noResult": "Kein Sender und keine Sendung gefunden.",
   "settings.preferences": "Einstellungen",
   "view.title": "Listendarstellung",
-  "view.note": "Auch über das Anzeigesymbol oben in der Spalte erreichbar.",
+  "view.note": "Für jeden Tab einzeln. Das Anzeigesymbol oben in der Spalte ändert sie für den aktuellen Tab.",
   "view.compact": "Kompakt",
   "view.list": "Liste",
   "view.large": "Große Kacheln",

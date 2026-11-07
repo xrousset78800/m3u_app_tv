@@ -235,7 +235,7 @@
   "guide.noResult": "Nenhum canal nem programa encontrado.",
   "settings.preferences": "Preferências",
   "view.title": "Apresentação das listas",
-  "view.note": "Também acessível a partir do ícone de visualização, no topo da coluna.",
+  "view.note": "Própria de cada separador. O ícone de visualização, no topo da coluna, muda a do separador atual.",
   "view.compact": "Compacta",
   "view.list": "Lista",
   "view.large": "Miniaturas grandes",

@@ -235,7 +235,7 @@
   "guide.noResult": "No channel or program found.",
   "settings.preferences": "Preferences",
   "view.title": "List layout",
-  "view.note": "Also available from the display icon at the top of the column.",
+  "view.note": "Set per tab. The display icon at the top of the column changes it for the current tab.",
   "view.compact": "Compact",
   "view.list": "List",
   "view.large": "Large thumbnails",

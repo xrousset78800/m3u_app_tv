@@ -97,6 +97,10 @@ body > #tabs #view-picker { display: none; }
 }
 .choices button:hover { border-color: #555; color: #fff; }
 .choices button.active { border-color: #3c7ee6; background: #1f3357; color: #fff; }
+#view-picker[hidden] { display: none; }
+#view-choices { display: grid; grid-template-columns: max-content 1fr; align-items: center; gap: 8px 16px; }
+.view-tab { display: contents; }
+.view-tab > span { color: #aaa; }
 .choices img { width: 20px; height: 14px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15); }
 
 /* Compacte : lignes serrées, sans affiches pour les films et séries. */

@@ -151,14 +151,23 @@ function paintLanguagePicker() {
   );
 }
 
-// Présentation des listes (chaînes, films, séries) : compacte, normale, ou grandes vignettes
-// (les affiches des films et séries en grille). Choisie depuis l'icône de l'en-tête ou les Préférences.
+// Présentation des listes, propre à chaque onglet (TV, Films, Séries) : compacte, normale, ou grandes
+// vignettes (les affiches des films et séries en grille). L'icône de l'en-tête change celle de l'onglet
+// affiché ; les Préférences les montrent toutes.
 const VIEWS = {
   compact: '<path d="M2 3h12M2 6.3h12M2 9.7h12M2 13h12"/>',
   list: '<rect x="2" y="2.5" width="3.5" height="4" rx=".6"/><rect x="2" y="9.5" width="3.5" height="4" rx=".6"/><path d="M8 4.5h6M8 11.5h6"/>',
   large: '<rect x="2" y="2" width="5" height="5" rx=".8"/><rect x="9" y="2" width="5" height="5" rx=".8"/><rect x="2" y="9" width="5" height="5" rx=".8"/><rect x="9" y="9" width="5" height="5" rx=".8"/>',
 };
-let view = VIEWS[storage.getItem('view')] ? storage.getItem('view') : 'list';
+const VIEW_TABS = ['live', 'vod', 'series'];
+const views = (() => {
+  const old = VIEWS[storage.getItem('view')] ? storage.getItem('view') : 'list'; // un seul choix avant 2.0.2
+  let saved = {};
+  try {
+    saved = JSON.parse(storage.getItem('views')) || {};
+  } catch {}
+  return Object.fromEntries(VIEW_TABS.map((type) => [type, VIEWS[saved[type]] ? saved[type] : old]));
+})();
 const viewMenu = $('view-menu');
 
 function viewIcon(mode) {
@@ -168,24 +177,36 @@ function viewIcon(mode) {
 }
 
 function paintView() {
+  const shown = VIEW_TABS.includes(currentType);
+  const view = views[currentType];
   Object.keys(VIEWS).forEach((mode) => document.body.classList.toggle(`view-${mode}`, mode === view));
-  $('view-button').replaceChildren(viewIcon(view));
+  $('view-picker').hidden = !shown; // rien à présenter sur la page des réglages
+  if (shown) $('view-button').replaceChildren(viewIcon(view));
   viewMenu.replaceChildren(
     ...Object.keys(VIEWS).map((mode) => {
-      const item = el('li', { role: 'option', className: mode === view ? 'active' : '', onclick: () => chooseView(mode) }, viewIcon(mode), el('span', {}, t(`view.${mode}`)));
+      const item = el('li', { role: 'option', className: mode === view ? 'active' : '', onclick: () => chooseView(currentType, mode) }, viewIcon(mode), el('span', {}, t(`view.${mode}`)));
       item.setAttribute('aria-selected', mode === view);
       return item;
     }),
   );
   $('view-choices').replaceChildren(
-    ...Object.keys(VIEWS).map((mode) => choiceButton(mode === view, () => chooseView(mode), viewIcon(mode), el('span', {}, t(`view.${mode}`)))),
+    ...VIEW_TABS.map((type) =>
+      el(
+        'div',
+        { className: 'view-tab' },
+        el('span', {}, t(`tabs.${type}`)),
+        el('div', { className: 'choices' }, ...Object.keys(VIEWS).map((mode) =>
+          choiceButton(mode === views[type], () => chooseView(type, mode), viewIcon(mode), el('span', {}, t(`view.${mode}`))),
+        )),
+      ),
+    ),
   );
 }
 
-function chooseView(mode) {
+function chooseView(type, mode) {
   openViewMenu(false);
-  view = mode;
-  storage.setItem('view', mode);
+  views[type] = mode;
+  storage.setItem('views', JSON.stringify(views));
   paintView();
 }
 
@@ -2293,6 +2314,7 @@ function labelCategories(select) {
 
 async function selectType(type) {
   currentType = type;
+  paintView();
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
 
   // La TV a sa grille, films et séries leur liste. Les réglages occupent tout l'écran :

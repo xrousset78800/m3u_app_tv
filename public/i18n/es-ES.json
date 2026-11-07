@@ -235,7 +235,7 @@
   "guide.noResult": "No se ha encontrado ningún canal ni programa.",
   "settings.preferences": "Preferencias",
   "view.title": "Presentación de las listas",
-  "view.note": "También accesible desde el icono de visualización, arriba de la columna.",
+  "view.note": "Propia de cada pestaña. El icono de visualización, arriba de la columna, cambia la de la pestaña actual.",
   "view.compact": "Compacta",
   "view.list": "Lista",
   "view.large": "Miniaturas grandes",

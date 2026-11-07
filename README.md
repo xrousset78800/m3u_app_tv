@@ -27,7 +27,7 @@ guide des programmes et replay, dans le navigateur.
 - **Préférences** (⚙ › Préférences) : la langue de toute l'appli (français, anglais, allemand,
   espagnol, italien, portugais) et des fiches traduites — au premier lancement, celle du système, sinon le français —
   et la présentation des listes.
-- **Présentation** : l'icône à côté de ☰ passe les listes en compacte, liste, ou grandes vignettes
+- **Présentation** : l'icône à côté de ☰ passe les listes en compacte, liste, ou grandes vignettes, séparément pour TV, Films et Séries
   (affiches des films et séries en grille, chaînes plus hautes). Retenue pour chaque compte.
 - **Mise en veille** (☾ dans le lecteur) : 15 min à 2 h, à la fin du film ou de l'épisode, ou une durée personnalisée.
 - En direct, la barre de temps du lecteur est masquée : on ne peut pas revenir en arrière (le replay la garde).
