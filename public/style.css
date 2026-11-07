@@ -938,3 +938,21 @@ body.fiche-closed #list li.active:not(:hover) { background: none; }
 .episodes .program p { margin: 0; }
 .episodes li.watched { opacity: 0.6; }
 .episodes .fold { -webkit-line-clamp: 2; color: #bbb; font-size: 0.9em; }
+
+/* --- Écran tactile : des cibles plus larges que leur dessin. La zone invisible déborde autour
+   du bouton sans rien décaler (elle ne prend pas de place dans la mise en page). --- */
+@media (any-pointer: coarse) {
+  /* Sans poids : un bouton déjà positionné (plein écran, étoile des vignettes) garde sa place. */
+  :where(.star, .guide-play, #tabs button, #view-button, #profile-button, #list-toggle,
+  #player-buttons > button, #sleep-button, #versions-button, #fullscreen-button, #skip-button, #subtitle-delay button) {
+    position: relative;
+  }
+  :is(.star, .guide-play, #tabs button, #view-button, #profile-button, #list-toggle, #skip-button)::before,
+  :is(#player-buttons > button, #sleep-button, #versions-button, #fullscreen-button, #subtitle-delay button)::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+  /* Les boutons serrés gardent chacun leur moitié de l'écart. */
+  :is(#tabs button, #player-buttons > button, #subtitle-delay button)::before { inset: -8px -3px; }
+}

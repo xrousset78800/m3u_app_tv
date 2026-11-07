@@ -7,7 +7,7 @@ guide des programmes et replay, dans le navigateur.
 
 - **TV** : chaînes en direct (HLS) avec ce qui passe en ce moment, chaîne par chaîne.
   Recherche par chaîne ou par programme (en cours, à venir, ou passé et encore en replay), catégories
-  et favoris répartis sur plusieurs pages à nommer (étoile, à réordonner en les faisant glisser).
+  et favoris répartis sur plusieurs pages à nommer (étoile, à réordonner en les faisant glisser ; au doigt, après un appui long).
   Un clic sur une chaîne ouvre sa fiche, avec le guide complet par jour et le replay des programmes déjà diffusés ;
   le bouton ▶ de la ligne lance le direct.
 - **Versions** (⇄ dans le lecteur) : la même chaîne ou le même film dans une autre qualité ou langue,
@@ -32,6 +32,8 @@ guide des programmes et replay, dans le navigateur.
 - **Mise en veille** (☾ dans le lecteur) : 15 min à 2 h, à la fin du film ou de l'épisode, ou une durée personnalisée.
 - En direct, la barre de temps du lecteur est masquée : on ne peut pas revenir en arrière (le replay la garde).
 - Les colonnes ne s'ouvrent et ne se ferment qu'avec le bouton ☰ ou la touche `L`.
+- **Écran tactile** : toucher la vidéo fait paraître les boutons du lecteur sans mettre en pause ; les petits boutons
+  (étoile, onglets, lecteur) se touchent plus facilement.
 - Vrai plein écran (bouton du lecteur, touche `F` ou double-clic sur la vidéo, `Échap` pour en sortir) : les colonnes restent comme elles étaient,
   et ☰ ou `L` les ferment pour laisser tout l'écran à la vidéo.
 - Si le fournisseur refuse un flux en direct, trois nouvelles tentatives automatiques, puis un message

@@ -1479,9 +1479,36 @@ function wakeControls(e) {
 
 // Sur l'image, les clics sont à nous : le lecteur ferait pause puis lecture à chaque double-clic.
 // Sa barre de contrôles, en bas, garde les siens.
+// Au doigt, pas de survol ni de mouvement de souris : c'est le toucher qui réveille le lecteur.
+// Un toucher sur un lecteur endormi ne fait que ça : il ne met pas en pause et n'atteint pas
+// les boutons encore invisibles (✕ fermerait le lecteur à l'aveugle).
 let videoClickTimer;
+let touchWoke = false;
+const playerButtonsShown = () =>
+  player.classList.contains('awake') || $('player-buttons').matches(':has(#sleep-menu:not([hidden]), #versions-panel:not([hidden]))');
+player.addEventListener(
+  'pointerdown',
+  (e) => {
+    if (e.pointerType !== 'touch') return (touchWoke = false);
+    touchWoke = !playerButtonsShown();
+    wakePlayer();
+  },
+  true,
+);
+player.addEventListener(
+  'click',
+  (e) => {
+    if (!touchWoke || !e.target.closest('#player-buttons, #fullscreen-button')) return;
+    touchWoke = false;
+    e.preventDefault();
+    e.stopPropagation();
+  },
+  true,
+);
+document.addEventListener('pointerdown', (e) => e.pointerType === 'touch' && wakeControls(e)); // plein écran : barre de position et onglets
 video.addEventListener('click', (e) => {
   const barHeight = video.classList.contains('media') ? 48 : 72; // films : pas de frise sous les boutons
+  if (touchWoke) return e.preventDefault();
   if (e.clientY > video.getBoundingClientRect().bottom - barHeight) return;
   e.preventDefault();
   clearTimeout(videoClickTimer);
@@ -1952,30 +1979,29 @@ function favoriteStar(type, id) {
   return star;
 }
 
-// Les favoris se réordonnent en les faisant glisser.
+// Les favoris se réordonnent en les faisant glisser : à la souris, ou au doigt après un appui long.
 let draggedFavorite = null;
+
+function scrollerOf(node) {
+  for (let el = node; el && el !== document.body; el = el.parentElement) {
+    const { overflowY } = getComputedStyle(el);
+    if (['auto', 'scroll'].includes(overflowY) && el.scrollHeight > el.clientHeight) return el;
+  }
+  return document.scrollingElement;
+}
 
 // `refresh` : réaffichage après coup, si la liste en a besoin.
 function sortFavoritesIn(container, type, refresh) {
-  container.addEventListener('dragstart', (e) => {
-    draggedFavorite = e.target.closest('[draggable="true"]');
-    if (!draggedFavorite) return;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', draggedFavorite.dataset.id);
-    e.dataTransfer.setDragImage(draggedFavorite, 20, 20);
-    draggedFavorite.classList.add('dragging');
-  });
-  container.addEventListener('dragover', (e) => {
-    if (!draggedFavorite) return;
-    e.preventDefault();
-    const row = e.target.closest('[draggable="true"]');
-    if (!row || row === draggedFavorite) return;
+  // Avant ou après la ligne visée ; en grandes vignettes, sur la même rangée, c'est la gauche ou la droite qui compte.
+  function place(row, x, y) {
+    if (!row || row === draggedFavorite || !container.contains(row)) return;
     const box = row.getBoundingClientRect();
-    row.before(draggedFavorite);
-    if (e.clientY > box.top + box.height / 2) row.after(draggedFavorite);
-  });
-  container.addEventListener('drop', (e) => e.preventDefault());
-  container.addEventListener('dragend', () => {
+    const grid = getComputedStyle(row.parentElement).display === 'grid';
+    const after = grid && y >= box.top && y <= box.bottom ? x > box.left + box.width / 2 : y > box.top + box.height / 2;
+    if (after) row.after(draggedFavorite);
+    else row.before(draggedFavorite);
+  }
+  function finish() {
     if (!draggedFavorite) return;
     draggedFavorite.classList.remove('dragging');
     draggedFavorite = null;
@@ -1988,7 +2014,85 @@ function sortFavoritesIn(container, type, refresh) {
     [...shown, ...others].forEach((id) => set.add(id));
     saveFavorites(kind);
     refresh?.();
+  }
+
+  container.addEventListener('dragstart', (e) => {
+    if (press) return e.preventDefault(); // au doigt, c'est l'appui long ci-dessous qui s'en charge
+    draggedFavorite = e.target.closest('[draggable="true"]');
+    if (!draggedFavorite) return;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedFavorite.dataset.id);
+    e.dataTransfer.setDragImage(draggedFavorite, 20, 20);
+    draggedFavorite.classList.add('dragging');
   });
+  container.addEventListener('dragover', (e) => {
+    if (!draggedFavorite) return;
+    e.preventDefault();
+    place(e.target.closest('[draggable="true"]'), e.clientX, e.clientY);
+  });
+  container.addEventListener('drop', (e) => e.preventDefault());
+  container.addEventListener('dragend', finish);
+
+  // Au doigt : un appui long (doigt immobile) saisit le favori ; bouger avant fait défiler la liste comme d'habitude.
+  // Près du bord haut ou bas, la liste défile toute seule.
+  let press = null; // { x, y, timer, scroll }
+  function release() {
+    if (!press) return;
+    clearTimeout(press.timer);
+    clearInterval(press.scroll);
+    press = null;
+  }
+  container.addEventListener(
+    'touchstart',
+    (e) => {
+      release();
+      const row = e.target.closest('[draggable="true"]');
+      if (e.touches.length !== 1 || !row || e.target.closest('.star')) return;
+      const { clientX: x, clientY: y } = e.touches[0];
+      press = { x, y };
+      press.timer = setTimeout(() => {
+        draggedFavorite = row;
+        row.classList.add('dragging');
+        navigator.vibrate?.(30);
+        const scroller = scrollerOf(container);
+        press.scroll = setInterval(() => {
+          const box = scroller.getBoundingClientRect();
+          const step = press.y < box.top + 48 ? -12 : press.y > box.bottom - 48 ? 12 : 0;
+          if (!step) return;
+          scroller.scrollBy(0, step);
+          place(document.elementFromPoint(press.x, press.y)?.closest('[draggable="true"]'), press.x, press.y);
+        }, 30);
+      }, 450);
+    },
+    { passive: true },
+  );
+  container.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!press) return;
+      const { clientX: x, clientY: y } = e.touches[0];
+      if (!draggedFavorite) {
+        if (Math.hypot(x - press.x, y - press.y) > 10) release(); // le doigt a bougé : c'est un défilement
+        return;
+      }
+      e.preventDefault();
+      Object.assign(press, { x, y });
+      place(document.elementFromPoint(x, y)?.closest('[draggable="true"]'), x, y);
+    },
+    { passive: false },
+  );
+  const lift = (e) => {
+    if (!press) return;
+    const dragging = draggedFavorite;
+    release();
+    if (!dragging) return;
+    if (e.cancelable) e.preventDefault(); // pas de clic sur la ligne lâchée
+    finish();
+  };
+  container.addEventListener('touchend', lift);
+  container.addEventListener('touchcancel', lift);
+  // L'appui long ouvrirait sinon le menu contextuel.
+  container.addEventListener('contextmenu', (e) => press && e.preventDefault());
 }
 sortFavoritesIn($('guide-list'), 'live', () => renderGuide({ refresh: true })); // la mise à jour de la minute a pu être sautée
 sortFavoritesIn(list, () => currentType);
