@@ -1905,14 +1905,21 @@ const pageLabel = (type, index) => (favoritePages[type][index].name ? `★ ${fav
 // Au premier affichage : la page de favoris en cours, s'il y a des favoris.
 const defaultCategory = (type) => (favoritePages[type].some((page) => page.ids.size) ? pageValue(activePage[type]) : '');
 
+// Pages de favoris qui contiennent cet élément.
+const pagesWith = (type, key) => favoritePages[type].flatMap((page, index) => (page.ids.has(key) ? [index] : []));
+
 function paintStar(star) {
   const type = star.dataset.type;
-  const on = favoriteSet(type).has(star.dataset.favorite);
+  // Plusieurs pages : l'étoile est pleine dès qu'il est dans l'une d'elles, et l'infobulle dit lesquelles.
+  const several = favoritePages[type].length > 1;
+  const pages = pagesWith(type, star.dataset.favorite);
+  const on = several ? pages.length > 0 : favoriteSet(type).has(star.dataset.favorite);
   star.textContent = on ? '★' : '☆';
-  // Plusieurs pages : l'infobulle dit laquelle.
-  star.title = favoritePages[type].length > 1
-    ? t(on ? 'favorites.removeFrom' : 'favorites.addTo', { name: pageName(type, activePage[type]) })
-    : t(on ? 'favorites.remove' : 'favorites.add');
+  star.title = !several
+    ? t(on ? 'favorites.remove' : 'favorites.add')
+    : on
+      ? t('favorites.inPages', { names: pages.map((index) => pageName(type, index)).join(', ') })
+      : t('favorites.choose');
   star.classList.toggle('on', on);
   star.setAttribute('aria-pressed', on);
 }
@@ -1955,8 +1962,8 @@ function replaceFavorites(type, oldIds, newId) {
   refreshFavorites(type);
 }
 
-function toggleFavorite(type, key) {
-  const set = favoriteSet(type);
+function toggleFavorite(type, key, page = activePage[type]) {
+  const set = favoritePages[type][page].ids;
   const added = !set.delete(key);
   if (added) set.add(key);
   saveFavorites(type);
@@ -1967,17 +1974,58 @@ function toggleFavorite(type, key) {
     return;
   }
   // Liste des favoris affichée : retirée sur place, sans perdre le défilement ; ajoutée depuis la fiche, on relit.
-  if (currentType !== type || !showingFavorites()) return;
+  if (currentType !== type || !showingFavorites() || page !== activePage[type]) return;
   if (added) return loadList();
   list.querySelector(`li[data-id="${key}"]`)?.remove();
   if (!list.children.length) list.append(noFavorite());
 }
+
+// Plusieurs pages de favoris : l'étoile ouvre un petit menu pour choisir la page (★ : déjà dedans, un clic l'en retire).
+const starMenu = el('ul', { className: 'header-menu', role: 'menu' });
+starMenu.hidden = true;
+document.body.append(starMenu);
+let starMenuFor = null;
+
+function closeStarMenu() {
+  starMenu.hidden = true;
+  starMenuFor = null;
+}
+
+function openStarMenu(star) {
+  if (starMenuFor === star) return closeStarMenu(); // second clic sur la même étoile : on referme
+  const { type, favorite: key } = star.dataset;
+  starMenuFor = star;
+  starMenu.replaceChildren(
+    ...favoritePages[type].map((page, index) => {
+      const inside = page.ids.has(key);
+      const item = el('li', { role: 'menuitemcheckbox', className: inside ? 'active' : '' }, el('span', { className: 'star-mark' }, inside ? '★' : '☆'), pageName(type, index));
+      item.setAttribute('aria-checked', inside);
+      item.onclick = (e) => {
+        e.stopPropagation();
+        closeStarMenu();
+        toggleFavorite(type, key, index);
+      };
+      return item;
+    }),
+  );
+  starMenu.hidden = false;
+  // Sous l'étoile, calé à droite ; au-dessus s'il n'y a pas la place en bas.
+  const box = star.getBoundingClientRect();
+  const below = box.bottom + 4 + starMenu.offsetHeight <= window.innerHeight - 8;
+  starMenu.style.top = `${below ? box.bottom + 4 : Math.max(8, box.top - 4 - starMenu.offsetHeight)}px`;
+  starMenu.style.left = `${Math.max(8, Math.min(window.innerWidth - starMenu.offsetWidth - 8, box.right - starMenu.offsetWidth))}px`;
+}
+document.addEventListener('click', (e) => !starMenu.hidden && !starMenu.contains(e.target) && closeStarMenu());
+document.addEventListener('keydown', (e) => e.key === 'Escape' && !starMenu.hidden && closeStarMenu());
+document.addEventListener('scroll', () => !starMenu.hidden && closeStarMenu(), true); // le menu ne suit pas la liste
 
 function favoriteStar(type, id) {
   const star = el('button', {
     className: 'star',
     onclick: (e) => {
       e.stopPropagation();
+      if (favoritePages[type].length > 1) return openStarMenu(star);
+      closeStarMenu();
       toggleFavorite(type, star.dataset.favorite);
     },
   });

@@ -228,6 +228,8 @@
   "favorites.deleteConfirm": {"one": "Eliminar a página «{name}» e o seu favorito?", "other": "Eliminar a página «{name}» e os seus {count} favoritos?"},
   "favorites.addTo": "Adicionar a «{name}»",
   "favorites.removeFrom": "Remover de «{name}»",
+  "favorites.choose": "Adicionar a uma página de favoritos…",
+  "favorites.inPages": "Em: {names} (clique para alterar)",
   "guide.programs": "Programas",
   "guide.channels": "Canais",
   "guide.onAir": "Em direto",

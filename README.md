@@ -7,7 +7,7 @@ guide des programmes et replay, dans le navigateur.
 
 - **TV** : chaînes en direct (HLS) avec ce qui passe en ce moment, chaîne par chaîne.
   Recherche par chaîne ou par programme (en cours, à venir, ou passé et encore en replay), catégories
-  et favoris répartis sur plusieurs pages à nommer (étoile, à réordonner en les faisant glisser ; au doigt, après un appui long).
+  et favoris répartis sur plusieurs pages à nommer (étoile, qui demande la page quand il y en a plusieurs, à réordonner en les faisant glisser ; au doigt, après un appui long).
   Un clic sur une chaîne ouvre sa fiche, avec le guide complet par jour et le replay des programmes déjà diffusés ;
   le bouton ▶ de la ligne lance le direct.
 - **Versions** (⇄ dans le lecteur) : la même chaîne ou le même film dans une autre qualité ou langue,

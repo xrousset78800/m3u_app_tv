@@ -81,6 +81,9 @@ select, input {
 }
 .header-menu li:hover { background: #2a2a2a; color: #fff; }
 .header-menu li.active { color: #fff; font-weight: 600; }
+/* Choix de la page de favoris sous l'étoile. */
+.header-menu .star-mark { width: 1em; color: #888; text-align: center; }
+.header-menu li.active .star-mark { color: #f5c518; }
 body > #tabs #view-picker { display: none; }
 
 /* Préférences : boutons à choix unique (langue, présentation). */

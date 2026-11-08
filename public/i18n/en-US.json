@@ -228,6 +228,8 @@
   "favorites.deleteConfirm": {"one": "Delete the page “{name}” and its favorite?", "other": "Delete the page “{name}” and its {count} favorites?"},
   "favorites.addTo": "Add to “{name}”",
   "favorites.removeFrom": "Remove from “{name}”",
+  "favorites.choose": "Add to a favorites page…",
+  "favorites.inPages": "In: {names} (click to change)",
   "guide.programs": "Programs",
   "guide.channels": "Channels",
   "guide.onAir": "On air",
