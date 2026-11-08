@@ -2427,6 +2427,12 @@ function labelCategories(select) {
 }
 
 async function selectType(type) {
+  // Autre onglet : la fiche de l'ancien se replie (son contenu reste le temps de l'animation) ;
+  // un clic sur une ligne en ouvrira une nouvelle.
+  if (type !== currentType) {
+    closeFiche(true);
+    selectedChannel = null;
+  }
   currentType = type;
   paintView();
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.type === type));
@@ -3120,6 +3126,20 @@ async function init() {
       await selectType(currentType);
     } catch (err) {
       $('sync-error').textContent = t('settings.syncFailed', { error: err.message });
+    }
+  };
+  // Le même, à portée de main là où l'on coche et décoche : la page se réaffiche avec le catalogue frais.
+  $('manage-sync').onclick = async () => {
+    const note = $('manage-note');
+    note.classList.remove('error');
+    try {
+      await runImport($('manage-sync'));
+      note.textContent = t('settings.manageNote');
+      await renderManagedGroups();
+      await renderManagedItems();
+    } catch (err) {
+      note.textContent = t('settings.syncFailed', { error: err.message });
+      note.classList.add('error');
     }
   };
 
