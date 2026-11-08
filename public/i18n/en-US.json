@@ -273,5 +273,22 @@
   "sort.name": "Title (A → Z)",
   "list.new": "New",
   "list.newEpisodes": "New episodes",
-  "list.newEpisodesTab": { "one": "{count} favorite series has new episodes", "other": "{count} favorite series have new episodes" }
+  "list.newEpisodesTab": { "one": "{count} favorite series has new episodes", "other": "{count} favorite series have new episodes" },
+  "list.removeResume": "Remove from \"Continue watching\"",
+  "reminder.title": "Reminder",
+  "reminder.add": "Remind me when it starts",
+  "reminder.remove": "Cancel the reminder",
+  "reminder.set": "Reminder: \"{title}\" at {time}",
+  "reminder.soon": {"one": "In {count} minute on {channel}", "other": "In {count} minutes on {channel}"},
+  "reminder.started": "Started on {channel}",
+  "reminder.watch": "▶ Watch",
+  "reminder.close": "Close",
+  "backup.title": "Backup",
+  "backup.note": "Favorites and their pages, resume points, playlist, reminders and preferences of every account, the accounts themselves and removed items: all in one file, to move to another PC or start again after a reinstall. The subscription login is not included.",
+  "backup.export": "Save a backup",
+  "backup.import": "Restore a backup…",
+  "backup.exported": "Backup saved.",
+  "backup.confirm": "Restore the backup from {date}? Current accounts, favorites, resume points and preferences will be replaced, then the app will restart on the account choice.",
+  "error.badBackup": "This file is not a backup of the app, or it is damaged",
+  "profiles.unlockedWarning": "A Child account exists, but {names} opens without a password and sees everything: the child can switch to it. Give it a password."
 }

@@ -273,5 +273,22 @@
   "sort.name": "Titel (A → Z)",
   "list.new": "Neu",
   "list.newEpisodes": "Neue Folgen",
-  "list.newEpisodesTab": { "one": "{count} Lieblingsserie hat neue Folgen", "other": "{count} Lieblingsserien haben neue Folgen" }
+  "list.newEpisodesTab": { "one": "{count} Lieblingsserie hat neue Folgen", "other": "{count} Lieblingsserien haben neue Folgen" },
+  "list.removeResume": "Aus „Weiterschauen“ entfernen",
+  "reminder.title": "Erinnerung",
+  "reminder.add": "Erinnern, wenn es beginnt",
+  "reminder.remove": "Erinnerung löschen",
+  "reminder.set": "Erinnerung: „{title}“ um {time}",
+  "reminder.soon": {"one": "In {count} Minute auf {channel}", "other": "In {count} Minuten auf {channel}"},
+  "reminder.started": "Hat auf {channel} begonnen",
+  "reminder.watch": "▶ Ansehen",
+  "reminder.close": "Schließen",
+  "backup.title": "Sicherung",
+  "backup.note": "Favoriten und ihre Seiten, Fortsetzungspunkte, Playlist, Erinnerungen und Einstellungen jedes Kontos, die Konten selbst und entfernte Einträge: alles in einer Datei, um den PC zu wechseln oder nach einer Neuinstallation weiterzumachen. Die Zugangsdaten des Abos sind nicht enthalten.",
+  "backup.export": "Sicherung speichern",
+  "backup.import": "Sicherung wiederherstellen…",
+  "backup.exported": "Sicherung gespeichert.",
+  "backup.confirm": "Sicherung vom {date} wiederherstellen? Aktuelle Konten, Favoriten, Fortsetzungspunkte und Einstellungen werden ersetzt, danach startet die App mit der Kontoauswahl neu.",
+  "error.badBackup": "Diese Datei ist keine Sicherung der App oder sie ist beschädigt",
+  "profiles.unlockedWarning": "Es gibt ein Kinderkonto, aber {names} öffnet sich ohne Passwort und sieht alles: Das Kind kann es benutzen. Lege ein Passwort fest."
 }

@@ -273,5 +273,22 @@
   "sort.name": "Título (A → Z)",
   "list.new": "Nuevo",
   "list.newEpisodes": "Nuevos episodios",
-  "list.newEpisodesTab": { "one": "{count} serie favorita tiene nuevos episodios", "other": "{count} series favoritas tienen nuevos episodios" }
+  "list.newEpisodesTab": { "one": "{count} serie favorita tiene nuevos episodios", "other": "{count} series favoritas tienen nuevos episodios" },
+  "list.removeResume": "Quitar de «Seguir viendo»",
+  "reminder.title": "Recordatorio",
+  "reminder.add": "Avisarme cuando empiece",
+  "reminder.remove": "Cancelar el recordatorio",
+  "reminder.set": "Recordatorio: «{title}» a las {time}",
+  "reminder.soon": {"one": "Dentro de {count} minuto en {channel}", "other": "Dentro de {count} minutos en {channel}"},
+  "reminder.started": "Ha empezado en {channel}",
+  "reminder.watch": "▶ Ver",
+  "reminder.close": "Cerrar",
+  "backup.title": "Copia de seguridad",
+  "backup.note": "Favoritos y sus páginas, puntos de reanudación, lista de reproducción, recordatorios y preferencias de cada cuenta, las propias cuentas y los elementos quitados: todo en un archivo, para cambiar de PC o volver a empezar tras una reinstalación. Los datos de acceso de la suscripción no se incluyen.",
+  "backup.export": "Guardar una copia",
+  "backup.import": "Restaurar una copia…",
+  "backup.exported": "Copia guardada.",
+  "backup.confirm": "¿Restaurar la copia del {date}? Las cuentas, favoritos, puntos de reanudación y preferencias actuales se sustituirán, y la aplicación se reiniciará en la elección de cuenta.",
+  "error.badBackup": "Este archivo no es una copia de la aplicación, o está dañado",
+  "profiles.unlockedWarning": "Existe una cuenta Infantil, pero {names} se abre sin contraseña y lo ve todo: el niño puede entrar. Ponle una contraseña."
 }

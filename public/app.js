@@ -1678,7 +1678,7 @@ document.addEventListener('keydown', (e) => {
     pagedown: () => zap(1),
     backspace: () => {
       if (!liveChannel || !previousChannel) return;
-      showOsd(previousChannel.name);
+      showChannelOsd(previousChannel);
       playLive(previousChannel);
     },
   }[key];
@@ -1711,11 +1711,29 @@ function showVolume() {
 // Indication passagère par-dessus la vidéo.
 const osd = $('osd');
 let osdTimer;
-function showOsd(text) {
-  osd.textContent = text;
+function showOsd(text, ms = 1200) {
+  osd.replaceChildren(text);
   osd.hidden = false;
   clearTimeout(osdTimer);
-  osdTimer = setTimeout(() => (osd.hidden = true), 1200);
+  osdTimer = setTimeout(() => (osd.hidden = true), ms);
+}
+
+// Changement de chaîne au clavier : son nom, ce qui passe et ce qui suit (programmes de la ligne du guide).
+function showChannelOsd(channel) {
+  const now = Date.now() / 1000;
+  const [first, second] = (channel.programmes || []).filter((p) => p.stop > now);
+  const current = first?.start <= now ? first : null;
+  const next = current ? second : first;
+  const line = (label, p) => p && el('div', { className: 'osd-line' }, el('span', { className: 'muted' }, `${label} · ${formatHour(p.start)}`), el('span', {}, p.title));
+  const box = el(
+    'div',
+    { className: 'osd-channel' },
+    el('strong', {}, channel.name),
+    line(t('guide.now'), current),
+    current && el('div', { className: 'bar' }, el('div', { style: `width:${((now - current.start) / (current.stop - current.start)) * 100}%` })),
+    line(t('guide.next'), next),
+  );
+  showOsd(box, 3500);
 }
 
 // Zapping (Page ↑ ↓) : la chaîne d'avant ou d'après dans la liste du guide, telle qu'elle est affichée
@@ -1728,7 +1746,7 @@ function zap(delta) {
   const row = rows[index < 0 ? 0 : (index + delta + rows.length) % rows.length];
   row.scrollIntoView({ block: 'nearest' });
   playLive(row.channel);
-  showOsd(row.channel.name);
+  showChannelOsd(row.channel);
 }
 
 function toggleShortcuts(shown = $('shortcuts').hidden) {
@@ -1851,6 +1869,7 @@ async function showChannel(channel) {
             current && el('div', { className: 'bar' }, el('div', { style: `width:${((now - p.start) / (p.end - p.start)) * 100}%` })),
             el('p', { className: 'description', hidden: true }, p.description),
           ),
+          p.start > now && reminderButton(channel, p),
           canReplay &&
             el('button', {
               className: 'secondary',
@@ -2408,7 +2427,20 @@ function guideRow(channel, sortable) {
     }),
     el('div', { className: 'guide-logo' }, channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() })),
     el('span', { className: `guide-name${any ? '' : ' wide'}` }, channel.name),
-    any && cell(programme),
+    // À côté du lecteur, la suite tient sous le programme en cours (présentations liste et grandes vignettes).
+    any &&
+      el(
+        'div',
+        { className: 'guide-now' },
+        cell(programme),
+        next &&
+          el(
+            'div',
+            { className: 'guide-next', title: `${formatHour(next.start)} – ${formatHour(next.stop)} · ${next.title}` },
+            el('span', { className: 'muted' }, formatHour(next.start)),
+            el('span', {}, next.title),
+          ),
+      ),
     any && el('div', { className: 'guide-more' }, cell(next), cell(channel.evening)),
     el('div', { className: 'guide-replay' }, channel.archiveDays > 0 && el('small', { className: 'badge', title: t('guide.replayDays', { count: channel.archiveDays }) }, '⟲')),
     favoriteStar('live', channel.id),
@@ -2589,12 +2621,37 @@ function inProgress(type) {
     const id = type === 'vod' ? key.startsWith('movie:') && key.slice(6) : key.startsWith('episode:') && saved.series;
     if (id && !(latest.get(id)?.at > saved.at)) latest.set(id, saved);
   }
+  const dismissed = readJson('resumeDismissed') || {};
+  for (const [id, saved] of latest) if (dismissed[`${type}:${id}`] >= saved.at) latest.delete(id);
   const started = (p) => p.position > 30 && p.position < p.duration * 0.95;
   return [...latest]
     .filter(([, p]) => started(p) || (type === 'series' && p.more && p.position >= p.duration * 0.95))
     .sort(([, a], [, b]) => b.at - a.at)
     .map(([id]) => String(id))
     .slice(0, 100);
+}
+
+// Retiré de « Continuer à regarder » : la position de reprise reste, l'entrée revient si on s'y remet.
+function dismissResume(type, id) {
+  const dismissed = readJson('resumeDismissed') || {};
+  dismissed[`${type}:${id}`] = Date.now();
+  try {
+    storage.setItem('resumeDismissed', JSON.stringify(dismissed));
+  } catch {}
+}
+
+function resumeRemoveButton(type, item, li) {
+  return el('button', {
+    className: 'resume-remove',
+    textContent: '✕',
+    title: t('list.removeResume'),
+    onclick: (e) => {
+      e.stopPropagation();
+      dismissResume(type, item.id);
+      li.remove();
+      if (!list.querySelector('li[data-id]')) list.replaceChildren(el('li', { className: 'muted empty' }, t('list.nothingStarted')));
+    },
+  });
 }
 
 // --- Tri, nouveautés, nouveaux épisodes ---------------------------------------------
@@ -2706,6 +2763,7 @@ async function loadList(append = false) {
       newBadge(type, item),
       favoriteStar(type, String(item.id)),
     );
+    if (resuming) li.append(resumeRemoveButton(type, item, li));
     li.dataset.id = item.id;
     li.draggable = favoritesOnly; // les favoris se réordonnent en les faisant glisser
     li.onclick = () => {
@@ -3056,7 +3114,7 @@ function selectManagedType(type) {
 const languageParam = () => new URLSearchParams({ language });
 
 // Réglages en rubriques, une seule affichée à la fois ; la dernière ouverte est retenue.
-const SETTINGS_PANES = ['subscription', 'profiles', 'manage', 'preferences'];
+const SETTINGS_PANES = ['subscription', 'profiles', 'manage', 'preferences', 'backup'];
 let settingsPane = SETTINGS_PANES.includes(storage.getItem('settingsPane')) ? storage.getItem('settingsPane') : 'subscription';
 
 function showPane(name) {
@@ -3200,6 +3258,11 @@ function groupSummary(profile) {
 
 function renderAccounts() {
   if (!isAdmin()) return;
+  // Un compte Enfant ne protège rien si un compte qui voit tout s'ouvre sans mot de passe.
+  const open = accounts.filter((p) => !p.locked && (p.role === 'admin' || !p.groups));
+  const warning = $('profile-warning');
+  warning.hidden = !accounts.some((p) => p.role === 'child') || !open.length;
+  warning.textContent = t('profiles.unlockedWarning', { names: open.map((p) => p.name).join(', ') });
   $('profile-list').replaceChildren(
     ...accounts.map((profile) =>
       el(
@@ -3362,6 +3425,135 @@ $('profile-form').onsubmit = async (event) => {
   await loadAccounts();
   renderAccounts();
   showAccount();
+};
+
+// --- Rappels : un programme à venir de la fiche d'une chaîne, signalé quand il commence ---
+
+const REMIND_BEFORE = 120; // secondes avant le début
+const reminderBox = $('reminder');
+const reminderKey = (channel, p) => `${channel.id}:${p.start}`;
+
+function readReminders() {
+  const reminders = readJson('reminders');
+  return Array.isArray(reminders) ? reminders : [];
+}
+
+function saveReminders(reminders) {
+  try {
+    storage.setItem('reminders', JSON.stringify(reminders));
+  } catch {}
+}
+
+function reminderButton(channel, p) {
+  const key = reminderKey(channel, p);
+  const button = el('button', { className: 'bell', textContent: '🔔' });
+  const paint = () => {
+    const on = readReminders().some((r) => r.key === key);
+    button.classList.toggle('on', on);
+    button.title = t(on ? 'reminder.remove' : 'reminder.add');
+  };
+  button.onclick = (e) => {
+    e.stopPropagation();
+    const reminders = readReminders();
+    const index = reminders.findIndex((r) => r.key === key);
+    if (index >= 0) reminders.splice(index, 1);
+    else {
+      reminders.push({ key, channel: { id: String(channel.id), name: channel.name, logo: channel.logo }, title: p.title, start: p.start, stop: p.end ?? p.stop });
+      // Dans un navigateur, la permission se demande ici, au clic ; dans l'appli, elle est accordée d'office.
+      if (window.Notification?.permission === 'default') Notification.requestPermission().catch(() => {});
+      say('reminder.set', { title: p.title, time: formatHour(p.start) });
+    }
+    saveReminders(reminders);
+    paint();
+  };
+  paint();
+  return button;
+}
+
+async function watchReminder(reminder) {
+  reminderBox.hidden = true;
+  window.tvWindow?.focus?.();
+  window.focus();
+  if (currentType === 'settings') await selectType('live');
+  playLive(reminder.channel);
+}
+
+function fireReminder(reminder) {
+  const now = Date.now() / 1000;
+  const text = reminder.start > now
+    ? t('reminder.soon', { count: Math.max(1, Math.round((reminder.start - now) / 60)), channel: reminder.channel.name })
+    : t('reminder.started', { channel: reminder.channel.name });
+  $('reminder-title').textContent = reminder.title;
+  $('reminder-text').textContent = text;
+  $('reminder-watch').onclick = () => watchReminder(reminder);
+  reminderBox.hidden = false;
+  if (window.Notification?.permission === 'granted') {
+    try {
+      const notification = new Notification(reminder.title, { body: text, icon: reminder.channel.logo || undefined, tag: reminder.key });
+      notification.onclick = () => watchReminder(reminder);
+    } catch {}
+  }
+}
+
+// Vérifié toutes les 20 s. Un programme fini pendant que l'appli était fermée est oublié sans rien dire.
+function checkReminders() {
+  const now = Date.now() / 1000;
+  const reminders = readReminders();
+  const due = reminders.filter((r) => r.start - REMIND_BEFORE <= now);
+  if (!due.length) return;
+  saveReminders(reminders.filter((r) => !due.includes(r)));
+  const live = due.filter((r) => r.stop > now);
+  if (live.length) fireReminder(live[live.length - 1]);
+}
+$('reminder-close').onclick = () => (reminderBox.hidden = true);
+setInterval(checkReminders, 20000);
+
+// --- Sauvegarde : favoris, reprises, préférences de chaque compte (dans la page), comptes et éléments retirés ---
+
+function backupNote(text, isError = false) {
+  const note = $('backup-note');
+  note.className = isError ? 'error' : 'muted small';
+  note.textContent = text;
+}
+
+async function exportBackup() {
+  try {
+    const server = await getJson('/api/backup');
+    const local = {};
+    for (let i = 0; i < localStorage.length; i++) local[localStorage.key(i)] = localStorage.getItem(localStorage.key(i));
+    const data = { app: 'tv', version: 1, date: new Date().toISOString(), storage: local, ...server };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
+    el('a', { href: url, download: `tv-sauvegarde-${new Date().toISOString().slice(0, 10)}.json` }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    backupNote(t('backup.exported'));
+  } catch (err) {
+    backupNote(err.message, true);
+  }
+}
+
+async function importBackup(file) {
+  try {
+    let data;
+    try {
+      data = JSON.parse(await file.text());
+    } catch {}
+    if (data?.app !== 'tv' || !data.storage || typeof data.storage !== 'object' || !Array.isArray(data.profiles)) throw new Error(t('error.badBackup'));
+    const date = new Date(data.date).toLocaleString(language, { dateStyle: 'long', timeStyle: 'short' });
+    if (!confirm(t('backup.confirm', { date }))) return;
+    await sendJson('/api/restore', 'POST', { profiles: data.profiles, hidden: data.hidden || [] });
+    localStorage.clear();
+    for (const [key, value] of Object.entries(data.storage)) if (typeof value === 'string') localStorage.setItem(key, value);
+    location.reload();
+  } catch (err) {
+    backupNote(err.message, true);
+  }
+}
+$('backup-export').onclick = exportBackup;
+$('backup-import').onclick = () => $('backup-file').click();
+$('backup-file').onchange = (e) => {
+  const [file] = e.target.files;
+  e.target.value = '';
+  if (file) importBackup(file);
 };
 
 // --- Démarrage et import -----------------------------------------------------------

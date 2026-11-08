@@ -80,6 +80,14 @@ ipcMain.handle('fullscreen', (_event, action) => {
   return window.isFullScreen();
 });
 
+// Rappel de programme : un clic sur la notification remet la fenêtre au premier plan.
+ipcMain.on('focus', () => {
+  if (!window) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+});
+
 // Mises à jour : cherchées dans les Releases GitHub, téléchargées en arrière-plan,
 // installées au redémarrage (proposé tout de suite, sinon à la prochaine fermeture).
 function checkForUpdates() {
@@ -111,6 +119,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    app.setAppUserModelId('fr.xrousset.tv'); // nom de l'appli sur les notifications Windows (rappels)
     Menu.setApplicationMenu(null);
     try {
       createWindow(await startServer());

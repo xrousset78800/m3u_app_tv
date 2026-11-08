@@ -172,11 +172,11 @@ function sendJson(res, data) {
   res.end(JSON.stringify(data));
 }
 
-async function readJson(req) {
+async function readJson(req, limit = 200000) {
   let body = '';
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 200000) throw Object.assign(new Error('Requête trop volumineuse'), { status: 413 });
+    if (body.length > limit) throw Object.assign(new Error('Requête trop volumineuse'), { status: 413 });
   }
   try {
     return JSON.parse(body);
@@ -336,6 +336,17 @@ const routes = [
       return sendText(res, 400, 'Paramètres invalides');
     }
     db.setHidden({ type, kind, ids, hidden: Boolean(hidden) });
+    sendJson(res, { ok: true });
+  }, 'admin'],
+  // Sauvegarde et restauration : comptes et éléments retirés (le reste est dans la page, voir app.js).
+  ['GET', /^\/api\/backup$/, (req, res) => sendJson(res, db.backup()), 'admin'],
+  ['POST', /^\/api\/restore$/, async (req, res) => {
+    const input = await readJson(req, 20e6); // des milliers d'éléments retirés, parfois
+    const hidden = Array.isArray(input?.hidden) ? input.hidden : null;
+    const valid = (h) => TYPES.includes(h?.type) && ['category', 'item'].includes(h.kind) && typeof h.id === 'string';
+    if (!hidden?.every(valid)) return sendText(res, 400, 'Sauvegarde invalide', { key: 'badBackup' });
+    db.restore({ profiles: profiles.restore(input.profiles), hidden });
+    res.setHeader('Set-Cookie', profiles.close(req));
     sendJson(res, { ok: true });
   }, 'admin'],
   ['GET', /^\/api\/guide$/, (req, res, { params, profile }) => {

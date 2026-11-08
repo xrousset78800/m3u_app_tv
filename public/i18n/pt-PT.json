@@ -273,5 +273,22 @@
   "sort.name": "Título (A → Z)",
   "list.new": "Novo",
   "list.newEpisodes": "Novos episódios",
-  "list.newEpisodesTab": { "one": "{count} série favorita tem novos episódios", "other": "{count} séries favoritas têm novos episódios" }
+  "list.newEpisodesTab": { "one": "{count} série favorita tem novos episódios", "other": "{count} séries favoritas têm novos episódios" },
+  "list.removeResume": "Remover de «Continuar a ver»",
+  "reminder.title": "Lembrete",
+  "reminder.add": "Avisar-me quando começar",
+  "reminder.remove": "Cancelar o lembrete",
+  "reminder.set": "Lembrete: «{title}» às {time}",
+  "reminder.soon": {"one": "Daqui a {count} minuto na {channel}", "other": "Daqui a {count} minutos na {channel}"},
+  "reminder.started": "Começou na {channel}",
+  "reminder.watch": "▶ Ver",
+  "reminder.close": "Fechar",
+  "backup.title": "Cópia de segurança",
+  "backup.note": "Favoritos e as suas páginas, pontos de retoma, lista de reprodução, lembretes e preferências de cada conta, as próprias contas e os elementos retirados: tudo num ficheiro, para mudar de PC ou recomeçar após uma reinstalação. Os dados de acesso da subscrição não estão incluídos.",
+  "backup.export": "Guardar uma cópia",
+  "backup.import": "Restaurar uma cópia…",
+  "backup.exported": "Cópia guardada.",
+  "backup.confirm": "Restaurar a cópia de {date}? As contas, favoritos, pontos de retoma e preferências atuais serão substituídos, e a aplicação reinicia na escolha da conta.",
+  "error.badBackup": "Este ficheiro não é uma cópia da aplicação, ou está danificado",
+  "profiles.unlockedWarning": "Existe uma conta Criança, mas {names} abre sem palavra-passe e vê tudo: a criança pode entrar. Define-lhe uma palavra-passe."
 }

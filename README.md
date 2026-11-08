@@ -9,13 +9,17 @@ guide des programmes et replay, dans le navigateur.
   Recherche par chaîne ou par programme (en cours, à venir, ou passé et encore en replay), catégories
   et favoris répartis sur plusieurs pages à nommer (étoile, qui demande la page quand il y en a plusieurs, à réordonner en les faisant glisser ; au doigt, après un appui long).
   Un clic sur une chaîne ouvre sa fiche, avec le guide complet par jour et le replay des programmes déjà diffusés ;
-  le bouton ▶ de la ligne lance le direct.
+  le bouton ▶ de la ligne lance le direct. À côté du lecteur (présentations liste et grandes vignettes),
+  la suite s'affiche sous le programme en cours ; sans lecteur, la grille montre maintenant, ensuite et la soirée.
+- **Rappels** : 🔔 sur un programme à venir de la fiche d'une chaîne. Deux minutes avant le début,
+  un encadré et une notification Windows proposent de lancer la chaîne. Retenus pour chaque compte.
 - **Versions** (⇄ dans le lecteur) : la même chaîne ou le même film dans une autre qualité ou langue,
   retrouvés par leur nom. Le choix est retenu et remplace l'ancienne version dans les favoris.
 - **Films / Séries** : favoris comme pour la TV (étoile sur la ligne ou dans la fiche ; pour une série,
   c'est la série entière), fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
   **Continuer à regarder**, en tête des catégories : films commencés, et séries dont le dernier épisode vu est en cours ou a une suite.
+  Le ✕ d'une ligne l'en retire (la position de reprise reste, et l'entrée revient si on s'y remet).
   À la fin d'un épisode (ou dans le générique de fin passé), la suite part après 10 s : « Lire maintenant » ou « Annuler ».
   Tri à côté de la recherche (ordre du fournisseur, ajout récent, note, année, titre), retenu pour chaque onglet.
   Badge **Nouveau** sur les films ajoutés depuis moins de 7 jours ; **Nouveaux épisodes** sur les séries en favori
@@ -26,6 +30,10 @@ guide des programmes et replay, dans le navigateur.
   sans identifiant ni traduction, les textes du fournisseur restent affichés.
 - **Réglages** (⚙) : compte, mise à jour du catalogue, et chaînes, films, séries ou groupes entiers
   à retirer (Maj + clic pour toute une plage). Ces choix sont réversibles et conservés quand le catalogue est mis à jour.
+- **Comptes** (⚙ › Comptes) : un compte Enfant ne voit que les groupes choisis ; un avertissement s'affiche
+  si un compte qui voit tout s'ouvre sans mot de passe, puisque l'enfant pourrait y passer.
+- **Sauvegarde** (⚙ › Sauvegarde) : favoris, reprises, playlist, rappels et préférences de chaque compte,
+  comptes et éléments retirés, dans un fichier à restaurer sur un autre PC. Les accès de l'abonnement n'y sont pas.
 - Tout est à gauche du lecteur, sur deux colonnes : d'abord le menu, les chaînes ou la liste, le statut et la playlist ;
   puis la fiche (programme de la chaîne, film, épisodes), qui n'apparaît que lorsqu'il y a quelque chose à y montrer
   et se referme quand la souris rejoint la vidéo. Les longs résumés sont coupés, avec un lien « voir plus ».
@@ -38,7 +46,8 @@ guide des programmes et replay, dans le navigateur.
 - Films et épisodes : boutons −10 s / +10 s de part et d'autre de la barre de temps, ou flèches `←` `→` ;
   plusieurs appuis rapprochés s'additionnent en un seul déplacement.
 - **Clavier** (`?` pour l'aide, aussi dans ⚙ › Préférences) : `Espace` lecture / pause, `↑` `↓` volume (retenu), `M` son coupé ;
-  en direct, `Page ↑` `Page ↓` passent à la chaîne d'avant ou d'après dans la liste affichée, `⌫` revient à la chaîne regardée juste avant.
+  en direct, `Page ↑` `Page ↓` passent à la chaîne d'avant ou d'après dans la liste affichée, `⌫` revient à la chaîne regardée juste avant
+  (le nom de la chaîne s'affiche alors sur la vidéo, avec ce qui passe et ce qui suit).
 - En direct, la barre de temps du lecteur est masquée : on ne peut pas revenir en arrière (le replay la garde).
 - Les colonnes ne s'ouvrent et ne se ferment qu'avec le bouton ☰ ou la touche `L`.
 - **Écran tactile** : toucher la vidéo fait paraître les boutons du lecteur sans mettre en pause ; les petits boutons

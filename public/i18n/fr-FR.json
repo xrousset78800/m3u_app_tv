@@ -273,5 +273,22 @@
   "sort.name": "Titre (A → Z)",
   "list.new": "Nouveau",
   "list.newEpisodes": "Nouveaux épisodes",
-  "list.newEpisodesTab": { "one": "{count} série en favori a de nouveaux épisodes", "other": "{count} séries en favori ont de nouveaux épisodes" }
+  "list.newEpisodesTab": { "one": "{count} série en favori a de nouveaux épisodes", "other": "{count} séries en favori ont de nouveaux épisodes" },
+  "list.removeResume": "Retirer de « Continuer à regarder »",
+  "reminder.title": "Rappel",
+  "reminder.add": "Me prévenir quand ça commence",
+  "reminder.remove": "Annuler le rappel",
+  "reminder.set": "Rappel : « {title} » à {time}",
+  "reminder.soon": {"one": "Dans {count} minute sur {channel}", "other": "Dans {count} minutes sur {channel}"},
+  "reminder.started": "Commencé sur {channel}",
+  "reminder.watch": "▶ Regarder",
+  "reminder.close": "Fermer",
+  "backup.title": "Sauvegarde",
+  "backup.note": "Favoris et leurs pages, reprises, playlist, rappels et préférences de chaque compte, comptes eux-mêmes et éléments retirés : tout tient dans un fichier, pour changer de PC ou repartir après une réinstallation. Les accès de l'abonnement n'y sont pas.",
+  "backup.export": "Enregistrer une sauvegarde",
+  "backup.import": "Restaurer une sauvegarde…",
+  "backup.exported": "Sauvegarde enregistrée.",
+  "backup.confirm": "Restaurer la sauvegarde du {date} ? Comptes, favoris, reprises et préférences actuels seront remplacés, puis l'appli redémarrera sur le choix du compte.",
+  "error.badBackup": "Ce fichier n'est pas une sauvegarde de l'appli, ou il est abîmé",
+  "profiles.unlockedWarning": "Un compte Enfant existe, mais {names} s'ouvre sans mot de passe et voit tout : l'enfant peut y entrer. Ajoute-lui un mot de passe."
 }

@@ -60,6 +60,7 @@
           <button data-pane="profiles" data-i18n="profiles.title">Comptes</button>
           <button data-pane="manage" data-i18n="settings.manage">Chaînes et groupes</button>
           <button data-pane="preferences" data-i18n="settings.preferences">Préférences</button>
+          <button data-pane="backup" data-i18n="backup.title">Sauvegarde</button>
         </nav>
 
         <div class="settings-pane" data-pane="subscription" hidden>
@@ -73,6 +74,7 @@
         </div>
 
         <div class="settings-pane" data-pane="profiles" hidden>
+          <p id="profile-warning" class="warning" hidden></p>
           <ul id="profile-list"></ul>
           <div><button id="profile-add" class="secondary" data-i18n="profiles.add">+ Ajouter un compte</button></div>
           <p class="muted small" data-i18n="profiles.note">Chaque compte a ses favoris, ses reprises et sa playlist.</p>
@@ -86,6 +88,16 @@
           <p class="muted small" data-i18n="view.note">Propre à chaque onglet. L'icône d'affichage, en haut de la colonne, change celle de l'onglet affiché.</p>
           <h3 data-i18n="keys.title">Raccourcis clavier</h3>
           <button id="show-shortcuts" type="button" class="secondary" data-i18n="keys.show">Voir les raccourcis (touche ?)</button>
+        </div>
+
+        <div class="settings-pane" data-pane="backup" hidden>
+          <p class="muted small" data-i18n="backup.note">Favoris et leurs pages, reprises, playlist, rappels et préférences de chaque compte, comptes eux-mêmes et éléments retirés : tout tient dans un fichier, pour changer de PC ou repartir après une réinstallation. Les accès de l'abonnement n'y sont pas.</p>
+          <div class="account">
+            <button id="backup-export" type="button" class="secondary" data-i18n="backup.export">Enregistrer une sauvegarde</button>
+            <button id="backup-import" type="button" class="secondary" data-i18n="backup.import">Restaurer une sauvegarde…</button>
+            <input id="backup-file" type="file" accept=".json,application/json" hidden>
+          </div>
+          <p id="backup-note" class="muted small"></p>
         </div>
 
         <div class="settings-pane" data-pane="manage" hidden>
@@ -266,6 +278,17 @@
       <p class="note muted"></p>
       <ul class="results"></ul>
       <p class="credit muted" data-i18n="subtitles.credit">Sous-titres fournis par OpenSubtitles.com</p>
+    </div>
+  </div>
+
+  <!-- Rappel : un programme demandé commence (voir checkReminders). -->
+  <div id="reminder" hidden>
+    <small data-i18n="reminder.title">Rappel</small>
+    <strong id="reminder-title"></strong>
+    <span id="reminder-text"></span>
+    <div class="buttons">
+      <button id="reminder-watch" type="button" data-i18n="reminder.watch">▶ Regarder</button>
+      <button id="reminder-close" type="button" class="secondary" data-i18n="reminder.close">Fermer</button>
     </div>
   </div>
 

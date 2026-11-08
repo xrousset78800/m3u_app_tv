@@ -273,5 +273,22 @@
   "sort.name": "Titolo (A → Z)",
   "list.new": "Nuovo",
   "list.newEpisodes": "Nuovi episodi",
-  "list.newEpisodesTab": { "one": "{count} serie preferita ha nuovi episodi", "other": "{count} serie preferite hanno nuovi episodi" }
+  "list.newEpisodesTab": { "one": "{count} serie preferita ha nuovi episodi", "other": "{count} serie preferite hanno nuovi episodi" },
+  "list.removeResume": "Rimuovi da «Continua a guardare»",
+  "reminder.title": "Promemoria",
+  "reminder.add": "Avvisami quando inizia",
+  "reminder.remove": "Annulla il promemoria",
+  "reminder.set": "Promemoria: «{title}» alle {time}",
+  "reminder.soon": {"one": "Tra {count} minuto su {channel}", "other": "Tra {count} minuti su {channel}"},
+  "reminder.started": "È iniziato su {channel}",
+  "reminder.watch": "▶ Guarda",
+  "reminder.close": "Chiudi",
+  "backup.title": "Backup",
+  "backup.note": "Preferiti e le loro pagine, punti di ripresa, playlist, promemoria e preferenze di ogni account, gli account stessi e gli elementi rimossi: tutto in un file, per cambiare PC o ripartire dopo una reinstallazione. Le credenziali dell'abbonamento non sono incluse.",
+  "backup.export": "Salva un backup",
+  "backup.import": "Ripristina un backup…",
+  "backup.exported": "Backup salvato.",
+  "backup.confirm": "Ripristinare il backup del {date}? Account, preferiti, punti di ripresa e preferenze attuali saranno sostituiti, poi l'app ripartirà dalla scelta dell'account.",
+  "error.badBackup": "Questo file non è un backup dell'app, oppure è danneggiato",
+  "profiles.unlockedWarning": "Esiste un account Bambino, ma {names} si apre senza password e vede tutto: il bambino può entrarci. Imposta una password."
 }
