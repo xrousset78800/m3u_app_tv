@@ -15,6 +15,8 @@ guide des programmes et replay, dans le navigateur.
 - **Films / Séries** : favoris comme pour la TV (étoile sur la ligne ou dans la fiche ; pour une série,
   c'est la série entière), fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
+  **Continuer à regarder**, en tête des catégories : films commencés, et séries dont le dernier épisode vu est en cours ou a une suite.
+  À la fin d'un épisode (ou dans le générique de fin passé), la suite part après 10 s : « Lire maintenant » ou « Annuler ».
   Titres et résumés traduits avec [TMDB](https://www.themoviedb.org) dans la langue de l'appli :
   les textes des fournisseurs mélangent souvent les langues d'une saison à l'autre.
   Une série n'est retenue que si ses épisodes portent les identifiants TMDB donnés par le fournisseur ;
@@ -32,6 +34,8 @@ guide des programmes et replay, dans le navigateur.
 - **Mise en veille** (☾ dans le lecteur) : 15 min à 2 h, à la fin du film ou de l'épisode, ou une durée personnalisée.
 - Films et épisodes : boutons −10 s / +10 s de part et d'autre de la barre de temps, ou flèches `←` `→` ;
   plusieurs appuis rapprochés s'additionnent en un seul déplacement.
+- **Clavier** (`?` pour l'aide, aussi dans ⚙ › Préférences) : `Espace` lecture / pause, `↑` `↓` volume (retenu), `M` son coupé ;
+  en direct, `Page ↑` `Page ↓` passent à la chaîne d'avant ou d'après dans la liste affichée, `⌫` revient à la chaîne regardée juste avant.
 - En direct, la barre de temps du lecteur est masquée : on ne peut pas revenir en arrière (le replay la garde).
 - Les colonnes ne s'ouvrent et ne se ferment qu'avec le bouton ☰ ou la touche `L`.
 - **Écran tactile** : toucher la vidéo fait paraître les boutons du lecteur sans mettre en pause ; les petits boutons

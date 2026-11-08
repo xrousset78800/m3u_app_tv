@@ -798,7 +798,7 @@ body.cinema.idle .controls { opacity: 0; pointer-events: none; }
 #subtitle-delay button { padding: 3px 9px; }
 #subtitle-delay .speed { margin-left: 6px; font-variant-numeric: tabular-nums; }
 #subtitle-delay .speed.on { background: #2e7d32; border-color: #2e7d32; color: #fff; }
-#subtitle-search, #profile-editor, #page-editor {
+#subtitle-search, #profile-editor, #page-editor, #shortcuts {
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -808,7 +808,7 @@ body.cinema.idle .controls { opacity: 0; pointer-events: none; }
   padding: 16px;
   background: rgb(0 0 0 / 0.6);
 }
-#subtitle-search .panel, #profile-editor .panel, #page-editor .panel {
+#subtitle-search .panel, #profile-editor .panel, #page-editor .panel, #shortcuts .panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -819,9 +819,9 @@ body.cinema.idle .controls { opacity: 0; pointer-events: none; }
   border-radius: 10px;
   background: #1b1b1b;
 }
-:is(#subtitle-search, #profile-editor, #page-editor) .head { display: flex; align-items: center; gap: 10px; }
-:is(#subtitle-search, #profile-editor, #page-editor) h2 { flex: 1; margin: 0; font-size: 1.1em; }
-:is(#subtitle-search, #profile-editor, #page-editor) .close { padding: 4px 10px; }
+:is(#subtitle-search, #profile-editor, #page-editor, #shortcuts) .head { display: flex; align-items: center; gap: 10px; }
+:is(#subtitle-search, #profile-editor, #page-editor, #shortcuts) h2 { flex: 1; margin: 0; font-size: 1.1em; }
+:is(#subtitle-search, #profile-editor, #page-editor, #shortcuts) .close { padding: 4px 10px; }
 #page-editor .panel { width: min(420px, 100%); }
 #page-editor .buttons { display: flex; justify-content: flex-end; gap: 8px; }
 #page-delete { margin-right: auto; }
@@ -966,3 +966,59 @@ body.fiche-closed #list li.active:not(:hover) { background: none; }
   /* Les boutons serrés gardent chacun leur moitié de l'écart. */
   :is(#tabs button, #player-buttons > button, #subtitle-delay button)::before { inset: -8px -3px; }
 }
+
+/* Raccourcis clavier */
+#shortcuts[hidden] { display: none; }
+#shortcuts .panel { width: min(520px, 100%); overflow: auto; }
+#shortcuts dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; align-items: center; }
+#shortcuts dt { white-space: nowrap; text-align: right; }
+#shortcuts dd { margin: 0; color: #ccc; }
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  border: 1px solid #555;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #262626;
+  font: inherit;
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* Indication passagère (volume, chaîne) par-dessus la vidéo */
+#osd {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.7);
+  color: #fff;
+  font-size: 1.1em;
+  pointer-events: none;
+}
+#osd[hidden] { display: none; }
+
+/* À suivre : compte à rebours avant la suite */
+#up-next {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: min(340px, calc(100% - 32px));
+  padding: 12px 14px;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  background: rgb(20 20 20 / 0.92);
+}
+#up-next[hidden] { display: none; }
+#up-next small { color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75em; }
+#up-next strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#up-next-count { color: #aaa; font-size: 0.9em; font-variant-numeric: tabular-nums; }
+#up-next .buttons { display: flex; gap: 8px; margin-top: 6px; }

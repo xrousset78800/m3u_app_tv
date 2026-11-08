@@ -84,6 +84,8 @@
           <h3 data-i18n="view.title">Présentation des listes</h3>
           <div id="view-choices"></div>
           <p class="muted small" data-i18n="view.note">Propre à chaque onglet. L'icône d'affichage, en haut de la colonne, change celle de l'onglet affiché.</p>
+          <h3 data-i18n="keys.title">Raccourcis clavier</h3>
+          <button id="show-shortcuts" type="button" class="secondary" data-i18n="keys.show">Voir les raccourcis (touche ?)</button>
         </div>
 
         <div class="settings-pane" data-pane="manage" hidden>
@@ -168,6 +170,18 @@
       <div id="player" class="player">
         <video id="video" controls controlslist="nofullscreen" autoplay playsinline></video>
         <div id="frozen" hidden><canvas></canvas></div>
+        <!-- Volume, chaîne : affiché un instant par-dessus la vidéo. -->
+        <div id="osd" hidden></div>
+        <!-- Suite de la playlist ou épisode suivant, lancé au bout d'un compte à rebours. -->
+        <div id="up-next" hidden>
+          <small data-i18n="upNext.title">À suivre</small>
+          <strong id="up-next-title"></strong>
+          <span id="up-next-count"></span>
+          <div class="buttons">
+            <button id="up-next-play" type="button" data-i18n="upNext.play">▶ Lire maintenant</button>
+            <button id="up-next-cancel" type="button" class="secondary" data-i18n="upNext.cancel">Annuler</button>
+          </div>
+        </div>
         <div id="fullscreen-button" data-i18n-title="player.fullscreen" title="Plein écran"></div>
         <div id="player-buttons">
           <!-- Autres versions (qualité, langue) de la chaîne ou du film en cours. -->
@@ -243,6 +257,29 @@
       <p class="note muted"></p>
       <ul class="results"></ul>
       <p class="credit muted" data-i18n="subtitles.credit">Sous-titres fournis par OpenSubtitles.com</p>
+    </div>
+  </div>
+
+  <!-- Raccourcis clavier (touche ?). -->
+  <div id="shortcuts" hidden>
+    <div class="panel" role="dialog" aria-labelledby="shortcuts-title">
+      <div class="head">
+        <h2 id="shortcuts-title" data-i18n="keys.title">Raccourcis clavier</h2>
+        <button type="button" class="secondary close" data-i18n-title="subtitles.close" title="Fermer">✕</button>
+      </div>
+      <dl>
+        <dt><kbd data-i18n="keys.space">Espace</kbd></dt><dd data-i18n="keys.play">Lecture / pause</dd>
+        <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd data-i18n="keys.jump">Reculer / avancer de 10 s (films, épisodes)</dd>
+        <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd data-i18n="keys.volume">Volume</dd>
+        <dt><kbd>M</kbd></dt><dd data-i18n="keys.mute">Couper / remettre le son</dd>
+        <dt><kbd>Page ↑</kbd> <kbd>Page ↓</kbd></dt><dd data-i18n="keys.zap">Chaîne précédente / suivante de la liste</dd>
+        <dt><kbd>⌫</kbd></dt><dd data-i18n="keys.last">Revenir à la dernière chaîne regardée</dd>
+        <dt><kbd>F</kbd></dt><dd data-i18n="keys.fullscreen">Plein écran (Échap pour en sortir)</dd>
+        <dt><kbd>L</kbd></dt><dd data-i18n="keys.list">Ouvrir / fermer les colonnes</dd>
+        <dt><kbd>G</kbd> <kbd>H</kbd></dt><dd data-i18n="keys.subtitles">Avancer / retarder les sous-titres</dd>
+        <dt><kbd>J</kbd></dt><dd data-i18n="keys.speed">Sous-titres prévus pour 25 images/s</dd>
+        <dt><kbd>?</kbd></dt><dd data-i18n="keys.help">Cette aide</dd>
+      </dl>
     </div>
   </div>
 

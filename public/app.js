@@ -277,6 +277,12 @@ const progress = {
 // --- Lecteur --------------------------------------------------------------------
 
 let hls = null;
+// Compte à rebours avant la suite (playlist, épisode suivant).
+let lastChannel = null; // chaîne lancée en dernier, et celle d'avant (⌫)
+let previousChannel = null;
+const UP_NEXT_SECONDS = 10;
+const upNext = $('up-next');
+let upNextTimer = null;
 let media = null; // film/épisode en cours : { kind, id, ext, title, key, duration, start, audio }
 let seeking = false;
 let lastSave = 0;
@@ -331,6 +337,7 @@ function stopPlayback() {
   paintVersionsButton();
   stopSubtitles();
   unfreeze();
+  hideUpNext();
   video.removeAttribute('src');
   video.load();
   video.classList.remove('media', 'live');
@@ -718,6 +725,7 @@ function unfreeze() {
 }
 
 async function startMediaAt(start) {
+  if (start < media.duration - 1) unfinish();
   const current = media;
   const load = ++mediaLoad;
   freeze();
@@ -1149,14 +1157,63 @@ video.addEventListener('timeupdate', () => {
   if (media && !seeking) skipCredits();
   if (!media || Date.now() - lastSave < 5000) return;
   lastSave = Date.now();
-  progress.set(media.key, { position: position(), duration: media.duration });
+  saveProgress(position());
 });
 
+// `at` et `series` : pour « Continuer à regarder ». `more` : un épisode fini qui a une suite.
+function saveProgress(at, more) {
+  progress.set(media.key, { position: at, duration: media.duration, at: Date.now(), series: media.series, more });
+}
+
 // Fin d'un film ou d'un épisode : à la vraie fin, ou à l'entrée dans le générique de fin passé.
+// La suite (playlist, sinon épisode suivant) part après un compte à rebours, à écourter ou annuler.
 function finishMedia() {
-  progress.set(media.key, { position: media.duration, duration: media.duration });
+  if (media.finished) return; // générique de fin passé : la vraie fin arrive pendant le compte à rebours
+  media.finished = true;
+  saveProgress(media.duration, Boolean(media.nextItem));
   if (sleepAt === 'end') return sleepNow(); // mise en veille « à la fin » : pas d'épisode suivant
-  if (!playNext()) media.onEnded?.();
+  const queued = nextInPlaylist();
+  removeFromPlaylist(media.key);
+  if (queued) showUpNext(queued, () => playMedia(queued, resumePosition(queued)));
+  else if (media.nextItem) {
+    const next = media.nextItem;
+    showUpNext(next, () => playMedia(next));
+  }
+}
+
+// Revenu en arrière après la fin : le compte à rebours s'arrête, la fin comptera de nouveau.
+function unfinish() {
+  if (!media?.finished) return;
+  media.finished = false;
+  media.outroSkipped = false;
+  hideUpNext();
+}
+
+
+function showUpNext(item, go) {
+  hideUpNext();
+  let left = UP_NEXT_SECONDS;
+  const start = () => {
+    hideUpNext();
+    go();
+  };
+  const tick = () => {
+    if (left <= 0) return start();
+    $('up-next-count').textContent = t('upNext.in', { count: left });
+    left--;
+  };
+  $('up-next-title').textContent = item.title;
+  $('up-next-play').onclick = start;
+  $('up-next-cancel').onclick = hideUpNext;
+  upNext.hidden = false;
+  tick();
+  upNextTimer = setInterval(tick, 1000);
+}
+
+function hideUpNext() {
+  clearInterval(upNextTimer);
+  upNextTimer = null;
+  upNext.hidden = true;
 }
 
 video.addEventListener('ended', () => {
@@ -1197,6 +1254,7 @@ function jump(delta) {
       clearTimeout(jumpTimer);
       jumpTarget = null;
       seeking = false;
+      if (delta < 0) unfinish();
       video.currentTime = Math.max(local, video.buffered.start(i));
       return updateSeek();
     }
@@ -1591,6 +1649,7 @@ if (appWindow) {
   appWindow.isFullscreen().then(fullscreenChanged);
 }
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('shortcuts').hidden) return toggleShortcuts(false);
   // La fenêtre, elle, ne sort pas toute seule du plein écran avec Échap.
   if (e.key === 'Escape' && appWindow && isFullscreen()) return leaveFullscreen();
   if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
@@ -1601,12 +1660,84 @@ document.addEventListener('keydown', (e) => {
   if (key === 'g') shiftSubtitles(-0.5);
   if (key === 'h') shiftSubtitles(0.5);
   if (key === 'j') toggleSpeed();
-  // ← → : 10 s, lecteur affiché. Le lecteur natif ne doit pas s'en mêler (il ne sait pas se déplacer dans le flux converti).
-  if ((key === 'arrowleft' || key === 'arrowright') && !document.body.classList.contains('no-player') && currentType !== 'settings') {
-    e.preventDefault();
-    jump(key === 'arrowleft' ? -10 : 10);
-  }
+  if (e.key === '?') return toggleShortcuts();
+  // Le reste agit sur le lecteur affiché ; le lecteur natif ne doit pas s'en mêler
+  // (il ne sait pas se déplacer dans le flux converti).
+  if (document.body.classList.contains('no-player') || currentType === 'settings') return;
+  const action = {
+    arrowleft: () => jump(-10),
+    arrowright: () => jump(10),
+    arrowup: () => changeVolume(0.05),
+    arrowdown: () => changeVolume(-0.05),
+    ' ': () => video.currentSrc && (video.paused ? video.play().catch(() => {}) : video.pause()),
+    m: () => {
+      video.muted = !video.muted;
+      showVolume();
+    },
+    pageup: () => zap(-1),
+    pagedown: () => zap(1),
+    backspace: () => {
+      if (!liveChannel || !previousChannel) return;
+      showOsd(previousChannel.name);
+      playLive(previousChannel);
+    },
+  }[key];
+  if (!action) return;
+  e.preventDefault();
+  action();
 });
+
+// Volume (↑ ↓, M, ou la barre du lecteur) : retenu d'une lecture à l'autre.
+try {
+  const saved = JSON.parse(storage.getItem('volume'));
+  if (saved) Object.assign(video, { volume: saved.volume, muted: saved.muted });
+} catch {}
+video.addEventListener('volumechange', () => {
+  try {
+    storage.setItem('volume', JSON.stringify({ volume: video.volume, muted: video.muted }));
+  } catch {}
+});
+
+function changeVolume(delta) {
+  video.muted = false;
+  video.volume = Math.max(0, Math.min(1, Math.round((video.volume + delta) * 20) / 20));
+  showVolume();
+}
+
+function showVolume() {
+  showOsd(video.muted || !video.volume ? '🔇' : `🔊 ${Math.round(video.volume * 100)} %`);
+}
+
+// Indication passagère par-dessus la vidéo.
+const osd = $('osd');
+let osdTimer;
+function showOsd(text) {
+  osd.textContent = text;
+  osd.hidden = false;
+  clearTimeout(osdTimer);
+  osdTimer = setTimeout(() => (osd.hidden = true), 1200);
+}
+
+// Zapping (Page ↑ ↓) : la chaîne d'avant ou d'après dans la liste du guide, telle qu'elle est affichée
+// (catégorie, page de favoris, recherche). ⌫ : retour à la chaîne regardée juste avant.
+function zap(delta) {
+  if (!liveChannel || !lastChannel) return;
+  const rows = [...$('guide-list').querySelectorAll('.guide-row[data-id]')].filter((row) => row.channel);
+  const index = rows.findIndex((row) => row.dataset.id === String(lastChannel.id));
+  if (!rows.length) return;
+  const row = rows[index < 0 ? 0 : (index + delta + rows.length) % rows.length];
+  row.scrollIntoView({ block: 'nearest' });
+  playLive(row.channel);
+  showOsd(row.channel.name);
+}
+
+function toggleShortcuts(shown = $('shortcuts').hidden) {
+  $('shortcuts').hidden = !shown;
+}
+$('show-shortcuts').onclick = () => toggleShortcuts(true);
+$('shortcuts').onclick = (e) => {
+  if (e.target.id === 'shortcuts' || e.target.closest('.close')) toggleShortcuts(false);
+};
 
 // --- TV : direct, guide des programmes et replay -----------------------------------
 
@@ -1636,6 +1767,12 @@ function playRaw(channel) {
 
 // La version retenue de la chaîne (⇄ du lecteur), si elle en a une ; `exact` : celle-ci, telle quelle.
 async function playLive(channel, { exact = false } = {}) {
+  // Telle qu'elle est dans la liste (avant la version retenue) : point de départ du zapping.
+  // Une autre version de la même chaîne (⇄, `exact`) ne compte pas comme un changement de chaîne.
+  if (!exact) {
+    if (lastChannel && String(lastChannel.id) !== String(channel.id)) previousChannel = lastChannel;
+    lastChannel = channel;
+  }
   const chosen = !exact && (await preferredItem('live', channel.id));
   if (chosen) channel = chosen;
   const id = String(channel.id);
@@ -1857,7 +1994,7 @@ async function showSeries(series) {
   // Enchaîne automatiquement sur l'épisode suivant.
   allEpisodes.forEach((e, i) => {
     const next = allEpisodes[i + 1];
-    if (next) e.item.onEnded = () => playMedia(next.item);
+    if (next) e.item.nextItem = next.item;
   });
 
   // Épisode à retrouver : celui en lecture, sinon le dernier commencé (ou sa suite s'il est fini).
@@ -1915,6 +2052,7 @@ const PAGE = 200; // taille d'une page de résultats du serveur
 // Chaque onglet en a une ou plusieurs pages, nommées ; l'étoile ajoute à la page choisie en dernier.
 // La première garde son ancien emplacement de stockage, les autres et les noms sont à côté.
 const FAVORITE_STORES = { live: 'favorites', vod: 'favorites-vod', series: 'favorites-series' };
+const RESUME = 'resume'; // entrée « Continuer à regarder » des films et séries
 const NEW_PAGE = 'fav:new'; // entrée « Nouvelle page de favoris » de la liste des catégories
 const pageValue = (index) => `fav:${index}`;
 const favoritePageOf = (value) => (/^fav:\d+$/.test(value) ? Number(value.slice(4)) : -1);
@@ -2274,6 +2412,7 @@ function guideRow(channel, sortable) {
     favoriteStar('live', channel.id),
   );
   row.dataset.id = channel.id;
+  row.channel = channel; // pour le zapping
   row.draggable = sortable;
   return row;
 }
@@ -2431,6 +2570,31 @@ const handlers = { vod: showMovie, series: showSeries };
 // Comme pour la TV, la recherche porte sur tout le catalogue, même depuis les favoris.
 const showingFavorites = () => favoritePageOf(categorySelect.value) >= 0 && !searchInput.value.trim();
 
+// Films commencés et pas finis ; séries dont le dernier épisode vu est en cours, ou fini avec une suite.
+// Le plus récent d'abord.
+function inProgress(type) {
+  const prefix = scoped('progress:');
+  const latest = new Map(); // id -> position enregistrée
+  for (let i = 0; i < localStorage.length; i++) {
+    const name = localStorage.key(i);
+    if (!name.startsWith(prefix)) continue;
+    let saved;
+    try {
+      saved = JSON.parse(localStorage.getItem(name));
+    } catch {}
+    if (!saved?.at) continue; // positions d'avant cette liste : sans date ni série
+    const key = name.slice(prefix.length);
+    const id = type === 'vod' ? key.startsWith('movie:') && key.slice(6) : key.startsWith('episode:') && saved.series;
+    if (id && !(latest.get(id)?.at > saved.at)) latest.set(id, saved);
+  }
+  const started = (p) => p.position > 30 && p.position < p.duration * 0.95;
+  return [...latest]
+    .filter(([, p]) => started(p) || (type === 'series' && p.more && p.position >= p.duration * 0.95))
+    .sort(([, a], [, b]) => b.at - a.at)
+    .map(([id]) => String(id))
+    .slice(0, 100);
+}
+
 function noFavorite() {
   return el('li', { className: 'muted empty' }, t(currentType === 'series' ? 'favorites.noneSeries' : 'favorites.noneMovies'));
 }
@@ -2441,9 +2605,12 @@ async function loadList(append = false) {
   const favoritesOnly = showingFavorites();
   const params = new URLSearchParams({ type, q: searchInput.value.trim(), offset });
   const page = favoritePageOf(categorySelect.value);
+  const resuming = categorySelect.value === RESUME && !params.get('q');
+  const started = resuming ? inProgress(type) : [];
   if (favoritesOnly) params.set('ids', [...favoritePages[type][page].ids].join());
-  else if (page < 0) params.set('category', categorySelect.value);
-  const items = await getJson(`/api/list?${params}`);
+  else if (resuming) params.set('ids', started.join());
+  else if (page < 0 && categorySelect.value !== RESUME) params.set('category', categorySelect.value);
+  const items = resuming && !started.length ? [] : await getJson(`/api/list?${params}`);
   if (type !== currentType) return; // onglet changé entre-temps
   offset += items.length;
   $('more').hidden = items.length < PAGE;
@@ -2473,6 +2640,7 @@ async function loadList(append = false) {
     paintListView();
     list.scrollTop = 0;
     if (!nodes.length && favoritesOnly) list.append(noFavorite());
+    if (!nodes.length && resuming) list.append(el('li', { className: 'muted empty' }, t('list.nothingStarted')));
   }
   paintNowPlaying();
 }
@@ -2488,6 +2656,7 @@ function fillCategories(select, type, categories) {
   select.dataset.total = categories.reduce((sum, c) => sum + c.count, 0);
   select.replaceChildren(
     new Option('', ''),
+    ...(type === 'live' ? [] : [new Option('', RESUME)]),
     ...favoritePages[type].map((_, index) => {
       const option = new Option('', pageValue(index));
       option.dataset.page = index;
@@ -2510,6 +2679,7 @@ function labelCategories(select) {
   if (!type) return;
   for (const option of select.options) {
     if (option.value === '') option.text = withCount(t('list.allCategories'), select.dataset.total);
+    else if (option.value === RESUME) option.text = withCount(t('list.continue'), inProgress(type).length);
     else if (option.value === NEW_PAGE) option.text = t('favorites.newPage');
     else if (option.dataset.page) option.text = withCount(pageLabel(type, Number(option.dataset.page)), favoritePages[type][option.dataset.page].ids.size);
     else option.text = withCount(option.dataset.name, option.dataset.count);
