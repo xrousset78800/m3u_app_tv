@@ -1967,6 +1967,7 @@ async function showMovie(movie, { exact = false } = {}) {
 // --- Séries ------------------------------------------------------------------------
 
 async function showSeries(series) {
+  markSeriesSeen(series.id);
   selectedChannel = null;
   shownMovie = null;
   shownFiche = () => showSeries(series);
@@ -2147,6 +2148,7 @@ function toggleFavorite(type, key, page = activePage[type]) {
   const added = !set.delete(key);
   if (added) set.add(key);
   saveFavorites(type);
+  if (type === 'series') paintNewEpisodes();
   document.querySelectorAll(`.star[data-type="${type}"][data-favorite="${key}"]`).forEach(paintStar);
   for (const select of [categorySelect, $('guide-category')]) if (select.dataset.type === type) labelCategories(select);
   if (type === 'live') {
@@ -2595,6 +2597,84 @@ function inProgress(type) {
     .slice(0, 100);
 }
 
+// --- Tri, nouveautés, nouveaux épisodes ---------------------------------------------
+
+// Tri des listes de films et séries, retenu par onglet. Sans objet pour les favoris et « Continuer »,
+// rangés à la main ou par date de visionnage.
+const sortSelect = $('sort');
+sortSelect.onchange = () => {
+  try {
+    storage.setItem(`sort:${currentType}`, sortSelect.value);
+  } catch {}
+  loadList();
+};
+
+function paintSort() {
+  const q = searchInput.value.trim();
+  sortSelect.hidden = !q && (favoritePageOf(categorySelect.value) >= 0 || categorySelect.value === RESUME);
+}
+
+const NEW_DAYS = 7; // un film ajouté par le fournisseur depuis moins longtemps est « nouveau »
+const nowSeconds = () => Math.floor(Date.now() / 1000);
+
+// Séries : la date de mise à jour du fournisseur avance quand un épisode arrive. Une série en favori
+// dont la date dépasse le dernier passage sur sa fiche a de nouveaux épisodes. Avant tout passage :
+// la date du premier lancement de cette version, pour ne pas tout annoncer d'un coup.
+function seriesSeen() {
+  let since = Number(storage.getItem('seriesSeenSince'));
+  if (!since) {
+    since = nowSeconds();
+    try {
+      storage.setItem('seriesSeenSince', since);
+    } catch {}
+  }
+  return { since, seen: readJson('seriesSeen') || {} };
+}
+
+function hasNewEpisodes(item, seen = seriesSeen()) {
+  const id = String(item.id);
+  return Boolean(item.added) && favoritePages.series.some((page) => page.ids.has(id)) && item.added > (seen.seen[id] ?? seen.since);
+}
+
+function newBadge(type, item) {
+  if (type === 'vod' && item.added > nowSeconds() - NEW_DAYS * 86400) return el('small', { className: 'badge new' }, t('list.new'));
+  if (type === 'series' && hasNewEpisodes(item)) return el('small', { className: 'badge new' }, t('list.newEpisodes'));
+  return null;
+}
+
+// Fiche de la série ouverte : ses nouveaux épisodes ne sont plus nouveaux.
+function markSeriesSeen(id) {
+  const seen = readJson('seriesSeen') || {};
+  seen[String(id)] = nowSeconds();
+  try {
+    storage.setItem('seriesSeen', JSON.stringify(seen));
+  } catch {}
+  if (list.dataset.type === 'series') list.querySelector(`li[data-id="${id}"] .badge.new`)?.remove();
+  paintNewEpisodes();
+}
+
+// Onglet Séries : le nombre de séries en favori qui ont de nouveaux épisodes.
+let newEpisodesLoad = 0;
+async function paintNewEpisodes() {
+  const load = ++newEpisodesLoad;
+  const ids = [...new Set(favoritePages.series.flatMap((page) => [...page.ids]))];
+  let count = 0;
+  if (ids.length) {
+    const items = await getJson(`/api/list?${new URLSearchParams({ type: 'series', ids: ids.join() })}`).catch(() => []);
+    const seen = seriesSeen();
+    count = items.filter((item) => hasNewEpisodes(item, seen)).length;
+  }
+  if (load !== newEpisodesLoad) return;
+  const tab = document.querySelector('#tabs button[data-type="series"]');
+  if (count) {
+    tab.dataset.news = count;
+    tab.title = t('list.newEpisodesTab', { count });
+  } else {
+    delete tab.dataset.news;
+    tab.removeAttribute('title');
+  }
+}
+
 function noFavorite() {
   return el('li', { className: 'muted empty' }, t(currentType === 'series' ? 'favorites.noneSeries' : 'favorites.noneMovies'));
 }
@@ -2602,6 +2682,7 @@ function noFavorite() {
 async function loadList(append = false) {
   if (!append) offset = 0;
   const type = currentType;
+  paintSort();
   const favoritesOnly = showingFavorites();
   const params = new URLSearchParams({ type, q: searchInput.value.trim(), offset });
   const page = favoritePageOf(categorySelect.value);
@@ -2610,6 +2691,7 @@ async function loadList(append = false) {
   if (favoritesOnly) params.set('ids', [...favoritePages[type][page].ids].join());
   else if (resuming) params.set('ids', started.join());
   else if (page < 0 && categorySelect.value !== RESUME) params.set('category', categorySelect.value);
+  if (!params.has('ids') && sortSelect.value) params.set('sort', sortSelect.value);
   const items = resuming && !started.length ? [] : await getJson(`/api/list?${params}`);
   if (type !== currentType) return; // onglet changé entre-temps
   offset += items.length;
@@ -2621,6 +2703,7 @@ async function loadList(append = false) {
       { className: 'poster', title: item.name },
       item.logo && el('img', { src: item.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
       el('span', {}, item.name),
+      newBadge(type, item),
       favoriteStar(type, String(item.id)),
     );
     li.dataset.id = item.id;
@@ -2719,6 +2802,8 @@ async function selectType(type) {
   if (categorySelect.selectedIndex < 0) categorySelect.value = ''; // catégorie disparue du catalogue
   chosenCategory[type] = categorySelect.value;
   categorySelect.dataset.current = categorySelect.value;
+  sortSelect.value = storage.getItem(`sort:${type}`) || '';
+  if (sortSelect.selectedIndex < 0) sortSelect.value = '';
   paintPageEdit();
   await loadList();
   searchInput.focus();
@@ -3336,6 +3421,7 @@ async function runImport(button) {
   try {
     const status = await getJson('/api/sync', { method: 'POST' });
     showSyncInfo(status);
+    paintNewEpisodes(); // le catalogue mis à jour peut en apporter
     return status;
   } finally {
     button.disabled = false;
@@ -3361,6 +3447,7 @@ async function startApp() {
     });
   $('more').onclick = () => loadList(true);
   await selectType('live');
+  paintNewEpisodes();
 }
 
 async function init() {

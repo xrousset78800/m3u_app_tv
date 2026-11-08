@@ -17,6 +17,9 @@ guide des programmes et replay, dans le navigateur.
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
   **Continuer à regarder**, en tête des catégories : films commencés, et séries dont le dernier épisode vu est en cours ou a une suite.
   À la fin d'un épisode (ou dans le générique de fin passé), la suite part après 10 s : « Lire maintenant » ou « Annuler ».
+  Tri à côté de la recherche (ordre du fournisseur, ajout récent, note, année, titre), retenu pour chaque onglet.
+  Badge **Nouveau** sur les films ajoutés depuis moins de 7 jours ; **Nouveaux épisodes** sur les séries en favori
+  mises à jour par le fournisseur depuis le dernier passage sur leur fiche, avec leur nombre sur l'onglet Séries.
   Titres et résumés traduits avec [TMDB](https://www.themoviedb.org) dans la langue de l'appli :
   les textes des fournisseurs mélangent souvent les langues d'une saison à l'autre.
   Une série n'est retenue que si ses épisodes portent les identifiants TMDB donnés par le fournisseur ;

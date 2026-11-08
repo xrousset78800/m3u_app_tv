@@ -264,5 +264,14 @@
   "keys.list": "Ouvrir / fermer les colonnes",
   "keys.subtitles": "Avancer / retarder les sous-titres",
   "keys.speed": "Sous-titres prévus pour 25 images/s",
-  "keys.help": "Cette aide"
+  "keys.help": "Cette aide",
+  "sort.title": "Ordre de la liste",
+  "sort.default": "Ordre du fournisseur",
+  "sort.added": "Ajoutés récemment",
+  "sort.rating": "Mieux notés",
+  "sort.year": "Plus récents (année)",
+  "sort.name": "Titre (A → Z)",
+  "list.new": "Nouveau",
+  "list.newEpisodes": "Nouveaux épisodes",
+  "list.newEpisodesTab": { "one": "{count} série en favori a de nouveaux épisodes", "other": "{count} séries en favori ont de nouveaux épisodes" }
 }

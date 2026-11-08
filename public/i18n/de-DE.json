@@ -264,5 +264,14 @@
   "keys.list": "Spalten öffnen / schließen",
   "keys.subtitles": "Untertitel früher / später",
   "keys.speed": "Untertitel für 25 Bilder/s",
-  "keys.help": "Diese Hilfe"
+  "keys.help": "Diese Hilfe",
+  "sort.title": "Reihenfolge der Liste",
+  "sort.default": "Reihenfolge des Anbieters",
+  "sort.added": "Kürzlich hinzugefügt",
+  "sort.rating": "Am besten bewertet",
+  "sort.year": "Neueste (Jahr)",
+  "sort.name": "Titel (A → Z)",
+  "list.new": "Neu",
+  "list.newEpisodes": "Neue Folgen",
+  "list.newEpisodesTab": { "one": "{count} Lieblingsserie hat neue Folgen", "other": "{count} Lieblingsserien haben neue Folgen" }
 }

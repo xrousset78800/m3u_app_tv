@@ -308,7 +308,7 @@ const routes = [
   ['GET', /^\/api\/list$/, (req, res, { params, profile }) => {
     const type = params.get('type');
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
-    sendJson(res, db.list({ type, category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), groups: groupsFor(profile, type) }));
+    sendJson(res, db.list({ type, category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), groups: groupsFor(profile, type), sort: params.get('sort') }));
   }],
   // Autres qualités de la chaîne ou du film en cours (bouton ⇄ du lecteur).
   ['GET', /^\/api\/versions$/, (req, res, { params, profile }) => {

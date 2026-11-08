@@ -150,7 +150,16 @@
           <select id="category"></select>
           <button id="page-edit" class="secondary page-edit" data-i18n-title="favorites.editTitle" title="Renommer ou supprimer cette page de favoris" hidden>✎</button>
         </div>
-        <input id="search" type="search" data-i18n-placeholder="list.search" placeholder="Rechercher…">
+        <div class="search-row">
+          <input id="search" type="search" data-i18n-placeholder="list.search" placeholder="Rechercher…">
+          <select id="sort" data-i18n-title="sort.title" title="Ordre de la liste">
+            <option value="" data-i18n="sort.default">Ordre du fournisseur</option>
+            <option value="added" data-i18n="sort.added">Ajoutés récemment</option>
+            <option value="rating" data-i18n="sort.rating">Mieux notés</option>
+            <option value="year" data-i18n="sort.year">Plus récents (année)</option>
+            <option value="name" data-i18n="sort.name">Titre (A → Z)</option>
+          </select>
+        </div>
         <ul id="list"></ul>
         <button id="more" class="secondary" data-i18n="list.more" hidden>Afficher plus</button>
       </div>

@@ -264,5 +264,14 @@
   "keys.list": "Abrir / fechar as colunas",
   "keys.subtitles": "Adiantar / atrasar as legendas",
   "keys.speed": "Legendas feitas para 25 imagens/s",
-  "keys.help": "Esta ajuda"
+  "keys.help": "Esta ajuda",
+  "sort.title": "Ordem da lista",
+  "sort.default": "Ordem do fornecedor",
+  "sort.added": "Adicionados recentemente",
+  "sort.rating": "Mais bem avaliados",
+  "sort.year": "Mais recentes (ano)",
+  "sort.name": "Título (A → Z)",
+  "list.new": "Novo",
+  "list.newEpisodes": "Novos episódios",
+  "list.newEpisodesTab": { "one": "{count} série favorita tem novos episódios", "other": "{count} séries favoritas têm novos episódios" }
 }

@@ -264,5 +264,14 @@
   "keys.list": "Open / close the columns",
   "keys.subtitles": "Subtitles earlier / later",
   "keys.speed": "Subtitles made for 25 frames/s",
-  "keys.help": "This help"
+  "keys.help": "This help",
+  "sort.title": "List order",
+  "sort.default": "Provider order",
+  "sort.added": "Recently added",
+  "sort.rating": "Top rated",
+  "sort.year": "Newest (year)",
+  "sort.name": "Title (A → Z)",
+  "list.new": "New",
+  "list.newEpisodes": "New episodes",
+  "list.newEpisodesTab": { "one": "{count} favorite series has new episodes", "other": "{count} favorite series have new episodes" }
 }
