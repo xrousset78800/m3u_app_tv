@@ -40,6 +40,16 @@ jobs:
           if ($env:TMDB_KEY) { [IO.File]::WriteAllText("$PWD/tmdb.key", $env:TMDB_KEY.Trim()) }
           else { Write-Warning 'Secret TMDB_KEY absent : fiches sans traduction' }
 
+      # Clé OpenSubtitles (sous-titres à télécharger) : secret du dépôt, jamais dans le code.
+      # Sans elle, le lecteur ne propose que les sous-titres contenus dans le fichier.
+      - name: Clé OpenSubtitles
+        shell: pwsh
+        env:
+          OPENSUBTITLES_KEY: ${{ secrets.OPENSUBTITLES_KEY }}
+        run: |
+          if ($env:OPENSUBTITLES_KEY) { [IO.File]::WriteAllText("$PWD/opensubtitles.key", $env:OPENSUBTITLES_KEY.Trim()) }
+          else { Write-Warning 'Secret OPENSUBTITLES_KEY absent : pas de recherche de sous-titres en ligne' }
+
       - name: Fabriquer
         run: npx electron-builder --win --publish never
 

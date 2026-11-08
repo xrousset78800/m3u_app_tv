@@ -66,7 +66,12 @@ async function searchSubtitles(params) {
   }
   const title = tmdb.cleanName(params.get('title') || '').replace(/\s+—\s+S\d+E\d+$/, '');
   if (!tmdbId && !title) return [];
-  return opensubtitles.search({ tmdbId, title, languages, fps: Number(params.get('fps')) || null });
+  // Épisode sans identifiant TMDB : titre de la série, avec sa saison et son numéro.
+  const number = (name) => (/^\d{1,4}$/.test(params.get(name) || '') ? Number(params.get(name)) : null);
+  const episode = params.get('kind') === 'series' && number('season') !== null && number('episode') !== null
+    ? { season: number('season'), episode: number('episode') }
+    : null;
+  return opensubtitles.search({ tmdbId, title, episode, languages, fps: Number(params.get('fps')) || null });
 }
 
 // Déjà téléchargé (pour ce film ou un doublon du catalogue) : ne recoûte rien.

@@ -18,6 +18,9 @@ guide des programmes et replay, dans le navigateur.
 - **Films / Séries** : favoris comme pour la TV (étoile sur la ligne ou dans la fiche ; pour une série,
   c'est la série entière), fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
+  **Sous-titres** : ceux du fichier, ou « Rechercher en ligne » sur [OpenSubtitles](https://www.opensubtitles.com)
+  (environ 5 téléchargements par jour ; chaque sous-titre téléchargé est gardé et ne recompte plus),
+  avec décalage et correction de vitesse 25 → 23,976 im/s (touche `J`).
   **Continuer à regarder**, en tête des catégories : films commencés, et séries dont le dernier épisode vu est en cours ou a une suite.
   Le ✕ d'une ligne l'en retire (la position de reprise reste, et l'entrée revient si on s'y remet).
   À la fin d'un épisode (ou dans le générique de fin passé), la suite part après 10 s : « Lire maintenant » ou « Annuler ».
@@ -107,6 +110,8 @@ la téléchargent en arrière-plan et proposent de redémarrer pour l'installer.
 La clé TMDB n'est pas dans le dépôt : en local, la mettre dans un fichier `tmdb.key` à la racine
 (ignoré par git) ; pour les installateurs, dans le secret `TMDB_KEY` du dépôt GitHub
 (*Settings → Secrets and variables → Actions*). Sans clé, l'appli marche avec les textes du fournisseur.
+De même pour la clé OpenSubtitles : fichier `opensubtitles.key`, secret `OPENSUBTITLES_KEY`.
+Sans elle, le lecteur ne propose que les sous-titres contenus dans le fichier.
 
 Pour une version plus importante : `npm version minor` (1.1.0) ou `npm version major` (2.0.0),
 puis `git push --follow-tags`.

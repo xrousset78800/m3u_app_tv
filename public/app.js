@@ -1016,7 +1016,16 @@ async function searchSubtitles() {
   const current = media;
   searchResults.replaceChildren();
   note(t('subtitles.searching'));
-  const query = new URLSearchParams({ kind: media.kind, id: media.id, tmdb: media.tmdb || '', title: media.title, languages: searchLanguage.value, fps: media.fps || '' });
+  const query = new URLSearchParams({
+    kind: media.kind,
+    id: media.id,
+    tmdb: media.tmdb || '',
+    title: media.title,
+    season: media.season ?? '',
+    episode: media.episode ?? '',
+    languages: searchLanguage.value,
+    fps: media.fps || '',
+  });
   let results;
   try {
     results = await getJson(`/api/subtitles/search?${query}`);
@@ -2005,6 +2014,8 @@ async function showSeries(series) {
         id: e.id,
         ext: e.ext,
         tmdb: e.tmdbId,
+        season: s.number,
+        episode: e.num,
         title: `${info.name} — S${String(s.number).padStart(2, '0')}E${String(e.num).padStart(2, '0')}`,
         key: `episode:${e.id}`,
         series: String(series.id),
@@ -3575,7 +3586,7 @@ function showSyncInfo(status) {
     .flatMap(([key, value]) => [el('dt', {}, t(key)), el('dd', {}, value)]));
   $('sync').hidden = $('logout').hidden = !status.syncedAt;
   $('tmdb-note').hidden = !status.tmdb; // attribution demandée par TMDB
-  onlineSubtitles = false; // recherche OpenSubtitles mise de côté pour l'instant (status.opensubtitles)
+  onlineSubtitles = !!status.opensubtitles; // recherche OpenSubtitles, si l'appli a une clé
 }
 
 // Tout ce qui est déjà affiché passe dans la nouvelle langue, sans toucher à la lecture.

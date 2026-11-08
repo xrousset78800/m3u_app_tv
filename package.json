@@ -36,7 +36,8 @@
       "public/**",
       "electron/**",
       "build/icon.png",
-      "tmdb.key"
+      "tmdb.key",
+      "opensubtitles.key"
     ],
     "publish": {
       "provider": "github",
