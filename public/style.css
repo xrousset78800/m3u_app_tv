@@ -1099,3 +1099,10 @@ body #list.view-large li .resume-remove { position: absolute; top: 6px; right: 3
 #backup-note:empty { display: none; }
 #profile-warning { margin: 0 0 10px; padding: 8px 10px; border-left: 3px solid #e0a040; background: #2a2416; color: #f0d090; font-size: 0.9em; }
 #profile-warning[hidden] { display: none; }
+
+/* Autres versions : retirées dans les réglages, en retrait ; ligne des fiches */
+#versions-list li.hidden-version .name { color: #999; }
+.versions-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 6px 0; font-size: 0.85em; }
+.versions-line .version-chip { padding: 1px 7px; border: 1px solid #444; border-radius: 10px; background: transparent; color: #cfe0ff; font-size: 1em; cursor: pointer; }
+.versions-line .version-chip:hover { background: #2a2a2a; }
+.versions-line .version-chip.hidden-version { color: #999; border-style: dashed; }

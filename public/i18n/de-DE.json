@@ -290,5 +290,9 @@
   "backup.exported": "Sicherung gespeichert.",
   "backup.confirm": "Sicherung vom {date} wiederherstellen? Aktuelle Konten, Favoriten, Fortsetzungspunkte und Einstellungen werden ersetzt, danach startet die App mit der Kontoauswahl neu.",
   "error.badBackup": "Diese Datei ist keine Sicherung der App oder sie ist beschädigt",
-  "profiles.unlockedWarning": "Es gibt ein Kinderkonto, aber {names} öffnet sich ohne Passwort und sieht alles: Das Kind kann es benutzen. Lege ein Passwort fest."
+  "profiles.unlockedWarning": "Es gibt ein Kinderkonto, aber {names} öffnet sich ohne Passwort und sieht alles: Das Kind kann es benutzen. Lege ein Passwort fest.",
+  "versions.hidden": "entfernt",
+  "versions.line": "Andere Versionen:",
+  "versions.noteSeries": "Dieselbe Folge läuft in der gewählten Version an derselben Stelle weiter.",
+  "versions.noEpisode": "Diese Folge gibt es in „{name}“ nicht"
 }

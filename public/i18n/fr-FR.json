@@ -290,5 +290,9 @@
   "backup.exported": "Sauvegarde enregistrée.",
   "backup.confirm": "Restaurer la sauvegarde du {date} ? Comptes, favoris, reprises et préférences actuels seront remplacés, puis l'appli redémarrera sur le choix du compte.",
   "error.badBackup": "Ce fichier n'est pas une sauvegarde de l'appli, ou il est abîmé",
-  "profiles.unlockedWarning": "Un compte Enfant existe, mais {names} s'ouvre sans mot de passe et voit tout : l'enfant peut y entrer. Ajoute-lui un mot de passe."
+  "profiles.unlockedWarning": "Un compte Enfant existe, mais {names} s'ouvre sans mot de passe et voit tout : l'enfant peut y entrer. Ajoute-lui un mot de passe.",
+  "versions.hidden": "retirée",
+  "versions.line": "Autres versions :",
+  "versions.noteSeries": "Le même épisode reprend au même moment dans la version choisie.",
+  "versions.noEpisode": "Cet épisode n'existe pas dans « {name} »"
 }

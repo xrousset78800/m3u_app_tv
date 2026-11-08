@@ -290,5 +290,9 @@
   "backup.exported": "Cópia guardada.",
   "backup.confirm": "Restaurar a cópia de {date}? As contas, favoritos, pontos de retoma e preferências atuais serão substituídos, e a aplicação reinicia na escolha da conta.",
   "error.badBackup": "Este ficheiro não é uma cópia da aplicação, ou está danificado",
-  "profiles.unlockedWarning": "Existe uma conta Criança, mas {names} abre sem palavra-passe e vê tudo: a criança pode entrar. Define-lhe uma palavra-passe."
+  "profiles.unlockedWarning": "Existe uma conta Criança, mas {names} abre sem palavra-passe e vê tudo: a criança pode entrar. Define-lhe uma palavra-passe.",
+  "versions.hidden": "retirada",
+  "versions.line": "Outras versões:",
+  "versions.noteSeries": "O mesmo episódio continua no mesmo momento na versão escolhida.",
+  "versions.noEpisode": "Este episódio não existe em «{name}»"
 }

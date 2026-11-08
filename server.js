@@ -315,10 +315,10 @@ const routes = [
     if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
     sendJson(res, db.list({ type, category: params.get('category'), ids: idsParam(params), q: params.get('q'), offset: params.get('offset'), groups: groupsFor(profile, type), sort: params.get('sort') }));
   }],
-  // Autres qualités de la chaîne ou du film en cours (bouton ⇄ du lecteur).
+  // Autres versions de la chaîne, du film ou de la série (bouton ⇄ du lecteur, ligne des fiches).
   ['GET', /^\/api\/versions$/, (req, res, { params, profile }) => {
     const type = params.get('type');
-    if (!['live', 'vod'].includes(type)) return sendText(res, 400, 'Type inconnu');
+    if (!TYPES.includes(type)) return sendText(res, 400, 'Type inconnu');
     allow(profile, type, params.get('id') || '');
     const q = params.has('q') ? params.get('q') : undefined;
     const result = db.versions({ type, id: params.get('id') || '', q, groups: groupsFor(profile, type) });

@@ -13,8 +13,12 @@ guide des programmes et replay, dans le navigateur.
   la suite s'affiche sous le programme en cours ; sans lecteur, la grille montre maintenant, ensuite et la soirée.
 - **Rappels** : 🔔 sur un programme à venir de la fiche d'une chaîne. Deux minutes avant le début,
   un encadré et une notification Windows proposent de lancer la chaîne. Retenus pour chaque compte.
-- **Versions** (⇄ dans le lecteur) : la même chaîne ou le même film dans une autre qualité ou langue,
-  retrouvés par leur nom. Le choix est retenu et remplace l'ancienne version dans les favoris.
+- **Versions** (⇄ dans le lecteur) : la même chaîne, le même film ou la même série dans une autre qualité ou langue,
+  retrouvés par leur nom (préfixes de langue « EN - », « FR: », « |UK| » ignorés). Le choix est retenu et remplace l'ancienne version dans les favoris.
+  Pour une série, l'épisode en cours reprend au même moment dans la version choisie.
+  Un compte qui voit tout y trouve aussi les versions retirées dans les réglages (marquées « retirée ») :
+  elles se regardent sans réactiver leur groupe, mais ne deviennent pas la version par défaut.
+  Les fiches des films et séries listent les autres versions (« Autres versions : EN · ES · … ») ; un clic ouvre la leur.
 - **Films / Séries** : favoris comme pour la TV (étoile sur la ligne ou dans la fiche ; pour une série,
   c'est la série entière), fiches détaillées, lecture avec reprise là où on s'était arrêté,
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.

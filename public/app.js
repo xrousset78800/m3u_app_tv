@@ -457,6 +457,7 @@ document.addEventListener('keydown', (e) => {
 
 let liveChannel = null; // chaîne en cours, en direct ou en replay : { id, name }
 let shownMovie = null; // film dont la fiche est affichée
+let shownSeries = null; // série dont la fiche est affichée
 const versionsBox = $('versions');
 const versionsPanel = $('versions-panel');
 const versionsSearch = $('versions-search');
@@ -500,7 +501,11 @@ async function preferredItem(type, id) {
 }
 
 const versionsTarget = () =>
-  media?.kind === 'movie' ? { type: 'vod', id: String(media.id) } : liveChannel && { type: 'live', id: liveChannel.id };
+  media?.kind === 'movie'
+    ? { type: 'vod', id: String(media.id) }
+    : media?.kind === 'series' && media.series
+      ? { type: 'series', id: String(media.series) }
+      : liveChannel && { type: 'live', id: liveChannel.id };
 
 function paintVersionsButton() {
   versionsBox.hidden = !versionsTarget();
@@ -514,6 +519,10 @@ async function openVersions(q) {
   const load = ++versionsLoad;
   versionsPanel.hidden = false;
   const params = new URLSearchParams(target);
+  // Une série ne retient pas de choix : elle bascule l'épisode en cours.
+  const note = versionsPanel.querySelector('p');
+  note.dataset.i18n = target.type === 'series' ? 'versions.noteSeries' : 'versions.note';
+  note.textContent = t(note.dataset.i18n);
   if (q === undefined) versionsList.replaceChildren(el('li', { className: 'muted' }, t('list.loading')));
   else params.set('q', q);
   let result;
@@ -533,14 +542,20 @@ async function openVersions(q) {
     return el(
       'li',
       {
-        className: current ? 'current' : '',
+        className: `${current ? 'current' : ''}${item.hidden ? ' hidden-version' : ''}`,
         title: item.name,
         onclick: (e) => {
           e.stopPropagation();
           if (!current) chooseVersion(item);
         },
       },
-      el('span', { className: 'name' }, item.name, current && el('small', { className: 'badge' }, t('versions.current'))),
+      el(
+        'span',
+        { className: 'name' },
+        item.name,
+        current && el('small', { className: 'badge' }, t('versions.current')),
+        item.hidden && el('small', { className: 'badge' }, t('versions.hidden')),
+      ),
       el('small', { className: 'muted' }, item.category || ''),
     );
   };
@@ -555,22 +570,89 @@ async function openVersions(q) {
 }
 
 // La version choisie remplace la version en cours et ses homonymes : partout, et pour la suite.
+// Une version retirée dans les réglages se regarde, sans devenir celle par défaut ni remplacer les favoris.
 function chooseVersion(item) {
   const target = versionsTarget();
   if (!target) return;
   const { type, id } = target;
   const chosen = String(item.id);
+  versionsPanel.hidden = true;
+  if (type === 'series') return switchSeriesVersion(item);
   const same = versionsOf?.type === type && versionsOf.id === id ? versionsOf.same : [];
   const replaced = [...new Set([id, ...same])].filter((other) => other !== chosen);
-  replaced.forEach((other) => (preferred[type][other] = chosen));
-  delete preferred[type][chosen];
-  savePreferred();
-  replaceFavorites(type, replaced, chosen);
-  versionsPanel.hidden = true;
+  if (!item.hidden) {
+    replaced.forEach((other) => (preferred[type][other] = chosen));
+    delete preferred[type][chosen];
+    savePreferred();
+    replaceFavorites(type, replaced, chosen);
+  }
   if (type === 'live') return playLive(item, { exact: true });
   const start = Math.floor(position());
   playMedia({ kind: 'movie', id: chosen, ext: item.ext, title: item.name, key: `movie:${chosen}` }, start);
   if (replaced.includes(shownMovie)) showMovie(item, { exact: true });
+}
+
+// Saison et numéro de l'épisode : connus depuis sa fiche, sinon lus dans son titre (« … — S01E02 »).
+function episodeNumber(item) {
+  if (item.season != null && item.episode != null) return { season: Number(item.season), episode: Number(item.episode) };
+  const match = /S(\d+)E(\d+)$/.exec(item.title || '');
+  return match && { season: Number(match[1]), episode: Number(match[2]) };
+}
+
+// Le même épisode, au même moment, dans une autre version de la série.
+async function switchSeriesVersion(series) {
+  const from = media;
+  const number = episodeNumber(from);
+  const start = Math.floor(position());
+  let info;
+  try {
+    info = await getJson(`/api/series/${series.id}?${languageParam()}`);
+  } catch (err) {
+    return say('player.failed', { error: err.message }, true);
+  }
+  if (media !== from) return;
+  const match = number && seriesEpisodes(info, series.id).find((e) => Number(e.season) === number.season && Number(e.num) === number.episode);
+  if (!match) return say('versions.noEpisode', { name: series.name }, true);
+  const showing = shownSeries === String(from.series);
+  await playMedia(match.item, start);
+  if (showing) showSeries(series);
+}
+
+// Ligne « Autres versions » d'une fiche : les autres versions du même nom, retirées comprises,
+// chacune réduite à ce qui la distingue (langue, mentions entre crochets).
+function versionLabel(item) {
+  // Langue en tête du nom, sinon celle du groupe (« FR - DRAME », « SRS | EN - DRAMA »).
+  const prefix = (
+    /^\s*[|[]?\s*([A-Za-z]{2,4})\s*(?:[|\]:]|\s-\s)/.exec(item.name)?.[1] || /\b([A-Z]{2,3})\s+-\s/.exec(item.category || '')?.[1]
+  )?.toUpperCase();
+  const tags = [...item.name.matchAll(/[[(]([^\])]+)[\])]/g)].map((m) => m[1]).filter((tag) => !/^\d{4}$/.test(tag));
+  return [prefix, ...tags].filter(Boolean).join(' ') || item.name;
+}
+
+function versionsLine(type, id, open) {
+  const line = el('p', { className: 'versions-line muted', hidden: true });
+  getJson(`/api/versions?${new URLSearchParams({ type, id })}`)
+    .then(({ items }) => {
+      const others = items.filter((item) => item.same && String(item.id) !== String(id));
+      if (!others.length) return;
+      const seen = new Map();
+      const buttons = others.map((item) => {
+        let label = versionLabel(item);
+        seen.set(label, (seen.get(label) || 0) + 1);
+        if (seen.get(label) > 1) label += ` (${seen.get(label)})`;
+        return el('button', {
+          type: 'button',
+          className: `version-chip${item.hidden ? ' hidden-version' : ''}`,
+          textContent: label,
+          title: [item.name, item.category, item.hidden && t('versions.hidden')].filter(Boolean).join(' — '),
+          onclick: () => open(item),
+        });
+      });
+      line.replaceChildren(el('span', {}, t('versions.line')), ...buttons);
+      line.hidden = false;
+    })
+    .catch(() => {});
+  return line;
 }
 
 $('versions-button').addEventListener('click', (e) => {
@@ -1825,6 +1907,7 @@ async function playLive(channel, { exact = false } = {}) {
 async function showChannel(channel) {
   selectedChannel = String(channel.id);
   shownMovie = null;
+  shownSeries = null;
   shownFiche = () => showChannel(channel);
   paintPlayingChannel();
 
@@ -1958,7 +2041,7 @@ function foldable(text, extras = []) {
   return [body, ...extras, link];
 }
 
-function infoBlock(info, buttons, star) {
+function infoBlock(info, buttons, star, extra = null) {
   const meta = [info.year, info.genre, info.duration, info.rating && `★ ${info.rating}`].filter(Boolean).join(' · ');
   const credits = [
     info.director && el('p', { className: 'muted' }, t('media.director', { names: info.director })),
@@ -1974,6 +2057,7 @@ function infoBlock(info, buttons, star) {
       el('div', { className: 'detail-head' }, el('h2', {}, info.name), star),
       meta && el('p', { className: 'muted' }, meta),
       el('div', { className: 'buttons' }, ...buttons),
+      extra,
       ...(info.plot ? foldable(info.plot, credits) : credits),
     ),
   );
@@ -1988,24 +2072,17 @@ async function showMovie(movie, { exact = false } = {}) {
   const chosen = !exact && (await preferredItem('vod', movie.id));
   if (chosen) movie = chosen;
   shownMovie = String(movie.id);
+  shownSeries = null;
   const info = await getJson(`/api/vod/${movie.id}?${languageParam()}`).catch(() => ({ name: movie.name, cover: movie.logo }));
   const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, tmdb: info.tmdbId, title: info.name || movie.name, key: `movie:${movie.id}` };
-  details.replaceChildren(infoBlock(info, resumeButtons(item), favoriteStar('vod', movie.id)));
+  const versions = versionsLine('vod', movie.id, (other) => showMovie(other, { exact: true }));
+  details.replaceChildren(infoBlock(info, resumeButtons(item), favoriteStar('vod', movie.id), versions));
 }
 
 // --- Séries ------------------------------------------------------------------------
 
-async function showSeries(series) {
-  markSeriesSeen(series.id);
-  selectedChannel = null;
-  shownMovie = null;
-  shownFiche = () => showSeries(series);
-  closeFiche(false);
-  details.replaceChildren(el('p', { className: 'muted' }, t('list.loading')));
-  const info = await getJson(`/api/series/${series.id}?${languageParam()}`);
-  const seasonSelect = el('select', { className: 'season' });
-  const episodesEl = el('ul', { className: 'episodes' });
-
+// Les épisodes d'une série (réponse de /api/series), chacun prêt à lire et suivi du suivant.
+function seriesEpisodes(info, seriesId) {
   const allEpisodes = info.seasons.flatMap((s) =>
     s.episodes.map((e) => ({
       ...e,
@@ -2019,7 +2096,7 @@ async function showSeries(series) {
         episode: e.num,
         title: `${info.name} — S${String(s.number).padStart(2, '0')}E${String(e.num).padStart(2, '0')}`,
         key: `episode:${e.id}`,
-        series: String(series.id),
+        series: String(seriesId),
       },
     })),
   );
@@ -2028,6 +2105,21 @@ async function showSeries(series) {
     const next = allEpisodes[i + 1];
     if (next) e.item.nextItem = next.item;
   });
+  return allEpisodes;
+}
+
+async function showSeries(series) {
+  markSeriesSeen(series.id);
+  selectedChannel = null;
+  shownMovie = null;
+  shownSeries = String(series.id);
+  shownFiche = () => showSeries(series);
+  closeFiche(false);
+  details.replaceChildren(el('p', { className: 'muted' }, t('list.loading')));
+  const info = await getJson(`/api/series/${series.id}?${languageParam()}`);
+  const seasonSelect = el('select', { className: 'season' });
+  const episodesEl = el('ul', { className: 'episodes' });
+  const allEpisodes = seriesEpisodes(info, series.id);
 
   // Épisode à retrouver : celui en lecture, sinon le dernier commencé (ou sa suite s'il est fini).
   function resumeEpisode() {
@@ -2066,7 +2158,8 @@ async function showSeries(series) {
 
   seasonSelect.append(...info.seasons.map((s) => new Option(t('series.season', { number: s.number, count: s.episodes.length }), s.number)));
   seasonSelect.onchange = () => renderSeason(Number(seasonSelect.value));
-  details.replaceChildren(infoBlock(info, [seasonSelect], favoriteStar('series', series.id)), episodesEl);
+  const versions = versionsLine('series', series.id, (other) => showSeries(other));
+  details.replaceChildren(infoBlock(info, [seasonSelect], favoriteStar('series', series.id), versions), episodesEl);
   if (info.seasons.length) {
     const season = resume ? resume.season : info.seasons[0].number;
     seasonSelect.value = season;

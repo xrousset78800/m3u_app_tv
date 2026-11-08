@@ -290,5 +290,9 @@
   "backup.exported": "Backup saved.",
   "backup.confirm": "Restore the backup from {date}? Current accounts, favorites, resume points and preferences will be replaced, then the app will restart on the account choice.",
   "error.badBackup": "This file is not a backup of the app, or it is damaged",
-  "profiles.unlockedWarning": "A Child account exists, but {names} opens without a password and sees everything: the child can switch to it. Give it a password."
+  "profiles.unlockedWarning": "A Child account exists, but {names} opens without a password and sees everything: the child can switch to it. Give it a password.",
+  "versions.hidden": "removed",
+  "versions.line": "Other versions:",
+  "versions.noteSeries": "The same episode resumes at the same moment in the chosen version.",
+  "versions.noEpisode": "This episode is not in \"{name}\""
 }

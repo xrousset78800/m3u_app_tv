@@ -290,5 +290,9 @@
   "backup.exported": "Backup salvato.",
   "backup.confirm": "Ripristinare il backup del {date}? Account, preferiti, punti di ripresa e preferenze attuali saranno sostituiti, poi l'app ripartirà dalla scelta dell'account.",
   "error.badBackup": "Questo file non è un backup dell'app, oppure è danneggiato",
-  "profiles.unlockedWarning": "Esiste un account Bambino, ma {names} si apre senza password e vede tutto: il bambino può entrarci. Imposta una password."
+  "profiles.unlockedWarning": "Esiste un account Bambino, ma {names} si apre senza password e vede tutto: il bambino può entrarci. Imposta una password.",
+  "versions.hidden": "rimossa",
+  "versions.line": "Altre versioni:",
+  "versions.noteSeries": "Lo stesso episodio riprende nello stesso punto nella versione scelta.",
+  "versions.noEpisode": "Questo episodio non esiste in «{name}»"
 }
