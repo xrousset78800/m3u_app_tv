@@ -20,7 +20,7 @@ guide des programmes et replay, dans le navigateur.
   choix de la piste audio (VF par défaut), enchaînement des épisodes, playlist.
   **Sous-titres** : ceux du fichier, ou « Rechercher en ligne » sur [OpenSubtitles](https://www.opensubtitles.com)
   (environ 5 téléchargements par jour ; chaque sous-titre téléchargé est gardé et ne recompte plus),
-  avec décalage et correction de vitesse 25 → 23,976 im/s (touche `J`).
+  avec décalage par crans de 0,1 s (1 s avec Maj ; touches `G` `H`) et correction de vitesse 25 → 23,976 im/s (touche `J`).
   **Continuer à regarder**, en tête des catégories : films commencés, et séries dont le dernier épisode vu est en cours ou a une suite.
   Le ✕ d'une ligne l'en retire (la position de reprise reste, et l'entrée revient si on s'y remet).
   À la fin d'un épisode (ou dans le générique de fin passé), la suite part après 10 s : « Lire maintenant » ou « Annuler ».

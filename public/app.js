@@ -835,8 +835,9 @@ function shiftSubtitles(step) {
 }
 
 delayBox.addEventListener('click', (e) => {
+  // 0,1 s par clic, 1 s avec Maj.
   const step = Number(e.target.dataset.step);
-  if (step) shiftSubtitles(step);
+  if (step) shiftSubtitles(step * (e.shiftKey ? 10 : 1));
   if (e.target === speedButton) toggleSpeed();
 });
 
@@ -1665,9 +1666,9 @@ document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   if (key === 'f') toggleFullscreen();
   if (key === 'l') toggleList();
-  // Comme VLC : G avance les sous-titres, H les retarde.
-  if (key === 'g') shiftSubtitles(-0.5);
-  if (key === 'h') shiftSubtitles(0.5);
+  // Comme VLC : G avance les sous-titres, H les retarde ; 0,1 s par appui, 1 s avec Maj.
+  if (key === 'g') shiftSubtitles(e.shiftKey ? -1 : -0.1);
+  if (key === 'h') shiftSubtitles(e.shiftKey ? 1 : 0.1);
   if (key === 'j') toggleSpeed();
   if (e.key === '?') return toggleShortcuts();
   // Le reste agit sur le lecteur affiché ; le lecteur natif ne doit pas s'en mêler
