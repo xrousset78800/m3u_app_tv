@@ -121,6 +121,8 @@
   "player.subtitleDelay": "Subtitle delay (G and H keys)",
   "player.subtitleSpeed": "Subtitles made for a 25 frames per second version: slow them down to match this video (J key)",
   "player.subtitlesSearch": "🔎 Search online…",
+  "player.back10": "Back 10 s (←)",
+  "player.forward10": "Forward 10 s (→)",
   "player.next": "⏭ Next",
   "player.nextTitle": "Skip to the next item in the playlist",
   "player.loading": "Loading {label}…",

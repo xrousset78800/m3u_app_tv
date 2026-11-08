@@ -121,6 +121,8 @@
   "player.subtitleDelay": "Décalage des sous-titres (touches G et H)",
   "player.subtitleSpeed": "Sous-titres prévus pour une version à 25 images par seconde : les ralentir pour suivre cette vidéo (touche J)",
   "player.subtitlesSearch": "🔎 Chercher en ligne…",
+  "player.back10": "Reculer de 10 s (←)",
+  "player.forward10": "Avancer de 10 s (→)",
   "player.next": "⏭ Suivant",
   "player.nextTitle": "Passer à la suite de la playlist",
   "player.loading": "Chargement de {label}…",

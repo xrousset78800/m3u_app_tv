@@ -121,6 +121,8 @@
   "player.subtitleDelay": "Atraso das legendas (teclas G e H)",
   "player.subtitleSpeed": "Legendas feitas para uma versão a 25 imagens por segundo: abrandá-las para este vídeo (tecla J)",
   "player.subtitlesSearch": "🔎 Procurar online…",
+  "player.back10": "Recuar 10 s (←)",
+  "player.forward10": "Avançar 10 s (→)",
   "player.next": "⏭ Seguinte",
   "player.nextTitle": "Passar ao seguinte da playlist",
   "player.loading": "A carregar {label}…",

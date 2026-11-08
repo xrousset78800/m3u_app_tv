@@ -211,9 +211,11 @@
             </div>
             <!-- Barre de lecture sur toute la largeur, menus en dessous. -->
             <div class="timeline">
+              <button id="back-10" type="button" class="jump" data-jump="-10" data-i18n-title="player.back10" title="Reculer de 10 s (←)">−10 s</button>
               <span id="time-current">0:00</span>
               <input id="seek-bar" type="range" min="0" step="1" value="0">
               <span id="time-total">0:00</span>
+              <button id="forward-10" type="button" class="jump" data-jump="10" data-i18n-title="player.forward10" title="Avancer de 10 s (→)">+10 s</button>
             </div>
             <div class="options">
             <select id="audio-track" data-i18n-title="player.audio" title="Piste audio"></select>

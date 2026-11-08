@@ -700,6 +700,10 @@ video.live::-webkit-media-controls-time-remaining-display { display: none; }
   font-variant-numeric: tabular-nums;
 }
 #seek .timeline, #seek .options { display: flex; align-items: center; gap: 10px; }
+/* ±10 s, de part et d'autre de la barre. */
+#seek .jump { flex: none; padding: 2px 4px; border: 0; background: none; color: #aaa; font-size: 0.85em; font-variant-numeric: tabular-nums; white-space: nowrap; transition: color 0.15s; }
+#seek .jump:hover { background: none; color: #fff; }
+#seek .jump:active { color: #7fa8ee; }
 #seek .options { flex-wrap: wrap; }
 #seek .options:not(:has(> :not([hidden]))) { display: none; }
 
@@ -950,10 +954,10 @@ body.fiche-closed #list li.active:not(:hover) { background: none; }
 @media (any-pointer: coarse) {
   /* Sans poids : un bouton déjà positionné (plein écran, étoile des vignettes) garde sa place. */
   :where(.star, .guide-play, #tabs button, #view-button, #profile-button, #list-toggle,
-  #player-buttons > button, #sleep-button, #versions-button, #fullscreen-button, #skip-button, #subtitle-delay button) {
+  #player-buttons > button, #sleep-button, #versions-button, #fullscreen-button, #skip-button, #subtitle-delay button, #seek .jump) {
     position: relative;
   }
-  :is(.star, .guide-play, #tabs button, #view-button, #profile-button, #list-toggle, #skip-button)::before,
+  :is(.star, .guide-play, #tabs button, #view-button, #profile-button, #list-toggle, #skip-button, #seek .jump)::before,
   :is(#player-buttons > button, #sleep-button, #versions-button, #fullscreen-button, #subtitle-delay button)::before {
     content: '';
     position: absolute;

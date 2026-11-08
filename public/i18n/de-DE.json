@@ -121,6 +121,8 @@
   "player.subtitleDelay": "Untertitelverzögerung (Tasten G und H)",
   "player.subtitleSpeed": "Untertitel für eine Fassung mit 25 Bildern pro Sekunde: an dieses Video anpassen (Taste J)",
   "player.subtitlesSearch": "🔎 Online suchen…",
+  "player.back10": "10 s zurück (←)",
+  "player.forward10": "10 s vor (→)",
   "player.next": "⏭ Weiter",
   "player.nextTitle": "Zum nächsten Eintrag der Playlist",
   "player.loading": "{label} wird geladen…",

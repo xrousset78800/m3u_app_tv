@@ -121,6 +121,8 @@
   "player.subtitleDelay": "Retardo de los subtítulos (teclas G y H)",
   "player.subtitleSpeed": "Subtítulos hechos para una versión a 25 imágenes por segundo: ralentizarlos para este vídeo (tecla J)",
   "player.subtitlesSearch": "🔎 Buscar en línea…",
+  "player.back10": "Retroceder 10 s (←)",
+  "player.forward10": "Avanzar 10 s (→)",
   "player.next": "⏭ Siguiente",
   "player.nextTitle": "Pasar a lo siguiente de la playlist",
   "player.loading": "Cargando {label}…",

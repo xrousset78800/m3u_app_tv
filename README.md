@@ -30,6 +30,8 @@ guide des programmes et replay, dans le navigateur.
 - **Présentation** : l'icône à côté de ☰ passe les listes en compacte, liste, ou grandes vignettes, séparément pour TV, Films et Séries
   (affiches des films et séries en grille, chaînes plus hautes). Retenue pour chaque compte.
 - **Mise en veille** (☾ dans le lecteur) : 15 min à 2 h, à la fin du film ou de l'épisode, ou une durée personnalisée.
+- Films et épisodes : boutons −10 s / +10 s de part et d'autre de la barre de temps, ou flèches `←` `→` ;
+  plusieurs appuis rapprochés s'additionnent en un seul déplacement.
 - En direct, la barre de temps du lecteur est masquée : on ne peut pas revenir en arrière (le replay la garde).
 - Les colonnes ne s'ouvrent et ne se ferment qu'avec le bouton ☰ ou la touche `L`.
 - **Écran tactile** : toucher la vidéo fait paraître les boutons du lecteur sans mettre en pause ; les petits boutons

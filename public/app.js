@@ -1176,6 +1176,43 @@ seekBar.addEventListener('change', () => {
   seeking = false;
   if (media) startMediaAt(Number(seekBar.value));
 });
+
+// ±10 s (boutons, flèches ← →). Dans ce qui est déjà chargé, le déplacement est immédiat ; au-delà, le serveur
+// doit relancer la conversion : les appuis rapprochés s'additionnent et ne la relancent qu'une fois.
+let jumpTarget = null;
+let jumpTimer;
+function jump(delta) {
+  if (!media) {
+    // Replay : le lecteur sait se déplacer seul. Le direct, lui, n'a pas d'arrière.
+    if (!video.classList.contains('live') && Number.isFinite(video.duration)) {
+      video.currentTime = Math.max(0, Math.min(video.duration - 1, video.currentTime + delta));
+    }
+    return;
+  }
+  jumpTarget = Math.max(0, Math.min(media.duration - 5, (jumpTarget ?? position()) + delta));
+  const local = jumpTarget - media.start;
+  for (let i = 0; i < video.buffered.length; i++) {
+    // Le tampon commence souvent un peu après 0 (première image) : revenir au début reste immédiat.
+    if (local >= video.buffered.start(i) - 1 && local <= video.buffered.end(i) - 0.5) {
+      clearTimeout(jumpTimer);
+      jumpTarget = null;
+      seeking = false;
+      video.currentTime = Math.max(local, video.buffered.start(i));
+      return updateSeek();
+    }
+  }
+  seeking = true; // la barre montre la cible en attendant
+  seekBar.value = Math.floor(jumpTarget);
+  $('time-current').textContent = formatTime(jumpTarget);
+  clearTimeout(jumpTimer);
+  jumpTimer = setTimeout(() => {
+    const target = jumpTarget;
+    jumpTarget = null;
+    seeking = false;
+    if (media) startMediaAt(target);
+  }, 450);
+}
+document.querySelectorAll('.jump').forEach((button) => (button.onclick = () => jump(Number(button.dataset.jump))));
 audioSelect.addEventListener('change', () => {
   if (!media) return;
   media.audio = Number(audioSelect.value);
@@ -1564,6 +1601,11 @@ document.addEventListener('keydown', (e) => {
   if (key === 'g') shiftSubtitles(-0.5);
   if (key === 'h') shiftSubtitles(0.5);
   if (key === 'j') toggleSpeed();
+  // ← → : 10 s, lecteur affiché. Le lecteur natif ne doit pas s'en mêler (il ne sait pas se déplacer dans le flux converti).
+  if ((key === 'arrowleft' || key === 'arrowright') && !document.body.classList.contains('no-player') && currentType !== 'settings') {
+    e.preventDefault();
+    jump(key === 'arrowleft' ? -10 : 10);
+  }
 });
 
 // --- TV : direct, guide des programmes et replay -----------------------------------
