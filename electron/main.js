@@ -17,7 +17,7 @@ let window = null;
 // Textes des fenêtres de l'appli : ceux de l'interface (public/i18n), dans la langue choisie par la page,
 // ou celle du système tant que la page ne l'a pas dite.
 const I18N_DIR = path.join(__dirname, '..', 'public', 'i18n');
-const LANGUAGES = ['fr-FR', 'en-US', 'de-DE', 'es-ES', 'it-IT', 'pt-PT'];
+const LANGUAGES = require(path.join(I18N_DIR, 'languages.json')).map((l) => l.code);
 let language = null;
 
 function readStrings(code) {

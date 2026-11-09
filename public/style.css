@@ -105,6 +105,50 @@ body > #tabs #view-picker { display: none; }
 #view-choices { display: grid; grid-template-columns: max-content 1fr; align-items: center; gap: 8px 16px; }
 .view-tab { display: contents; }
 .view-tab > span { color: #aaa; }
+/* Langue : bouton avec la langue en cours, liste déroulante des drapeaux */
+#language-picker { position: relative; display: inline-block; }
+#language-current, #language-list li { display: flex; align-items: center; gap: 10px; }
+#language-current {
+  min-width: 220px;
+  padding: 8px 12px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #1b1b1b;
+  color: #fff;
+}
+#language-current:hover, #language-current[aria-expanded="true"] { border-color: #3c7ee6; }
+#language-current .chevron { margin-inline-start: auto; color: #888; transition: transform 0.15s; }
+#language-current[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+#language-picker img { width: 24px; height: 16px; flex-shrink: 0; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15); }
+#language-list {
+  position: absolute;
+  z-index: 20;
+  inset-inline-start: 0;
+  top: calc(100% + 4px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 2px;
+  width: max-content;
+  max-width: min(440px, calc(100vw - 32px));
+  max-height: min(360px, 60vh);
+  overflow: hidden auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #161616;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+#language-list[hidden] { display: none; }
+#language-list span, #language-current span { unicode-bidi: isolate; }
+#language-list li { padding: 7px 10px; border-radius: 5px; color: #ccc; cursor: pointer; outline: none; }
+#language-list li:hover, #language-list li:focus { background: #262626; color: #fff; }
+#language-list li[aria-selected="true"] { background: #1f3357; color: #fff; }
+@media (max-width: 480px) { #language-list { grid-template-columns: 1fr; } }
+/* Écriture de droite à gauche : la mise en page suit, sauf la vidéo et sa barre de lecture. */
+[dir="rtl"] #player { direction: ltr; }
+[dir="rtl"] #player :is(p, span, button, h1, h2, h3, label, li) { unicode-bidi: plaintext; }
 .choices img { width: 20px; height: 14px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15); }
 
 /* Compacte : lignes serrées, sans affiches pour les films et séries. */

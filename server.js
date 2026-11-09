@@ -3,6 +3,8 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+// En premier : tout ce qui suit écrit déjà dans le journal (tv.log).
+require('./lib/log').install();
 const db = require('./lib/db');
 const xtream = require('./lib/xtream');
 const hls = require('./lib/hls');
@@ -432,6 +434,12 @@ const routes = [
     await hls.servePlaylist(res, `replay ${match[1]} ${start}`, xtream.urls.replay(match[1], start, minutes));
   }],
   ['GET', /^\/proxy$/, (req, res, { params }) => hls.serveProxy(res, params.get('u'))],
+  // Ce que le lecteur a vécu (attentes, erreurs, flux coupé), pour le journal.
+  ['POST', /^\/api\/log$/, async (req, res) => {
+    const { text } = await readJson(req, 2000);
+    if (typeof text === 'string' && text) console.log(`[lecteur] ${text.replace(/\s+/g, ' ').slice(0, 300)}`);
+    sendJson(res, { ok: true });
+  }],
   ['GET', /^\/vendor\/hls\.min\.js$/, (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/javascript' });
     fs.createReadStream(require.resolve('hls.js/dist/hls.min.js')).pipe(res);

@@ -78,8 +78,18 @@ function say(key, vars, isError = false) {
 // Textes dans public/i18n/<langue>.json ; le français sert de référence pour ce qui manquerait.
 // La même langue sert aux fiches des films et séries, traduites par TMDB côté serveur.
 
-const LANGUAGES = { 'fr-FR': 'Français', 'en-US': 'English', 'de-DE': 'Deutsch', 'es-ES': 'Español', 'it-IT': 'Italiano', 'pt-PT': 'Português' };
+// Liste des langues (code, nom dans la langue, écriture de droite à gauche) : public/i18n/languages.json,
+// partagée avec le serveur (TMDB) et la fenêtre de l'appli.
+let LANGUAGES = [{ code: 'fr-FR', name: 'Français' }];
 const DEFAULT_LANGUAGE = 'fr-FR';
+const languageInfo = (code) => LANGUAGES.find((l) => l.code === code);
+
+async function loadLanguageList() {
+  try {
+    const res = await fetch('i18n/languages.json');
+    if (res.ok) LANGUAGES = await res.json();
+  } catch {}
+}
 const LANGUAGE_KEY = 'language';
 let language = DEFAULT_LANGUAGE;
 let strings = {};
@@ -89,9 +99,9 @@ let reference = {};
 function initialLanguage() {
   try {
     const saved = localStorage.getItem(LANGUAGE_KEY);
-    if (LANGUAGES[saved]) return saved;
+    if (languageInfo(saved)) return saved;
   } catch {}
-  const codes = Object.keys(LANGUAGES);
+  const codes = LANGUAGES.map((l) => l.code);
   for (const wanted of navigator.languages || []) {
     const found = codes.find((code) => code === wanted) || codes.find((code) => code.split('-')[0] === wanted.split('-')[0]);
     if (found) return found;
@@ -117,6 +127,7 @@ async function loadLanguage(code) {
   strings = chosen || base;
   language = code;
   document.documentElement.lang = code.split('-')[0];
+  document.documentElement.dir = languageInfo(code)?.rtl ? 'rtl' : 'ltr';
   translatePage();
   paintLanguagePicker();
   paintView();
@@ -143,13 +154,66 @@ function choiceButton(active, onclick, ...children) {
   return button;
 }
 
+// Liste déroulante : la langue en cours sur le bouton, toutes les autres avec leur drapeau en dessous.
+const languageButton = $('language-current');
+const languageList = $('language-list');
+
 function paintLanguagePicker() {
-  $('language-choices').replaceChildren(
-    ...Object.entries(LANGUAGES).map(([code, name]) =>
-      choiceButton(code === language, () => chooseLanguage(code), el('img', { src: flagUrl(code), alt: '' }), el('span', {}, name)),
-    ),
+  const current = languageInfo(language) || LANGUAGES[0];
+  languageButton.replaceChildren(
+    el('img', { src: flagUrl(current.code), alt: '' }),
+    el('span', {}, current.name),
+    el('span', { className: 'chevron', ariaHidden: 'true' }, '▾'),
+  );
+  languageList.replaceChildren(
+    ...LANGUAGES.map(({ code, name }) => {
+      const item = el('li', { role: 'option', tabIndex: -1, onclick: () => pickLanguage(code) }, el('img', { src: flagUrl(code), alt: '' }), el('span', { lang: code.split('-')[0] }, name));
+      item.dataset.code = code;
+      item.setAttribute('aria-selected', code === language);
+      return item;
+    }),
   );
 }
+
+function openLanguageList(open = languageList.hidden) {
+  languageList.hidden = !open;
+  languageButton.setAttribute('aria-expanded', open);
+  if (!open) return;
+  const selected = languageList.querySelector('[aria-selected="true"]') || languageList.firstElementChild;
+  selected.scrollIntoView({ block: 'nearest' });
+  selected.focus();
+}
+
+function pickLanguage(code) {
+  openLanguageList(false);
+  languageButton.focus();
+  chooseLanguage(code);
+}
+
+languageButton.onclick = () => openLanguageList();
+// Clavier : flèches, Début/Fin, Entrée pour choisir, Échap pour refermer. Rien ne part vers les raccourcis du lecteur.
+languageList.addEventListener('keydown', (event) => {
+  const items = [...languageList.children];
+  const at = items.indexOf(document.activeElement);
+  const columns = getComputedStyle(languageList).gridTemplateColumns.split(' ').length;
+  const moves = { ArrowDown: at + columns, ArrowUp: at - columns, ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: items.length - 1 };
+  if (document.documentElement.dir === 'rtl') [moves.ArrowRight, moves.ArrowLeft] = [moves.ArrowLeft, moves.ArrowRight];
+  event.stopPropagation();
+  if (event.key in moves) {
+    event.preventDefault();
+    items[Math.min(items.length - 1, Math.max(0, moves[event.key]))]?.focus();
+  } else if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    if (at >= 0) pickLanguage(items[at].dataset.code);
+  } else if (event.key === 'Escape' || event.key === 'Tab') {
+    if (event.key === 'Escape') event.preventDefault();
+    openLanguageList(false);
+    if (event.key === 'Escape') languageButton.focus();
+  }
+});
+document.addEventListener('pointerdown', (event) => {
+  if (!languageList.hidden && !event.target.closest('#language-picker')) openLanguageList(false);
+});
 
 // Présentation des listes, propre à chaque onglet (TV, Films, Séries) : compacte, normale, ou grandes
 // vignettes (les affiches des films et séries en grille). L'icône de l'en-tête change celle de l'onglet
@@ -324,7 +388,48 @@ function markPlayingTab(type) {
 video.addEventListener('play', () => markPlayingTab(playingTab));
 video.addEventListener('pause', () => markPlayingTab(playingTab));
 
+// --- Journal (tv.log, à côté de la base) : ce que vit le lecteur, pour comprendre une coupure après coup ---
+const lastLogged = new Map();
+function logPlayer(text, key = text) {
+  const now = Date.now();
+  if (now - (lastLogged.get(key) || 0) < 5000) return; // une même alerte au plus toutes les 5 s
+  lastLogged.set(key, now);
+  fetch('/api/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) }).catch(() => {});
+}
+
+function playingWhat() {
+  if (media) return `« ${media.title} » à ${formatTime(position())}`;
+  const name = liveChannel?.name || rawLive || '?';
+  return `${video.classList.contains('live') ? 'direct' : 'replay'} « ${name} »`;
+}
+
+// Ouverture d'un flux, puis attente en cours de lecture (le lecteur n'a plus d'images d'avance).
+let openedAt = 0;
+let waitingSince = 0;
+function playbackOpened() {
+  openedAt = Date.now();
+  waitingSince = 0;
+}
+video.addEventListener('waiting', () => {
+  if (!openedAt && !waitingSince) waitingSince = Date.now();
+});
+video.addEventListener('playing', () => {
+  const seconds = (since) => ((Date.now() - since) / 1000).toFixed(1);
+  if (openedAt) {
+    if (Date.now() - openedAt >= 5000) logPlayer(`démarrage en ${seconds(openedAt)} s : ${playingWhat()}`);
+    openedAt = 0;
+  } else if (waitingSince && Date.now() - waitingSince >= 1000) {
+    logPlayer(`coupure de ${seconds(waitingSince)} s : ${playingWhat()}`);
+  }
+  waitingSince = 0;
+});
+
 function stopPlayback() {
+  const stuck = openedAt || waitingSince;
+  if ((media || liveChannel || rawLive) && stuck && Date.now() - stuck >= 3000) {
+    logPlayer(`abandon après ${((Date.now() - stuck) / 1000).toFixed(1)} s d'attente : ${playingWhat()}`);
+  }
+  openedAt = waitingSince = 0;
   markPlayingTab(null);
   playingChannel = null;
   liveChannel = null;
@@ -700,6 +805,7 @@ function playHls(src, label, fallback) {
   playingChannel = src.match(/(\d+)\.m3u8/)?.[1] ?? null;
   paintPlayingChannel();
   say('player.loading', { label });
+  playbackOpened();
   if (window.Hls && Hls.isSupported()) {
     let retries = 0;
     let started = false;
@@ -711,6 +817,9 @@ function playHls(src, label, fallback) {
       setStatus(`▶ ${label}`);
     });
     hls.on(Hls.Events.ERROR, (_, data) => {
+      // bufferStalledError : les images n'arrivent pas assez vite ; fragLoadError : morceau refusé ou perdu.
+      const code = data.response?.code ? ` HTTP ${data.response.code}` : '';
+      logPlayer(`hls ${data.details}${code}${data.fatal ? ' (bloquant)' : ''} : ${playingWhat()}`, `hls ${data.details}`);
       if (!data.fatal) return;
       if (data.type === Hls.ErrorTypes.MEDIA_ERROR) return hls.recoverMediaError();
       if (fallback && !started && /^manifest/.test(data.details)) return fallback();
@@ -812,6 +921,7 @@ async function startMediaAt(start) {
   const load = ++mediaLoad;
   freeze();
   stopSubtitles();
+  playbackOpened();
   // Le serveur va couper le flux en cours : on le lâche d'abord, sinon il finirait en faux « ended ».
   video.removeAttribute('src');
   video.load();
@@ -1067,7 +1177,7 @@ const searchLanguage = searchBox.querySelector('.language');
 const searchNote = searchBox.querySelector('.note');
 const searchResults = searchBox.querySelector('.results');
 const SEARCH_LANGUAGE_KEY = 'subtitleSearchLanguage';
-const SEARCH_LANGUAGES = ['fr', 'en', 'de', 'es', 'it', 'pt-pt', 'pt-br', 'nl', 'pl', 'ro', 'ru', 'tr', 'ar', 'el', 'he', 'sv', 'da', 'no', 'fi', 'cs', 'hu', 'zh-cn', 'ja', 'ko'];
+const SEARCH_LANGUAGES = ['fr', 'en', 'de', 'es', 'it', 'pt-pt', 'pt-br', 'nl', 'pl', 'ro', 'ru', 'tr', 'ar', 'el', 'he', 'sv', 'da', 'no', 'fi', 'cs', 'hu', 'zh-cn', 'ja', 'ko', 'uk', 'fa', 'hi', 'bn', 'ur', 'vi', 'th', 'id', 'ms', 'tl', 'sw'];
 let searchTurn = 0;
 
 function note(text, isError = false) {
@@ -1085,11 +1195,11 @@ function openSubtitleSearch() {
   try {
     chosen = localStorage.getItem(SEARCH_LANGUAGE_KEY) || '';
   } catch {}
-  const appLanguage = language === 'pt-PT' ? 'pt-pt' : language.slice(0, 2);
+  const appLanguage = ['pt-PT', 'zh-CN'].includes(language) ? language.toLowerCase() : language.slice(0, 2);
   searchLanguage.replaceChildren(
     ...SEARCH_LANGUAGES.map((code) => new Option(languageName(code), code)).sort((a, b) => a.text.localeCompare(b.text, language)),
   );
-  searchLanguage.value = SEARCH_LANGUAGES.includes(chosen) ? chosen : appLanguage;
+  searchLanguage.value = SEARCH_LANGUAGES.includes(chosen) ? chosen : SEARCH_LANGUAGES.includes(appLanguage) ? appLanguage : 'en';
   searchBox.hidden = false;
   searchSubtitles();
 }
@@ -1309,10 +1419,14 @@ function hideUpNext() {
 }
 
 video.addEventListener('ended', () => {
+  if (media && position() < media.duration - 60) {
+    logPlayer(`flux arrêté avant la fin (${formatTime(position())} sur ${formatTime(media.duration)}) : « ${media.title} »`);
+  }
   if (media) finishMedia();
 });
 
 video.addEventListener('error', () => {
+  if (video.error) logPlayer(`erreur du lecteur ${video.error.code} ${video.error.message || ''} : ${playingWhat()}`);
   unfreeze();
   if (media || rawLive) say('player.interrupted', {}, true);
 });
@@ -1871,6 +1985,7 @@ function playRaw(channel) {
   rawLive = channel.name;
   paintPlayingChannel();
   say('player.loading', { label: channel.name });
+  playbackOpened();
   video.src = `/media/live/${channel.id}?${new URLSearchParams({ codecs: CODECS })}`;
   video.play().catch(() => {});
 }
@@ -3748,6 +3863,7 @@ async function startApp() {
 }
 
 async function init() {
+  await loadLanguageList();
   await loadLanguage(initialLanguage());
   const { current, profiles } = await getJson('/api/profiles');
   accounts = profiles;

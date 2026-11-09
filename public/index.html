@@ -82,7 +82,10 @@
 
         <div class="settings-pane" data-pane="preferences" hidden>
           <h3 data-i18n="language.choose">Langue de l'appli</h3>
-          <div id="language-choices" class="choices" role="radiogroup"></div>
+          <div id="language-picker">
+            <button id="language-current" type="button" aria-haspopup="listbox" aria-expanded="false"></button>
+            <ul id="language-list" role="listbox" hidden></ul>
+          </div>
           <h3 data-i18n="view.title">Présentation des listes</h3>
           <div id="view-choices"></div>
           <p class="muted small" data-i18n="view.note">Propre à chaque onglet. L'icône d'affichage, en haut de la colonne, change celle de l'onglet affiché.</p>

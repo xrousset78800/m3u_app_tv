@@ -44,9 +44,11 @@ guide des programmes et replay, dans le navigateur.
 - Tout est à gauche du lecteur, sur deux colonnes : d'abord le menu, les chaînes ou la liste, le statut et la playlist ;
   puis la fiche (programme de la chaîne, film, épisodes), qui n'apparaît que lorsqu'il y a quelque chose à y montrer
   et se referme quand la souris rejoint la vidéo. Les longs résumés sont coupés, avec un lien « voir plus ».
-- **Préférences** (⚙ › Préférences) : la langue de toute l'appli (français, anglais, allemand,
-  espagnol, italien, portugais) et des fiches traduites — au premier lancement, celle du système, sinon le français —
-  et la présentation des listes.
+- **Préférences** (⚙ › Préférences) : la langue de toute l'appli et des fiches traduites, choisie dans une liste
+  avec drapeaux — au premier lancement, celle du système, sinon le français — et la présentation des listes.
+  26 langues : français, anglais, allemand, espagnol, italien, portugais, néerlandais, polonais, roumain, turc, russe,
+  arabe, swahili, amharique, haoussa, zoulou, hindi, bengali, ourdou, chinois, japonais, coréen, vietnamien, thaï,
+  indonésien et filipino. L'arabe et l'ourdou s'affichent de droite à gauche.
 - **Présentation** : l'icône à côté de ☰ passe les listes en compacte, liste, ou grandes vignettes, séparément pour TV, Films et Séries
   (affiches des films et séries en grille, chaînes plus hautes). Retenue pour chaque compte.
 - **Mise en veille** (☾ dans le lecteur) : 15 min à 2 h, à la fin du film ou de l'épisode, ou une durée personnalisée.
@@ -78,6 +80,15 @@ L'installateur n'est pas signé : au premier lancement, Windows affiche
 puis **Exécuter quand même**.
 
 Les données (accès, base) sont dans `%APPDATA%\TV`.
+
+Le journal `tv.log` y est aussi (l'ancien dans `tv.old.log`, au-delà de 2 Mo). Il note :
+- les ouvertures de flux ;
+- les reconnexions au fournisseur ;
+- les refus du fournisseur ;
+- les attentes et coupures vues par le lecteur.
+
+Utile pour comprendre une coupure après coup. Les adresses, hôtes et identifiants y sont masqués.
+Quand le fournisseur coupe ou se tait plus de 20 s, ffmpeg se reconnecte de lui-même au même endroit du film.
 
 ## Développement
 
@@ -164,6 +175,7 @@ public/          interface (HTML, CSS, JS sans framework)
 public/i18n/     traductions de l'interface (un JSON par langue, le français sert de référence) et drapeaux
 ```
 
-Pour ajouter une langue : copier `public/i18n/fr-FR.json` sous le code TMDB de la langue (`nl-NL.json` …),
-traduire les valeurs, ajouter son drapeau dans `public/i18n/flags/`, puis le code dans `LANGUAGES`
-(avec le nom de la langue dans `public/app.js`, le code seul dans `electron/main.js`).
+Pour ajouter une langue : copier `public/i18n/fr-FR.json` sous le code de la langue (`nl-NL.json` …),
+traduire les valeurs, ajouter son drapeau dans `public/i18n/flags/`, puis la déclarer dans `public/i18n/languages.json`
+(code, nom dans la langue, `"rtl": true` si elle s'écrit de droite à gauche, `"tmdb"` si TMDB utilise un autre code).
+Interface, serveur et fenêtre de l'appli lisent tous cette liste.
