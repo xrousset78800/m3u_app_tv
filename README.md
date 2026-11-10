@@ -3,6 +3,20 @@
 Lecteur IPTV local pour un abonnement **Xtream Codes** : chaînes en direct, films, séries,
 guide des programmes et replay, dans le navigateur.
 
+> **Sur une télé Android TV / Google TV : code Downloader `9013780`**
+>
+> 1. Installer **Downloader** (de AFTVnews) depuis le Play Store de la télé.
+> 2. L'ouvrir, choisir **Reject All** sur la bannière des cookies, puis taper `9013780` dans la case d'adresse et **Load**.
+> 3. Quand la télé le demande : **Settings**, autoriser **Downloader**, revenir, puis **Install**
+>    (et **Install anyway** si Play Protect avertit). **Open**.
+> 4. Saisir l'adresse du serveur, l'identifiant et le mot de passe de l'abonnement.
+>
+> Le code mène toujours à la dernière version. Ensuite, l'appli propose elle-même les mises à jour
+> (la première fois, Android demande d'autoriser **TV** à installer, comme pour Downloader).
+> Dans Downloader, éviter les gros boutons « DOWNLOAD » de la page d'accueil : ce sont des publicités.
+>
+> **Sur Windows** : [télécharger TV pour Windows](#installer-lappli-windows).
+
 ## Fonctionnalités
 
 - **TV** : chaînes en direct (HLS) avec ce qui passe en ce moment, chaîne par chaîne.
