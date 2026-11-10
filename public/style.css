@@ -662,6 +662,8 @@ video {
   gap: 14px;
   padding: 18px 16px 0 24px;
 }
+/* Colonne fermée : le ☰ est posé en haut à gauche ; le titre commence après lui. */
+body.list-closed #player-head { padding-left: 68px; }
 #head-art { flex: none; }
 #head-art[hidden] { display: none; }
 #head-art img { display: block; width: 40px; height: 58px; border-radius: 6px; object-fit: cover; box-shadow: 0 2px 8px rgb(0 0 0 / 0.5); }
@@ -782,9 +784,9 @@ video {
 #center-play:hover { background: rgb(0 0 0 / 0.7); }
 #center-play:active { transform: translate(-50%, -50%) scale(0.92); }
 #center-play svg { width: 42%; height: 42%; fill: currentColor; stroke: none; }
-#center-play .when-paused { margin-left: 6%; }
-#player.paused #center-play .when-playing, #player:not(.paused) #center-play .when-paused { display: none; }
-#player.awake #center-play, #player.paused #center-play { opacity: 1; pointer-events: auto; }
+#center-play svg { margin-left: 6%; }
+/* Seulement en pause : le ▶ reste au milieu ; pendant la lecture, la pause se fait depuis la barre du bas. */
+#player.paused #center-play { opacity: 1; pointer-events: auto; }
 /* Direct : pas de recul ni d'avance ; la chaîne d'avant ou d'après à la place. */
 video.live ~ #capsule .jump { display: none; }
 
