@@ -84,6 +84,13 @@
   "series.season": { "one": "Sezonul {number} ({count} episod)", "few": "Sezonul {number} ({count} episoade)", "other": "Sezonul {number} ({count} de episoade)" },
   "series.noEpisode": "Niciun episod disponibil.",
   "series.watched": "văzut",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "{count} min rămas", "other": "{count} min rămase" },
+  "channel.now": "În direct",
+  "fiche.close": "Restrânge fișa",
+  "fiche.episodes": "Episoade",
+  "fiche.infos": "Informații",
+  "fiche.versions": "Versiuni ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

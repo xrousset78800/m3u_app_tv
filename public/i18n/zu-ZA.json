@@ -84,6 +84,13 @@
   "series.season": { "one": "Isizini {number} (isiqephu esi-{count})", "other": "Isizini {number} (iziqephu ezi-{count})" },
   "series.noEpisode": "Asikho isiqephu esitholakalayo.",
   "series.watched": "kubukiwe",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "Kusele umzuzu ongu-{count}", "other": "Kusele imizuzu engu-{count}" },
+  "channel.now": "Bukhoma",
+  "fiche.close": "Goqa iphaneli",
+  "fiche.episodes": "Iziqephu",
+  "fiche.infos": "Ulwazi",
+  "fiche.versions": "Izinguqulo ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

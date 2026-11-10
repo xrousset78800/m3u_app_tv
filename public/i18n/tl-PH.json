@@ -84,6 +84,13 @@
   "series.season": { "one": "Season {number} ({count} episode)", "other": "Season {number} ({count} na episode)" },
   "series.noEpisode": "Walang available na episode.",
   "series.watched": "napanood na",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "{count} min na lang", "other": "{count} min na lang" },
+  "channel.now": "Live",
+  "fiche.close": "I-collapse ang panel",
+  "fiche.episodes": "Mga episode",
+  "fiche.infos": "Impormasyon",
+  "fiche.versions": "Mga bersyon ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

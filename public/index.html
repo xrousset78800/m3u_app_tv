@@ -193,6 +193,11 @@
     <main>
       <div id="player" class="player">
         <video id="video" autoplay playsinline></video>
+        <!-- Gros bouton au milieu de l'image, visible avec les commandes. -->
+        <button id="center-play" type="button" data-i18n-title="player.playPause" title="Lecture / pause (Espace)" hidden>
+          <svg class="when-paused" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>
+          <svg class="when-playing" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
         <div id="frozen" hidden><canvas></canvas></div>
         <!-- Volume, chaîne : affiché un instant par-dessus la vidéo. -->
         <div id="osd" hidden></div>

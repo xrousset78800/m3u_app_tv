@@ -84,6 +84,13 @@
   "series.season": { "one": "সিজন {number} ({count}টি পর্ব)", "other": "সিজন {number} ({count}টি পর্ব)" },
   "series.noEpisode": "কোনো পর্ব নেই।",
   "series.watched": "দেখা হয়েছে",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "{count} মিনিট বাকি", "other": "{count} মিনিট বাকি" },
+  "channel.now": "সরাসরি",
+  "fiche.close": "প্যানেল গুটিয়ে নিন",
+  "fiche.episodes": "পর্ব",
+  "fiche.infos": "তথ্য",
+  "fiche.versions": "সংস্করণ ({count})",
 
   "playlist.title": "প্লেলিস্ট ({count})",
   "playlist.add": "+ প্লেলিস্ট",

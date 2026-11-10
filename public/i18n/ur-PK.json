@@ -84,6 +84,13 @@
   "series.season": { "one": "سیزن {number} ({count} قسط)", "other": "سیزن {number} ({count} اقساط)" },
   "series.noEpisode": "کوئی قسط دستیاب نہیں۔",
   "series.watched": "دیکھ لی",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "{count} منٹ باقی", "other": "{count} منٹ باقی" },
+  "channel.now": "براہ راست",
+  "fiche.close": "پینل سمیٹیں",
+  "fiche.episodes": "اقساط",
+  "fiche.infos": "معلومات",
+  "fiche.versions": "ورژن ({count})",
 
   "playlist.title": "پلے لسٹ ({count})",
   "playlist.add": "+ پلے لسٹ",

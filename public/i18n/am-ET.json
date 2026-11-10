@@ -84,6 +84,13 @@
   "series.season": { "one": "ምዕራፍ {number} ({count} ክፍል)", "other": "ምዕራፍ {number} ({count} ክፍሎች)" },
   "series.noEpisode": "ምንም ክፍል የለም።",
   "series.watched": "ታይቷል",
+  "series.code": "ም{season} ክ{episode}",
+  "media.left": { "one": "{count} ደቂቃ ቀርቷል", "other": "{count} ደቂቃ ቀርቷል" },
+  "channel.now": "ቀጥታ",
+  "fiche.close": "ፓነሉን አጥፋ",
+  "fiche.episodes": "ክፍሎች",
+  "fiche.infos": "መረጃ",
+  "fiche.versions": "ስሪቶች ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

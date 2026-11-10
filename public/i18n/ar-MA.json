@@ -84,6 +84,13 @@
   "series.season": { "zero": "الموسم {number} ({count} حلقة)", "one": "الموسم {number} (حلقة واحدة)", "two": "الموسم {number} (حلقتان)", "few": "الموسم {number} ({count} حلقات)", "many": "الموسم {number} ({count} حلقة)", "other": "الموسم {number} ({count} حلقة)" },
   "series.noEpisode": "لا توجد حلقات متاحة.",
   "series.watched": "شوهدت",
+  "series.code": "م{season} ح{episode}",
+  "media.left": { "one": "متبقٍ {count} د", "other": "متبقٍ {count} د" },
+  "channel.now": "مباشر",
+  "fiche.close": "طي اللوحة",
+  "fiche.episodes": "الحلقات",
+  "fiche.infos": "معلومات",
+  "fiche.versions": "النسخ ({count})",
 
   "playlist.title": "قائمة التشغيل ({count})",
   "playlist.add": "+ قائمة التشغيل",

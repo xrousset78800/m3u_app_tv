@@ -84,6 +84,13 @@
   "series.season": { "one": "Musim {number} ({count} episode)", "other": "Musim {number} ({count} episode)" },
   "series.noEpisode": "Tidak ada episode.",
   "series.watched": "sudah ditonton",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "Sisa {count} mnt", "other": "Sisa {count} mnt" },
+  "channel.now": "Langsung",
+  "fiche.close": "Ciutkan panel",
+  "fiche.episodes": "Episode",
+  "fiche.infos": "Info",
+  "fiche.versions": "Versi ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

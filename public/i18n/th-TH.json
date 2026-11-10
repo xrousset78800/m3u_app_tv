@@ -84,6 +84,13 @@
   "series.season": { "one": "ซีซัน {number} ({count} ตอน)", "other": "ซีซัน {number} ({count} ตอน)" },
   "series.noEpisode": "ไม่มีตอนให้ดู",
   "series.watched": "ดูแล้ว",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "เหลือ {count} นาที", "other": "เหลือ {count} นาที" },
+  "channel.now": "สด",
+  "fiche.close": "ยุบแผง",
+  "fiche.episodes": "ตอน",
+  "fiche.infos": "ข้อมูล",
+  "fiche.versions": "เวอร์ชัน ({count})",
 
   "playlist.title": "เพลย์ลิสต์ ({count})",
   "playlist.add": "+ เพลย์ลิสต์",

@@ -84,6 +84,13 @@
   "series.season": { "one": "시즌 {number} ({count}화)", "other": "시즌 {number} ({count}화)" },
   "series.noEpisode": "시청 가능한 에피소드가 없습니다.",
   "series.watched": "시청함",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "{count}분 남음", "other": "{count}분 남음" },
+  "channel.now": "생방송",
+  "fiche.close": "패널 접기",
+  "fiche.episodes": "에피소드",
+  "fiche.infos": "정보",
+  "fiche.versions": "버전 ({count})",
 
   "playlist.title": "재생목록 ({count})",
   "playlist.add": "+ 재생목록",

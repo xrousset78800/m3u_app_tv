@@ -84,6 +84,13 @@
   "series.season": { "one": "सीज़न {number} ({count} एपिसोड)", "other": "सीज़न {number} ({count} एपिसोड)" },
   "series.noEpisode": "कोई एपिसोड उपलब्ध नहीं।",
   "series.watched": "देखा गया",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "{count} मिनट बाकी", "other": "{count} मिनट बाकी" },
+  "channel.now": "लाइव",
+  "fiche.close": "पैनल समेटें",
+  "fiche.episodes": "एपिसोड",
+  "fiche.infos": "जानकारी",
+  "fiche.versions": "संस्करण ({count})",
 
   "playlist.title": "प्लेलिस्ट ({count})",
   "playlist.add": "+ प्लेलिस्ट",

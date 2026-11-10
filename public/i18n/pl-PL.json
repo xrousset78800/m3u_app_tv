@@ -84,6 +84,13 @@
   "series.season": { "one": "Sezon {number} ({count} odcinek)", "few": "Sezon {number} ({count} odcinki)", "many": "Sezon {number} ({count} odcinków)", "other": "Sezon {number} ({count} odcinka)" },
   "series.noEpisode": "Brak dostępnych odcinków.",
   "series.watched": "obejrzany",
+  "series.code": "S{season} O{episode}",
+  "media.left": { "one": "Zostało {count} min", "other": "Zostało {count} min" },
+  "channel.now": "Na żywo",
+  "fiche.close": "Zwiń panel",
+  "fiche.episodes": "Odcinki",
+  "fiche.infos": "Informacje",
+  "fiche.versions": "Wersje ({count})",
 
   "playlist.title": "Playlista ({count})",
   "playlist.add": "+ Playlista",

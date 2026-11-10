@@ -84,6 +84,13 @@
   "series.season": { "one": "Zango {number} (kashi {count})", "other": "Zango {number} (kashi {count})" },
   "series.noEpisode": "Babu kashi da ake da shi.",
   "series.watched": "an kalla",
+  "series.code": "S{season} K{episode}",
+  "media.left": { "one": "Saura minti {count}", "other": "Saura minti {count}" },
+  "channel.now": "Kai tsaye",
+  "fiche.close": "Rufe allon",
+  "fiche.episodes": "Kashi-kashi",
+  "fiche.infos": "Bayani",
+  "fiche.versions": "Nau'o'i ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

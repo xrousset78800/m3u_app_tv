@@ -84,6 +84,13 @@
   "series.season": { "one": "Season {number} ({count} episode)", "other": "Season {number} ({count} episodes)" },
   "series.noEpisode": "No episode available.",
   "series.watched": "watched",
+  "series.code": "S{season} E{episode}",
+  "media.left": { "one": "{count} min left", "other": "{count} min left" },
+  "channel.now": "Live",
+  "fiche.close": "Collapse panel",
+  "fiche.episodes": "Episodes",
+  "fiche.infos": "Info",
+  "fiche.versions": "Versions ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

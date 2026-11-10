@@ -84,6 +84,13 @@
   "series.season": { "one": "Seizoen {number} ({count} aflevering)", "other": "Seizoen {number} ({count} afleveringen)" },
   "series.noEpisode": "Geen afleveringen beschikbaar.",
   "series.watched": "gezien",
+  "series.code": "S{season} A{episode}",
+  "media.left": { "one": "nog {count} min", "other": "nog {count} min" },
+  "channel.now": "Live",
+  "fiche.close": "Paneel inklappen",
+  "fiche.episodes": "Afleveringen",
+  "fiche.infos": "Info",
+  "fiche.versions": "Versies ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

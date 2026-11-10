@@ -84,6 +84,13 @@
   "series.season": { "one": "第 {number} 季（{count} 集）", "other": "第 {number} 季（{count} 集）" },
   "series.noEpisode": "暂无可播放的剧集。",
   "series.watched": "已看",
+  "series.code": "第{season}季 第{episode}集",
+  "media.left": { "one": "剩余 {count} 分钟", "other": "剩余 {count} 分钟" },
+  "channel.now": "直播",
+  "fiche.close": "收起面板",
+  "fiche.episodes": "剧集",
+  "fiche.infos": "简介",
+  "fiche.versions": "版本（{count}）",
 
   "playlist.title": "播放列表（{count}）",
   "playlist.add": "+ 播放列表",

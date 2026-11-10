@@ -84,6 +84,13 @@
   "series.season": { "one": "Sezon {number} ({count} bölüm)", "other": "Sezon {number} ({count} bölüm)" },
   "series.noEpisode": "Kullanılabilir bölüm yok.",
   "series.watched": "izlendi",
+  "series.code": "S{season} B{episode}",
+  "media.left": { "one": "{count} dk kaldı", "other": "{count} dk kaldı" },
+  "channel.now": "Canlı",
+  "fiche.close": "Paneli daralt",
+  "fiche.episodes": "Bölümler",
+  "fiche.infos": "Bilgi",
+  "fiche.versions": "Sürümler ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

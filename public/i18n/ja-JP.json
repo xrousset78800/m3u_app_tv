@@ -84,6 +84,13 @@
   "series.season": { "one": "シーズン {number}（{count} 話）", "other": "シーズン {number}（{count} 話）" },
   "series.noEpisode": "視聴できるエピソードはありません。",
   "series.watched": "視聴済み",
+  "series.code": "S{season} 第{episode}話",
+  "media.left": { "one": "残り {count} 分", "other": "残り {count} 分" },
+  "channel.now": "生放送",
+  "fiche.close": "パネルを閉じる",
+  "fiche.episodes": "エピソード",
+  "fiche.infos": "情報",
+  "fiche.versions": "バージョン（{count}）",
 
   "playlist.title": "プレイリスト（{count}）",
   "playlist.add": "+ プレイリスト",

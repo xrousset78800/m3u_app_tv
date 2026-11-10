@@ -84,6 +84,13 @@
   "series.season": { "one": "Msimu {number} (kipindi {count})", "other": "Msimu {number} (vipindi {count})" },
   "series.noEpisode": "Hakuna kipindi kinachopatikana.",
   "series.watched": "imetazamwa",
+  "series.code": "M{season} K{episode}",
+  "media.left": { "one": "Dakika {count} zimebaki", "other": "Dakika {count} zimebaki" },
+  "channel.now": "Mubashara",
+  "fiche.close": "Kunja paneli",
+  "fiche.episodes": "Vipindi",
+  "fiche.infos": "Maelezo",
+  "fiche.versions": "Matoleo ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

@@ -84,6 +84,13 @@
   "series.season": { "one": "Temporada {number} ({count} episodio)", "other": "Temporada {number} ({count} episodios)" },
   "series.noEpisode": "Ningún episodio disponible.",
   "series.watched": "visto",
+  "series.code": "T{season} E{episode}",
+  "media.left": { "one": "Queda {count} min", "other": "Quedan {count} min" },
+  "channel.now": "En directo",
+  "fiche.close": "Plegar la ficha",
+  "fiche.episodes": "Episodios",
+  "fiche.infos": "Información",
+  "fiche.versions": "Versiones ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

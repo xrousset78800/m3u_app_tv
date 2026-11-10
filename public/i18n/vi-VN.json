@@ -84,6 +84,13 @@
   "series.season": { "one": "Mùa {number} ({count} tập)", "other": "Mùa {number} ({count} tập)" },
   "series.noEpisode": "Không có tập nào.",
   "series.watched": "đã xem",
+  "series.code": "P{season} T{episode}",
+  "media.left": { "one": "Còn {count} phút", "other": "Còn {count} phút" },
+  "channel.now": "Trực tiếp",
+  "fiche.close": "Thu gọn bảng",
+  "fiche.episodes": "Các tập",
+  "fiche.infos": "Thông tin",
+  "fiche.versions": "Phiên bản ({count})",
 
   "playlist.title": "Playlist ({count})",
   "playlist.add": "+ Playlist",

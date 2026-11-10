@@ -745,6 +745,33 @@ video {
 #play-button:active { transform: scale(0.92); }
 #play-button svg { width: 24px; height: 24px; fill: currentColor; stroke: none; }
 #player.paused #play-button .when-playing, #player:not(.paused) #play-button .when-paused { display: none; }
+/* Gros bouton au milieu : apparaît et s'efface avec les commandes. */
+#center-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: clamp(56px, 9cqi, 84px);
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1.5px solid rgb(255 255 255 / 0.3);
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.5);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.15s, background 0.15s;
+}
+#center-play:hover { background: rgb(0 0 0 / 0.7); }
+#center-play:active { transform: translate(-50%, -50%) scale(0.92); }
+#center-play svg { width: 42%; height: 42%; fill: currentColor; stroke: none; }
+#center-play .when-paused { margin-left: 6%; }
+#player.paused #center-play .when-playing, #player:not(.paused) #center-play .when-paused { display: none; }
+#player.awake #center-play, #player.paused #center-play { opacity: 1; pointer-events: auto; }
 /* Direct : pas de recul ni d'avance ; la chaîne d'avant ou d'après à la place. */
 video.live ~ #capsule .jump { display: none; }
 
@@ -1051,7 +1078,7 @@ video::cue { background: transparent; color: #fff; font-size: 1.15em; text-shado
 #details {
   flex: none;
   width: clamp(320px, 24vw, 440px);
-  overflow-y: auto;
+  overflow: hidden auto;
   padding: 8px 10px 12px;
   font-size: 0.9em;
   line-height: 1.3;
@@ -1068,66 +1095,146 @@ body.fiche-closed .guide-row.selected { background: none; box-shadow: none; }
 body.fiche-closed #list li.active:not(:hover) { background: none; }
 #details button { padding: 2px 8px; }
 #details select { padding: 3px 6px; }
-/* Programme d'une chaîne : le nom et les jours restent fixes, seule la liste défile. */
+/* Programme d'une chaîne : la tête et les jours restent fixes, seule la frise défile. */
 #details:has(> .epg) { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
 #details > .epg { flex: 1; min-height: 0; overflow-y: auto; }
-#details h2 { margin: 4px 0; font-size: 1.15em; }
+#details h2 { margin: 0; font-size: 1.2em; font-weight: 700; }
 
-.detail-head { display: flex; align-items: center; gap: 8px; }
-.detail-head h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.days { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
-.days button.active { background: #2d4a7a; }
-#details .days { gap: 3px; margin: 2px 0 4px; }
+/* Icônes de la fiche : trait fin, couleur du texte. */
+#details svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+#details svg .fill { fill: currentColor; stroke: none; }
+#details .ib { display: grid; place-items: center; flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: none; color: #bdbdbd; }
+#details .ib:hover { background: #ffffff1a; color: #fff; }
 
-.epg, .episodes { margin: 0; padding: 0; list-style: none; }
+/* Tête : petite affiche (ou logo), titre, détails, actions. */
+.fiche-head { display: flex; align-items: flex-start; gap: 12px; padding: 4px 0 0; }
+.fiche-head .cover { flex: none; width: 56px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; background: linear-gradient(160deg, #3a3f48, #22262c); }
+.fiche-head.square { align-items: center; }
+.fiche-head.square .cover { width: 40px; aspect-ratio: 1; object-fit: contain; border-radius: 8px; background: #2a2a2a; display: grid; place-items: center; color: #ccc; font-weight: 700; font-size: 0.9em; }
+.fiche-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fiche-title h2 { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2; }
+.fiche-title p { margin: 0; font-size: 0.92em; }
+.fiche-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 2px 0 0 -4px; }
+#details .fiche-head .star { width: 30px; height: 30px; padding: 0; border-radius: 50%; font-size: 1.25em; }
+#details .fiche-head .star:hover { background: #ffffff1a; }
+#details .fiche-actions button.secondary { height: 26px; padding: 0 10px; border-radius: 13px; font-size: 0.9em; }
+#details .fiche-close { margin: -2px -4px 0 0; }
+#details .live-pill { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 14px; background: #f2f2f2; color: #111; font-weight: 600; }
+#details .live-pill:hover { background: #fff; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: #e33; }
 
-.epg li, .episodes li {
-  display: flex;
-  gap: 8px;
-  border-bottom: 1px solid #262626;
-}
-/* Une seule ligne par programme : le résumé se déplie au clic. */
-.epg li { position: relative; align-items: baseline; padding: 2px 6px; cursor: pointer; }
-.epg li:hover { background: #1c1c1c; }
-.epg li.past { color: #888; }
-.epg li.current, .epg li.playing, .episodes li.playing { background: #1c2636; }
-.episodes li.now-playing { background: #22385c; box-shadow: inset 3px 0 #3c7ee6; }
-.episodes li.now-playing strong::before { content: '▶ '; color: #6fa3ff; font-size: 0.85em; }
-.epg .time { width: 38px; flex-shrink: 0; font-variant-numeric: tabular-nums; color: #aaa; }
-.epg strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
-.epg .program:has(.description:not([hidden])) strong { white-space: normal; }
-.epg .bar { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; margin: 0; border-radius: 0; }
-#details .epg button { flex-shrink: 0; padding: 0 4px; border: 0; background: none; color: #7fa8ee; font-size: 0.9em; }
-#details .epg button:hover { color: #fff; }
-.program { flex: 1; min-width: 0; }
-.program p { margin: 2px 0 0; }
-.description { color: #bbb; font-size: 0.9em; line-height: 1.3; }
-
-.fold { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.fold.open { display: block; }
-#details .more { padding: 0; border: 0; background: none; color: #7fa8ee; font-size: 0.9em; }
-#details .more:hover { color: #fff; text-decoration: underline; }
-
+/* Grosse ligne de lecture. */
+.resume-row { display: flex; gap: 6px; margin: 12px 0 0; }
+#details .resume-card { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 10px; background: #4f8ef71f; text-align: left; }
+#details .resume-card:hover { background: #4f8ef733; }
+.resume-play { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: #4f8ef7; color: #fff; }
+#details .resume-play svg { width: 13px; height: 13px; margin-left: 2px; }
+.resume-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.resume-text > span:first-child { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.resume-text strong { font-weight: 600; }
+.resume-sub { color: #9fc0f5; }
 .bar { height: 3px; margin-top: 6px; background: #333; border-radius: 2px; }
 .bar div { height: 100%; background: #2f6fd6; border-radius: 2px; }
+.resume-text .bar { display: block; margin: 0; background: #ffffff1f; }
+.resume-text .bar div { background: #4f8ef7; }
+#details .resume-restart { width: 46px; height: auto; border-radius: 10px; background: #ffffff0f; }
 
-.info { display: flex; gap: 10px; margin: 6px 0; }
-.info > div { flex: 1; min-width: 0; }
-/* Hauteur réservée : l'affiche chargée après coup ne décale pas la liste déjà placée. */
-.info .cover { flex-shrink: 0; width: 92px; aspect-ratio: 2 / 3; object-fit: cover; align-self: flex-start; border-radius: 4px; }
-.info p { margin: 4px 0; line-height: 1.3; }
-.info h2 { margin-top: 0; }
+/* Onglets (et jours d'une chaîne) : soulignés, défilants si trop nombreux. */
+.fiche-tabs { display: flex; gap: 18px; margin: 12px 0 0; border-bottom: 1px solid #2a2a2a; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+#details .fiche-tabs button { flex: none; padding: 7px 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: #8f8f8f; }
+#details .fiche-tabs button:hover { color: #ddd; }
+#details .fiche-tabs button[aria-selected="true"] { border-bottom-color: #f2f2f2; color: #f2f2f2; font-weight: 600; }
+.fiche-panel { padding-top: 10px; }
+.fiche-panel .plot { margin: 0 0 12px; color: #c8c8c8; line-height: 1.55; }
+.fiche-panel .credit { margin: 0 0 8px; color: #a8a8a8; line-height: 1.45; }
+
+/* Saisons : contrôle segmenté. */
+.seasons { display: flex; gap: 2px; margin-bottom: 6px; padding: 3px; border-radius: 9px; background: #222; flex-wrap: wrap; }
+#details .seasons button { flex: 1 0 auto; display: flex; align-items: center; justify-content: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 7px; background: none; color: #bdbdbd; }
+#details .seasons button:hover { color: #fff; }
+#details .seasons button[aria-selected="true"] { background: #3a3a3a; color: #f2f2f2; font-weight: 600; }
+#details .seasons svg { width: 12px; height: 12px; stroke-width: 2.6; color: #4f8ef7; }
+.seasons small { color: #8f8f8f; font-weight: 400; }
+
+/* Pastilles des réglages (types, comptes). */
+.days { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.days button.active { background: #2d4a7a; }
+/* Les jours d'une chaîne sont des onglets : une seule ligne, qui défile. */
+#details .fiche-tabs.days { flex-wrap: nowrap; gap: 16px; margin: 12px 0 0; }
+
+.epg, .episodes, .version-rows { margin: 0; padding: 0; list-style: none; }
+
+/* Épisodes : lignes denses ; l'épisode à reprendre est déplié. */
+.episodes li { border-radius: 8px; }
+.episode-line { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 2px 0 6px; cursor: pointer; }
+.episodes li:hover { background: #ffffff08; }
+.episodes .num { width: 20px; flex: none; text-align: right; color: #8f8f8f; font-variant-numeric: tabular-nums; }
+.episode-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.episode-side { flex: none; color: #8f8f8f; font-size: 0.92em; font-variant-numeric: tabular-nums; }
+.episode-mark { width: 14px; flex: none; color: #4f8ef7; }
+#details .episode-mark svg { width: 14px; height: 14px; stroke-width: 2.6; }
+#details .episode-play { width: 28px; height: 28px; color: #8f8f8f; opacity: 0; }
+#details .episode-play svg { width: 12px; height: 12px; }
+.episodes li:hover .episode-play, .episodes li.playing .episode-play, #details .episode-play:focus-visible { opacity: 1; }
+.episodes li > .bar { height: 2px; margin: -2px 8px 4px 36px; background: #ffffff1f; }
+.episodes li > .bar div { background: #4f8ef7; }
+.episode-more { display: flex; gap: 10px; padding: 2px 8px 10px 36px; }
+.episode-more img { flex: none; width: 96px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 5px; align-self: flex-start; }
+.episode-more > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.episode-more .plot { margin: 0; color: #a8a8a8; font-size: 0.92em; line-height: 1.45; }
+.episodes li.watched .episode-title, .episodes li.watched .num { color: #8f8f8f; }
+.episodes li.playing { background: #ffffff0d; }
+.episodes li.playing .num, .episodes li.playing .episode-side { color: #9fc0f5; }
+.episodes li.playing .episode-title { font-weight: 600; }
+.episodes li.now-playing { background: #22385c; box-shadow: inset 3px 0 #3c7ee6; }
+.episodes li.muted { padding: 8px 6px; cursor: default; }
+
+/* Versions, en lignes. */
+.version-rows li { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 8px; cursor: pointer; }
+.version-rows li:hover { background: #ffffff0d; }
+.version-rows li.current { background: #ffffff0d; cursor: default; }
+.version-dot { width: 8px; height: 8px; flex: none; border: 1px solid #555; border-radius: 50%; box-sizing: border-box; }
+.version-rows li.current .version-dot { border: 0; background: #4f8ef7; }
+.version-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.version-rows li.current .version-name { font-weight: 600; }
+.version-rows small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
+.version-badge { color: #9fc0f5; }
+.version-rows li.hidden-version .version-name { color: #999; }
+
+/* Programme d'une chaîne : frise verticale (heure, rail, programme). */
+.epg { padding-top: 4px; }
+.epg li { position: relative; display: flex; align-items: flex-start; gap: 10px; padding: 0 2px 0 0; cursor: pointer; }
+.epg .time { width: 40px; flex: none; padding-top: 8px; text-align: right; color: #d0d0d0; font-variant-numeric: tabular-nums; }
+.epg .rail { position: relative; width: 12px; flex: none; align-self: stretch; }
+.epg .rail::before { content: ""; position: absolute; top: 0; bottom: 0; left: 5px; width: 2px; background: #2c2c2c; }
+.epg .rail::after { content: ""; position: absolute; top: 11px; left: 1px; width: 10px; height: 10px; box-sizing: border-box; border: 2px solid #555; border-radius: 50%; background: #1b1b1b; }
+.epg li:first-child .rail::before { top: 12px; }
+.epg li:last-child .rail::before { bottom: calc(100% - 12px); }
+.epg .program { flex: 1; min-width: 0; padding: 7px 0; display: flex; flex-direction: column; gap: 6px; }
+.program-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.epg strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.epg .program:has(.description:not([hidden])) strong { white-space: normal; }
+.epg .description { margin: 0; color: #a8a8a8; font-size: 0.92em; line-height: 1.45; }
+.epg li:hover .program { color: #fff; }
+.epg li.past { color: #9a9a9a; }
+.epg li.past .time { color: #8f8f8f; }
+.epg li.current .time { color: #ff6b6b; font-weight: 600; }
+.epg li.current .rail::after { border-color: #ff4d4d; background: #ff4d4d; box-shadow: 0 0 0 4px #ff4d4d33; }
+.epg li.current .program { margin: 3px 0; padding: 9px 12px; border-radius: 10px; background: #ffffff0d; }
+.epg li.current strong { font-weight: 600; }
+.on-air { flex: none; color: #ff6b6b; font-size: 0.9em; }
+.program-progress { display: flex; align-items: center; gap: 8px; color: #a8a8a8; font-size: 0.9em; }
+.program-progress .bar { flex: 1; margin: 0; background: #ffffff1f; }
+.program-progress .bar div { background: #ff4d4d; }
+#details .epg .chip { align-self: flex-start; display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 13px; background: #ffffff1a; color: #f2f2f2; font-size: 0.9em; }
+#details .epg .chip:hover { background: #ffffff2a; }
+#details .epg .chip svg { width: 13px; height: 13px; }
+.epg li.playing .program { color: #9fc0f5; }
+.epg li.playing .rail::after { border-color: #4f8ef7; }
+.epg .ib { margin-top: 3px; }
+
 .buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 #details .buttons { gap: 4px; }
-.season { width: auto; }
-
-.episodes img { width: 64px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
-.episodes li { flex-wrap: wrap; align-items: flex-start; padding: 4px 6px; }
-/* Boutons sur leur propre ligne : la colonne est trop étroite pour « Reprendre à… » à côté du titre. */
-.episodes .program { flex-basis: calc(100% - 72px); }
-.episodes .program p { margin: 0; }
-.episodes li.watched { opacity: 0.6; }
-.episodes .fold { -webkit-line-clamp: 2; color: #bbb; font-size: 0.9em; }
 
 /* --- Écran tactile : des cibles plus larges que leur dessin. La zone invisible déborde autour
    du bouton sans rien décaler (elle ne prend pas de place dans la mise en page). --- */
@@ -1222,9 +1329,8 @@ body.no-player .guide-now { display: contents; }
 .osd-channel .bar { height: 2px; margin: 0 0 2px; }
 
 /* Rappels : la cloche de la fiche, puis l'annonce, visible partout. */
-#details .epg button.bell { padding: 0 2px; opacity: 0.35; filter: grayscale(1); }
-#details .epg button.bell:hover { opacity: 0.8; }
-#details .epg button.bell.on { opacity: 1; filter: none; }
+#details .epg .bell.on { color: #f5c451; }
+#details .epg .bell.on svg { fill: currentColor; }
 #reminder {
   position: fixed;
   right: 20px;
@@ -1259,7 +1365,3 @@ body #list.view-large li .resume-remove { position: absolute; top: 6px; right: 3
 
 /* Autres versions : retirées dans les réglages, en retrait ; ligne des fiches */
 #versions-list li.hidden-version .name { color: #999; }
-.versions-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 6px 0; font-size: 0.85em; }
-.versions-line .version-chip { padding: 1px 7px; border: 1px solid #444; border-radius: 10px; background: transparent; color: #cfe0ff; font-size: 1em; cursor: pointer; }
-.versions-line .version-chip:hover { background: #2a2a2a; }
-.versions-line .version-chip.hidden-version { color: #999; border-style: dashed; }

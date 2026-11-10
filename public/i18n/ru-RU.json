@@ -84,6 +84,13 @@
   "series.season": { "one": "Сезон {number} ({count} серия)", "few": "Сезон {number} ({count} серии)", "many": "Сезон {number} ({count} серий)", "other": "Сезон {number} ({count} серии)" },
   "series.noEpisode": "Нет доступных серий.",
   "series.watched": "просмотрено",
+  "series.code": "С{season} Э{episode}",
+  "media.left": { "one": "Осталось {count} мин", "other": "Осталось {count} мин" },
+  "channel.now": "В эфире",
+  "fiche.close": "Свернуть панель",
+  "fiche.episodes": "Серии",
+  "fiche.infos": "Описание",
+  "fiche.versions": "Версии ({count})",
 
   "playlist.title": "Плейлист ({count})",
   "playlist.add": "+ Плейлист",

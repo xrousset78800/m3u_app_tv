@@ -735,8 +735,7 @@ async function switchSeriesVersion(series) {
   if (showing) showSeries(series);
 }
 
-// Ligne « Autres versions » d'une fiche : les autres versions du même nom, retirées comprises,
-// chacune réduite à ce qui la distingue (langue, mentions entre crochets).
+// Nom court d'une version dans la fiche : ce qui la distingue (langue, mentions entre crochets).
 function versionLabel(item) {
   // Langue en tête du nom, sinon celle du groupe (« FR - DRAME », « SRS | EN - DRAMA »).
   const prefix = (
@@ -744,32 +743,6 @@ function versionLabel(item) {
   )?.toUpperCase();
   const tags = [...item.name.matchAll(/[[(]([^\])]+)[\])]/g)].map((m) => m[1]).filter((tag) => !/^\d{4}$/.test(tag));
   return [prefix, ...tags].filter(Boolean).join(' ') || item.name;
-}
-
-function versionsLine(type, id, open) {
-  const line = el('p', { className: 'versions-line muted', hidden: true });
-  getJson(`/api/versions?${new URLSearchParams({ type, id })}`)
-    .then(({ items }) => {
-      const others = items.filter((item) => item.same && String(item.id) !== String(id));
-      if (!others.length) return;
-      const seen = new Map();
-      const buttons = others.map((item) => {
-        let label = versionLabel(item);
-        seen.set(label, (seen.get(label) || 0) + 1);
-        if (seen.get(label) > 1) label += ` (${seen.get(label)})`;
-        return el('button', {
-          type: 'button',
-          className: `version-chip${item.hidden ? ' hidden-version' : ''}`,
-          textContent: label,
-          title: [item.name, item.category, item.hidden && t('versions.hidden')].filter(Boolean).join(' — '),
-          onclick: () => open(item),
-        });
-      });
-      line.replaceChildren(el('span', {}, t('versions.line')), ...buttons);
-      line.hidden = false;
-    })
-    .catch(() => {});
-  return line;
 }
 
 $('versions-button').addEventListener('click', (e) => {
@@ -1961,10 +1934,12 @@ function togglePlay() {
   else video.pause();
 }
 $('play-button').addEventListener('click', togglePlay);
+$('center-play').addEventListener('click', togglePlay);
 function paintPlay() {
   player.classList.toggle('paused', video.paused);
+  $('center-play').hidden = !video.currentSrc;
 }
-['play', 'pause', 'emptied'].forEach((type) => video.addEventListener(type, paintPlay));
+['play', 'pause', 'emptied', 'loadstart'].forEach((type) => video.addEventListener(type, paintPlay));
 paintPlay();
 
 // Volume : l'icône coupe le son, la barre se déplie à son survol.
@@ -2417,6 +2392,112 @@ async function playLive(channel, { exact = false } = {}) {
   remember();
 }
 
+// --- Fiche : la deuxième colonne, compacte (tête, grosse ligne de lecture, onglets) ------
+
+const ICONS = {
+  back: '<path d="M15 6l-6 6 6 6"/>',
+  play: '<path class="fill" d="M7 4.5v15l12.5-7.5z"/>',
+  restart: '<path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+};
+
+function icon(name) {
+  const box = document.createElement('span');
+  box.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+  return box.firstChild;
+}
+
+function iconButton(name, title, onclick, className = '') {
+  return el('button', { type: 'button', className: `ib ${className}`.trim(), title, ariaLabel: title, onclick }, icon(name));
+}
+
+// Les libellés des anciens boutons commencent par un signe (« ▶ Lire ») : l'icône le remplace.
+const plain = (text) => text.replace(/^[^\p{L}\p{N}]+/u, '');
+
+const minutesLeft = (seconds) => t('media.left', { count: Math.max(1, Math.round(seconds / 60)) });
+
+// Tête : affiche (ou logo), titre, détails, petites actions ; ‹ replie la colonne.
+function ficheHead({ cover, square = false, title, meta, actions = [], side = [] }) {
+  const placeholder = () => el('div', { className: 'cover' }, square ? title.slice(0, 2) : '');
+  return el(
+    'div',
+    { className: `fiche-head${square ? ' square' : ''}` },
+    cover ? el('img', { className: 'cover', src: cover, alt: '', onerror: (e) => e.target.replaceWith(placeholder()) }) : placeholder(),
+    el(
+      'div',
+      { className: 'fiche-title' },
+      el('h2', { title }, title),
+      meta && el('p', { className: 'muted' }, meta),
+      actions.length > 0 && el('div', { className: 'fiche-actions' }, ...actions),
+    ),
+    ...side,
+    iconButton('back', t('fiche.close'), () => closeFiche(true), 'fiche-close'),
+  );
+}
+
+// Grosse ligne de lecture : libellé, précision, avancement.
+function resumeCard(label, sub, done, onclick) {
+  return el(
+    'button',
+    { type: 'button', className: 'resume-card', onclick },
+    el('span', { className: 'resume-play' }, icon('play')),
+    el(
+      'span',
+      { className: 'resume-text' },
+      el('span', {}, el('strong', {}, label), sub && el('span', { className: 'resume-sub' }, ` · ${sub}`)),
+      done > 0 && el('span', { className: 'bar' }, el('div', { style: `width:${Math.min(100, done * 100)}%` })),
+    ),
+  );
+}
+
+// Onglets : chaque panneau garde son état (dépliés, défilement) quand on passe de l'un à l'autre.
+function ficheTabs() {
+  const bar = el('div', { className: 'fiche-tabs', role: 'tablist', hidden: true });
+  const panels = el('div', { className: 'fiche-panels' });
+  const add = (label, ...content) => {
+    const panel = el('div', { className: 'fiche-panel', role: 'tabpanel' }, ...content);
+    const button = el('button', { type: 'button', role: 'tab', textContent: label });
+    button.onclick = () => {
+      bar.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', b === button));
+      panels.querySelectorAll(':scope > .fiche-panel').forEach((p) => (p.hidden = p !== panel));
+    };
+    const first = !bar.childElementCount;
+    button.setAttribute('aria-selected', first);
+    panel.hidden = !first;
+    bar.append(button);
+    panels.append(panel);
+    bar.hidden = false;
+  };
+  return { bar, panels, add };
+}
+
+// Onglet « Versions » : les versions du même nom, en lignes, celle-ci comprise ; ajouté s'il y en a d'autres.
+function addVersionsTab(tabs, type, id, open) {
+  getJson(`/api/versions?${new URLSearchParams({ type, id })}`)
+    .then(({ items }) => {
+      const same = items.filter((item) => item.same);
+      if (!same.some((item) => String(item.id) !== String(id))) return;
+      const rows = same.map((item) => {
+        const current = String(item.id) === String(id);
+        return el(
+          'li',
+          {
+            className: `${current ? 'current' : ''}${item.hidden ? ' hidden-version' : ''}`,
+            title: [item.name, item.hidden && t('versions.hidden')].filter(Boolean).join(' — '),
+            onclick: () => !current && open(item),
+          },
+          el('span', { className: 'version-dot' }),
+          el('span', { className: 'version-name' }, versionLabel(item)),
+          el('small', { className: 'muted' }, item.category || ''),
+          current && el('small', { className: 'version-badge' }, t('versions.current')),
+        );
+      });
+      tabs.add(t('fiche.versions', { count: same.length }), el('ul', { className: 'version-rows' }, ...rows));
+    })
+    .catch(() => {});
+}
+
 // Affiche la fiche de la chaîne, sans rien lancer : le direct part de ▶ sur la ligne ou de « Direct » ici.
 async function showChannel(channel) {
   selectedChannel = String(channel.id);
@@ -2427,18 +2508,28 @@ async function showChannel(channel) {
 
   const listEl = el('ul', { className: 'epg' });
   let replaying = null; // début du replay en cours, sur lequel se place la liste
-  const head = el('div', { className: 'detail-head' },
-    el('h2', {}, channel.name),
-    el('button', {
-      className: 'secondary',
-      textContent: t('channel.live'),
-      onclick: () => {
-        replaying = null;
-        listEl.querySelector('.playing')?.classList.remove('playing');
-        playLive(channel);
-      },
-    }),
-  );
+  const head = ficheHead({
+    cover: channel.logo,
+    square: true,
+    title: channel.name,
+    side: [
+      favoriteStar('live', channel.id),
+      el(
+        'button',
+        {
+          type: 'button',
+          className: 'live-pill',
+          onclick: () => {
+            replaying = null;
+            listEl.querySelector('.playing')?.classList.remove('playing');
+            playLive(channel);
+          },
+        },
+        el('span', { className: 'live-dot' }),
+        plain(t('channel.live')),
+      ),
+    ],
+  });
   details.replaceChildren(head, el('p', { className: 'muted' }, t('channel.loading')));
 
   let programs;
@@ -2457,43 +2548,60 @@ async function showChannel(channel) {
   const dayKey = (ts) => new Date(ts * 1000).toDateString();
   const days = [...new Set(programs.map((p) => dayKey(p.start)))];
   const today = new Date().toDateString();
-  const tabs = el('div', { className: 'days' });
+  const tabs = el('div', { className: 'fiche-tabs days', role: 'tablist' });
 
+  // Frise : l'heure, un rail avec un point, le programme ; celui en cours est déplié.
   function renderDay(day) {
-    tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.day === day));
+    tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', b.dataset.day === day));
     listEl.replaceChildren(
       ...programs.filter((p) => dayKey(p.start) === day).map((p) => {
         const current = p.start <= now && p.end > now;
         const canReplay = p.archive && p.start < now;
+        const replay = () => {
+          replaying = p.start;
+          listEl.querySelector('.playing')?.classList.remove('playing');
+          li.classList.add('playing');
+          playReplay(channel, { ...p, stop: p.end });
+        };
         const li = el(
           'li',
           { className: `${current ? 'current' : p.end < now ? 'past' : ''}${replaying >= p.start && replaying < p.end ? ' playing' : ''}`, title: p.title },
           el('span', { className: 'time' }, formatHour(p.start)),
+          el('span', { className: 'rail' }),
           el(
             'div',
             { className: 'program' },
-            el('strong', {}, p.title),
-            current && el('div', { className: 'bar' }, el('div', { style: `width:${((now - p.start) / (p.end - p.start)) * 100}%` })),
-            el('p', { className: 'description', hidden: true }, p.description),
+            el('div', { className: 'program-line' }, el('strong', {}, p.title), current && el('span', { className: 'on-air' }, t('channel.now'))),
+            el('p', { className: 'description', hidden: !current || !p.description }, p.description),
+            current &&
+              el(
+                'div',
+                { className: 'program-progress' },
+                el('div', { className: 'bar' }, el('div', { style: `width:${((now - p.start) / (p.end - p.start)) * 100}%` })),
+                el('span', {}, minutesLeft(p.end - now)),
+              ),
+            current &&
+              canReplay &&
+              el('button', {
+                type: 'button',
+                className: 'chip',
+                onclick: (e) => {
+                  e.stopPropagation();
+                  replay();
+                },
+              }, icon('restart'), t('channel.restartTitle')),
           ),
           p.start > now && reminderButton(channel, p),
           canReplay &&
-            el('button', {
-              className: 'secondary',
-              textContent: t(current ? 'channel.restart' : 'channel.replay'),
-              title: t(current ? 'channel.restartTitle' : 'channel.replayTitle'),
-              onclick: (e) => {
-                e.stopPropagation();
-                replaying = p.start;
-                listEl.querySelector('.playing')?.classList.remove('playing');
-                li.classList.add('playing');
-                playReplay(channel, { ...p, stop: p.end });
-              },
+            !current &&
+            iconButton('restart', t('channel.replayTitle'), (e) => {
+              e.stopPropagation();
+              replay();
             }),
         );
         li.onclick = () => {
           const description = li.querySelector('.description');
-          description.hidden = !description.hidden;
+          if (description.textContent) description.hidden = !description.hidden;
         };
         return li;
       }),
@@ -2504,7 +2612,8 @@ async function showChannel(channel) {
   tabs.append(
     ...days.map((day) => {
       const button = el('button', {
-        className: 'secondary',
+        type: 'button',
+        role: 'tab',
         textContent: day === today ? t('channel.today') : new Date(day).toLocaleDateString(language, { weekday: 'short', day: 'numeric' }),
         onclick: () => renderDay(day),
       });
@@ -2514,6 +2623,7 @@ async function showChannel(channel) {
   );
   details.replaceChildren(head, tabs, listEl);
   renderDay(days.includes(today) ? today : days[days.length - 1]);
+  tabs.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 
 // --- Films -------------------------------------------------------------------------
@@ -2536,44 +2646,34 @@ function resumeButtons(item) {
   ];
 }
 
-// Texte replié à quelques lignes pour ne pas repousser ce qui suit, avec un lien s'il dépasse.
-// `extras` : éléments qui n'apparaissent qu'une fois déplié.
-function foldable(text, extras = []) {
-  const body = el('p', { className: 'fold' }, text);
-  const link = el('button', { className: 'more', textContent: t('media.foldMore'), hidden: true });
-  const fit = () => {
-    link.hidden = !body.classList.contains('open') && !extras.length && body.scrollHeight <= body.clientHeight;
-  };
-  link.onclick = () => {
-    const open = body.classList.toggle('open');
-    extras.forEach((extra) => (extra.hidden = !open));
-    link.textContent = t(open ? 'media.foldLess' : 'media.foldMore');
-    fit();
-  };
-  extras.forEach((extra) => (extra.hidden = true));
-  new ResizeObserver(fit).observe(body); // mesurable seulement une fois affiché, et selon la largeur
-  return [body, ...extras, link];
+
+const infoMeta = (info) => [info.year, info.genre, info.duration, info.rating && `★ ${info.rating}`].filter(Boolean).join(' · ');
+
+// Onglet « Infos » : le résumé en entier, puis réalisation et distribution.
+function infoPanel(info) {
+  const parts = [
+    info.plot && el('p', { className: 'plot' }, info.plot),
+    info.director && el('p', { className: 'credit' }, t('media.director', { names: info.director })),
+    info.cast && el('p', { className: 'credit' }, t('media.cast', { names: info.cast })),
+  ].filter(Boolean);
+  return parts.length ? parts : null;
 }
 
-function infoBlock(info, buttons, star, extra = null) {
-  const meta = [info.year, info.genre, info.duration, info.rating && `★ ${info.rating}`].filter(Boolean).join(' · ');
-  const credits = [
-    info.director && el('p', { className: 'muted' }, t('media.director', { names: info.director })),
-    info.cast && el('p', { className: 'muted' }, t('media.cast', { names: info.cast })),
-  ].filter(Boolean);
+// Ligne de reprise d'un film ou d'un épisode, avec « depuis le début » à côté s'il est commencé.
+function resumeRow(item, { label, sub } = {}) {
+  const resume = resumePosition(item);
+  const saved = progress.get(item.key);
+  const left = resume && saved.duration ? minutesLeft(saved.duration - resume) : '';
   return el(
     'div',
-    { className: 'info' },
-    info.cover && el('img', { src: info.cover, className: 'cover', onerror: (e) => e.target.remove() }),
-    el(
-      'div',
-      {},
-      el('div', { className: 'detail-head' }, el('h2', {}, info.name), star),
-      meta && el('p', { className: 'muted' }, meta),
-      el('div', { className: 'buttons' }, ...buttons),
-      extra,
-      ...(info.plot ? foldable(info.plot, credits) : credits),
+    { className: 'resume-row' },
+    resumeCard(
+      label ? `${label} · ${plain(t(resume ? 'media.resume' : 'media.play', { time: formatTime(resume) }))}` : plain(t(resume ? 'media.resume' : 'media.play', { time: formatTime(resume) })),
+      [sub, left].filter(Boolean).join(' · '),
+      resume && saved.duration ? resume / saved.duration : 0,
+      () => playMedia(item, resume),
     ),
+    resume > 0 && iconButton('restart', t('media.fromStart'), () => playMedia(item, 0), 'resume-restart'),
   );
 }
 
@@ -2589,8 +2689,13 @@ async function showMovie(movie, { exact = false } = {}) {
   shownSeries = null;
   const info = await getJson(`/api/vod/${movie.id}?${languageParam()}`).catch(() => ({ name: movie.name, cover: movie.logo }));
   const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, tmdb: info.tmdbId, title: info.name || movie.name, key: `movie:${movie.id}`, cover: info.cover };
-  const versions = versionsLine('vod', movie.id, (other) => showMovie(other, { exact: true }));
-  details.replaceChildren(infoBlock(info, resumeButtons(item), favoriteStar('vod', movie.id), versions));
+  const name = info.name || movie.name;
+  const head = ficheHead({ cover: info.cover || movie.logo, title: name, meta: infoMeta(info), actions: [favoriteStar('vod', movie.id), playlistButton(item)] });
+  const tabs = ficheTabs();
+  const infos = infoPanel(info);
+  if (infos) tabs.add(t('fiche.infos'), ...infos);
+  addVersionsTab(tabs, 'vod', movie.id, (other) => showMovie(other, { exact: true }));
+  details.replaceChildren(head, resumeRow(item), tabs.bar, tabs.panels);
 }
 
 // --- Séries ------------------------------------------------------------------------
@@ -2634,7 +2739,7 @@ async function showSeries(series) {
   closeFiche(false);
   details.replaceChildren(el('p', { className: 'muted' }, t('list.loading')));
   const info = await getJson(`/api/series/${series.id}?${languageParam()}`);
-  const seasonSelect = el('select', { className: 'season' });
+  const seasonsEl = el('div', { className: 'seasons', role: 'tablist' });
   const episodesEl = el('ul', { className: 'episodes' });
   const allEpisodes = seriesEpisodes(info, series.id);
 
@@ -2648,24 +2753,49 @@ async function showSeries(series) {
     return saved.position >= saved.duration * 0.95 ? allEpisodes[last + 1] || allEpisodes[last] : allEpisodes[last];
   }
   const resume = resumeEpisode();
+  const watchedEpisode = (e) => {
+    const saved = progress.get(e.item.key);
+    return saved && saved.position >= saved.duration * 0.95;
+  };
+  const code = (e) => t('series.code', { season: e.season, episode: e.num });
 
+  // Une ligne par épisode : numéro, titre, durée (ou ce qui reste), vu ; un clic déplie image, résumé et boutons.
   function renderSeason(number) {
+    seasonsEl.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', Number(b.dataset.season) === number));
     episodesEl.replaceChildren(
       ...allEpisodes.filter((e) => e.season === number).map((e) => {
+        const watched = watchedEpisode(e);
+        const at = resumePosition(e.item);
         const saved = progress.get(e.item.key);
-        const watched = saved && saved.position >= saved.duration * 0.95;
+        const title = e.title.replace(/^.* - S\d+E\d+ - /, '');
+        const more = el(
+          'div',
+          { className: 'episode-more', hidden: e !== resume },
+          e.image && el('img', { src: e.image, loading: 'lazy', alt: '', onerror: (ev) => ev.target.remove() }),
+          el(
+            'div',
+            {},
+            e.plot && el('p', { className: 'plot' }, e.plot),
+            el('div', { className: 'buttons' }, ...resumeButtons(e.item)),
+          ),
+        );
         const li = el(
           'li',
           { className: `${watched ? 'watched' : ''}${e === resume ? ' playing' : ''}${e.item.key === media?.key ? ' now-playing' : ''}` },
-          e.image && el('img', { src: e.image, loading: 'lazy', onerror: (ev) => ev.target.remove() }),
           el(
             'div',
-            { className: 'program' },
-            el('strong', {}, `${e.num}. ${e.title.replace(/^.* - S\d+E\d+ - /, '')}`),
-            el('p', { className: 'muted' }, [e.duration, watched && t('series.watched')].filter(Boolean).join(' · ')),
-            ...(e.plot ? foldable(e.plot) : []),
+            { className: 'episode-line', title, onclick: () => (more.hidden = !more.hidden) },
+            el('span', { className: 'num' }, e.num),
+            el('span', { className: 'episode-title' }, title),
+            el('span', { className: 'episode-side' }, at && saved.duration ? minutesLeft(saved.duration - at) : e.duration || ''),
+            watched ? el('span', { className: 'episode-mark', title: t('series.watched') }, icon('check')) : el('span', { className: 'episode-mark' }),
+            iconButton('play', plain(t(at ? 'media.resume' : 'media.play', { time: formatTime(at) })), (ev) => {
+              ev.stopPropagation();
+              playMedia(e.item, at);
+            }, 'episode-play'),
           ),
-          el('div', { className: 'buttons' }, ...resumeButtons(e.item)),
+          at > 0 && saved.duration > 0 && el('div', { className: 'bar' }, el('div', { style: `width:${(at / saved.duration) * 100}%` })),
+          more,
         );
         li.dataset.key = e.item.key;
         return li;
@@ -2673,15 +2803,32 @@ async function showSeries(series) {
     );
   }
 
-  seasonSelect.append(...info.seasons.map((s) => new Option(t('series.season', { number: s.number, count: s.episodes.length }), s.number)));
-  seasonSelect.onchange = () => renderSeason(Number(seasonSelect.value));
-  const versions = versionsLine('series', series.id, (other) => showSeries(other));
-  details.replaceChildren(infoBlock(info, [seasonSelect], favoriteStar('series', series.id), versions), episodesEl);
+  seasonsEl.append(
+    ...info.seasons.map((s) => {
+      const episodes = allEpisodes.filter((e) => e.season === s.number);
+      const seen = episodes.filter(watchedEpisode).length;
+      const button = el(
+        'button',
+        { type: 'button', role: 'tab', title: t('series.season', { number: s.number, count: s.episodes.length }), onclick: () => renderSeason(s.number) },
+        `S${s.number}`,
+        seen && seen === episodes.length ? icon('check') : seen ? el('small', {}, `${seen}/${episodes.length}`) : null,
+      );
+      button.dataset.season = s.number;
+      return button;
+    }),
+  );
+
+  const next = resume || allEpisodes[0];
+  const head = ficheHead({ cover: info.cover || series.logo, title: info.name || series.name, meta: infoMeta(info), actions: [favoriteStar('series', series.id)] });
+  const tabs = ficheTabs();
+  tabs.add(t('fiche.episodes'), info.seasons.length > 1 ? seasonsEl : null, episodesEl);
+  const infos = infoPanel(info);
+  if (infos) tabs.add(t('fiche.infos'), ...infos);
+  addVersionsTab(tabs, 'series', series.id, (other) => showSeries(other));
+  details.replaceChildren(head, next ? resumeRow(next.item, { label: code(next), sub: next.item.episodeTitle }) : '', tabs.bar, tabs.panels);
   if (info.seasons.length) {
-    const season = resume ? resume.season : info.seasons[0].number;
-    seasonSelect.value = season;
-    renderSeason(season);
-    episodesEl.querySelector('.playing')?.scrollIntoView({ block: 'center' });
+    renderSeason(resume ? resume.season : info.seasons[0].number);
+    episodesEl.querySelector('.playing')?.scrollIntoView({ block: 'nearest' });
   } else episodesEl.append(el('li', { className: 'muted' }, t('series.noEpisode')));
 }
 
@@ -4068,11 +4215,13 @@ function saveReminders(reminders) {
 
 function reminderButton(channel, p) {
   const key = reminderKey(channel, p);
-  const button = el('button', { className: 'bell', textContent: '🔔' });
+  const button = el('button', { type: 'button', className: 'ib bell' }, icon('bell'));
   const paint = () => {
     const on = readReminders().some((r) => r.key === key);
     button.classList.toggle('on', on);
     button.title = t(on ? 'reminder.remove' : 'reminder.add');
+    button.ariaLabel = button.title;
+    button.setAttribute('aria-pressed', on);
   };
   button.onclick = (e) => {
     e.stopPropagation();
