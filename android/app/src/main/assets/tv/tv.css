@@ -1,0 +1,38 @@
+/* Appli Android TV : la vidéo est dessinée par le lecteur natif, sous la page.
+   Tout ce qui recouvre le <video> devient transparent pour la laisser voir. */
+html, body, #app, main, #player, video { background: transparent !important; }
+
+/* La dernière image d'un flux ne peut pas être copiée : pas d'image figée. */
+#frozen, #frozen canvas { display: none !important; }
+
+/* Élément choisi à la télécommande. */
+.tv-focus { outline: 3px solid #7fa8ee !important; outline-offset: 2px; border-radius: 6px; }
+video.tv-focus { outline-offset: -3px; }
+:focus:not(.tv-focus) { outline: none; }
+
+/* Sous-titres, dessinés par-dessus l'image comme video::cue. */
+#tv-subs {
+  position: fixed;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 7%;
+  pointer-events: none;
+  text-align: center;
+  line-height: 1.3;
+}
+#tv-subs[hidden] { display: none; }
+#tv-subs span {
+  max-width: 90%;
+  color: #fff;
+  font-size: 1.15em;
+  text-shadow: 0 0 4px #000, 0 0 2px #000, 1px 1px 2px #000;
+  white-space: pre-line;
+}
+
+/* Vidéo seule : rien d'autre à l'écran. */
+body.cinema aside, body.cinema #details { display: none !important; }
+
+/* Pas de survol à la télé : les barres de défilement ne servent à rien. */
+::-webkit-scrollbar { width: 0; height: 0; }

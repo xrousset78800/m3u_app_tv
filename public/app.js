@@ -817,6 +817,10 @@ function playHls(src, label, fallback) {
     hls.loadSource(src);
     hls.attachMedia(video);
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    // Lecteur natif (appli télé) : l'état arrive par les événements du <video>.
+    const mine = () => playingChannel === src.match(/(\d+)\.m3u8/)?.[1] && !media && !rawLive;
+    video.addEventListener('playing', () => mine() && setStatus(`▶ ${label}`), { once: true });
+    video.addEventListener('error', () => mine() && say('player.interrupted', {}, true), { once: true });
     video.src = src;
   } else {
     say('player.noHls', {}, true);
@@ -2400,12 +2404,23 @@ const ICONS = {
   restart: '<path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/>',
   bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  // Vignettes de remplacement, quand le fournisseur n'a pas d'image.
+  vod: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M16 3v18M4 7.5h4M4 12h4M4 16.5h4M16 7.5h4M16 12h4M16 16.5h4"/>',
+  series: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M6 4h12"/><path class="fill" d="M10 10.5v6l5-3z"/>',
+  live: '<rect x="3" y="6" width="18" height="12.5" rx="2"/><path d="M8 21h8M8.5 2.5L12 6l3.5-3.5"/>',
 };
 
 function icon(name) {
   const box = document.createElement('span');
   box.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
   return box.firstChild;
+}
+
+// Image du fournisseur, ou vignette de remplacement (absente ou introuvable) : kind = live, vod ou series.
+function artwork(kind, src) {
+  const placeholder = () => el('div', { className: `art-ph ph-${kind}` }, icon(kind));
+  if (!src) return placeholder();
+  return el('img', { src, loading: 'lazy', alt: '', onerror: (e) => e.target.replaceWith(placeholder()) });
 }
 
 function iconButton(name, title, onclick, className = '') {
@@ -2418,8 +2433,8 @@ const plain = (text) => text.replace(/^[^\p{L}\p{N}]+/u, '');
 const minutesLeft = (seconds) => t('media.left', { count: Math.max(1, Math.round(seconds / 60)) });
 
 // Tête : affiche (ou logo), titre, détails, petites actions ; ‹ replie la colonne.
-function ficheHead({ cover, square = false, title, meta, actions = [], side = [] }) {
-  const placeholder = () => el('div', { className: 'cover' }, square ? title.slice(0, 2) : '');
+function ficheHead({ cover, kind, square = false, title, meta, actions = [], side = [] }) {
+  const placeholder = () => el('div', { className: 'cover ph' }, square ? title.slice(0, 2) : icon(kind));
   return el(
     'div',
     { className: `fiche-head${square ? ' square' : ''}` },
@@ -2690,7 +2705,7 @@ async function showMovie(movie, { exact = false } = {}) {
   const info = await getJson(`/api/vod/${movie.id}?${languageParam()}`).catch(() => ({ name: movie.name, cover: movie.logo }));
   const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, tmdb: info.tmdbId, title: info.name || movie.name, key: `movie:${movie.id}`, cover: info.cover };
   const name = info.name || movie.name;
-  const head = ficheHead({ cover: info.cover || movie.logo, title: name, meta: infoMeta(info), actions: [favoriteStar('vod', movie.id), playlistButton(item)] });
+  const head = ficheHead({ cover: info.cover || movie.logo, kind: 'vod', title: name, meta: infoMeta(info), actions: [favoriteStar('vod', movie.id), playlistButton(item)] });
   const tabs = ficheTabs();
   const infos = infoPanel(info);
   if (infos) tabs.add(t('fiche.infos'), ...infos);
@@ -2819,7 +2834,7 @@ async function showSeries(series) {
   );
 
   const next = resume || allEpisodes[0];
-  const head = ficheHead({ cover: info.cover || series.logo, title: info.name || series.name, meta: infoMeta(info), actions: [favoriteStar('series', series.id)] });
+  const head = ficheHead({ cover: info.cover || series.logo, kind: 'series', title: info.name || series.name, meta: infoMeta(info), actions: [favoriteStar('series', series.id)] });
   const tabs = ficheTabs();
   tabs.add(t('fiche.episodes'), info.seasons.length > 1 ? seasonsEl : null, episodesEl);
   const infos = infoPanel(info);
@@ -3194,7 +3209,7 @@ function guideRow(channel, sortable) {
         playLive(channel); // la fiche ne s'ouvre qu'au clic sur le reste de la ligne
       },
     }),
-    el('div', { className: 'guide-logo' }, channel.logo && el('img', { src: channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() })),
+    el('div', { className: 'guide-logo' }, artwork('live', channel.logo)),
     el('span', { className: `guide-name${any ? '' : ' wide'}` }, channel.name),
     // À côté du lecteur, la suite tient sous le programme en cours (présentations liste et grandes vignettes).
     any &&
@@ -3254,7 +3269,7 @@ function programmeRow(p) {
           },
         })
       : el('span'),
-    el('div', { className: 'guide-logo' }, p.channel.logo && el('img', { src: p.channel.logo, loading: 'lazy', onerror: (e) => e.target.remove() })),
+    el('div', { className: 'guide-logo' }, artwork('live', p.channel.logo)),
     el('span', { className: 'guide-name' }, p.title),
     el(
       'div',
@@ -3527,7 +3542,7 @@ async function loadList(append = false) {
     const li = el(
       'li',
       { className: 'poster', title: item.name },
-      item.logo && el('img', { src: item.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
+      artwork(type, item.logo),
       el('span', {}, item.name),
       newBadge(type, item),
       favoriteStar(type, String(item.id)),
@@ -3853,7 +3868,7 @@ async function renderManagedItems(append = false) {
         title: item.groupHidden ? t('settings.groupHidden') : item.name,
         onclick: (e) => flipManaged(e.currentTarget, 'item', e.shiftKey),
       },
-      item.logo && el('img', { src: item.logo, loading: 'lazy', onerror: (e) => e.target.remove() }),
+      artwork(managedType, item.logo),
       el('span', {}, item.name),
       q && el('small', { className: 'muted' }, managedGroups.find((g) => g.id === item.category)?.name ?? ''),
     );
@@ -4331,6 +4346,18 @@ $('backup-file').onchange = (e) => {
 
 let syncStatus = null; // dernier état connu, réaffiché si la langue change
 
+// Mot de passe du fournisseur (administrateur seulement) : masqué, affiché à la demande.
+function secret(value) {
+  const text = el('span', { textContent: '••••••••' });
+  const button = el('button', { type: 'button', className: 'secondary', textContent: t('settings.reveal') });
+  button.onclick = () => {
+    const shown = button.textContent === t('settings.conceal');
+    text.textContent = shown ? '••••••••' : value;
+    button.textContent = t(shown ? 'settings.reveal' : 'settings.conceal');
+  };
+  return el('span', { className: 'secret' }, text, ' ', button);
+}
+
 function showSyncInfo(status) {
   syncStatus = status;
   const format = (date) => new Date(date).toLocaleString(language, { dateStyle: 'short', timeStyle: 'short' });
@@ -4339,6 +4366,7 @@ function showSyncInfo(status) {
   const rows = status.syncedAt ? [
     ['settings.user', status.account?.username],
     ['settings.server', status.account?.server],
+    ['onboarding.password', status.account?.password && secret(status.account.password)],
     ['settings.catalogue', `${format(status.syncedAt)}${counts ? ` — ${counts}` : ''}`],
     ['settings.guide', status.epgSyncedAt && format(status.epgSyncedAt)],
   ] : [];
@@ -4377,16 +4405,35 @@ async function refreshTexts() {
   closeFiche(ficheClosed);
 }
 
+// Import complet, avec une barre d'avancement sous le bouton (étape lue sur le serveur pendant l'import).
 async function runImport(button) {
   button.disabled = true;
   const label = button.textContent;
   button.textContent = t('settings.importing');
+  const bar = el('span');
+  const text = el('span', { className: 'muted small' }, t('import.account'));
+  const box = el('div', { className: 'import-progress', role: 'progressbar' }, el('div', { className: 'track' }, bar), text);
+  button.closest('form, .account, .manage-head').after(box);
+  let running = true;
+  (async () => {
+    while (running) {
+      const progress = await getJson('/api/sync').then((r) => r.progress, () => null);
+      if (progress && running) {
+        bar.style.width = `${progress.percent}%`;
+        box.ariaValueNow = progress.percent;
+        text.textContent = t(`import.${progress.step}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  })();
   try {
     const status = await getJson('/api/sync', { method: 'POST' });
     showSyncInfo(status);
     paintNewEpisodes(); // le catalogue mis à jour peut en apporter
     return status;
   } finally {
+    running = false;
+    box.remove();
     button.disabled = false;
     button.textContent = label;
   }

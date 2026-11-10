@@ -295,6 +295,8 @@ const routes = [
     await xtream.login(await readJson(req));
     sendJson(res, db.status());
   }, 'admin'],
+  // Avancement de l'import en cours (null s'il n'y en a pas).
+  ['GET', /^\/api\/sync$/, (req, res) => sendJson(res, { progress: db.syncProgress() }), 'admin'],
   ['POST', /^\/api\/sync$/, async (req, res) => {
     await db.sync();
     sendJson(res, db.status());

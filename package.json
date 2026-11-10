@@ -12,6 +12,7 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server.js",
     "app": "node scripts/electron.js",
+    "tv": "node scripts/tv.js",
     "dist": "electron-builder --win --publish never",
     "release": "npm version patch -m \"Version %s\" && git push --follow-tags"
   },

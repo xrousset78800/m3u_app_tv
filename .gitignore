@@ -29,3 +29,12 @@ tv.db-*
 Thumbs.db
 .vscode/
 *.log
+
+# Appli Android TV : fichiers de build
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/public/
+*.keystore
+*.jks

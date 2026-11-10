@@ -157,7 +157,7 @@ body.view-compact .guide-logo, body.view-compact .guide-logo img { height: 16px;
 body.view-compact .guide-play { width: 20px; height: 20px; line-height: 20px; }
 body.view-compact.no-player .guide-row { height: 32px; }
 body #list.view-compact li { padding: 3px 8px; font-size: 0.92em; }
-body #list.view-compact li img { display: none; }
+body #list.view-compact li img, body #list.view-compact li .art-ph { display: none; }
 
 /* Grandes vignettes : chaînes plus hautes, affiches des films et séries en grille. */
 body.view-large .guide-row { height: 46px; }
@@ -168,7 +168,8 @@ body.view-large.no-player .guide-logo, body.view-large.no-player .guide-logo img
 body #list.view-large { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px 8px; align-content: start; padding: 4px; }
 body #list.view-large li { position: relative; flex-direction: column; align-items: stretch; gap: 5px; padding: 4px; }
 body #list.view-large li.poster img { width: 100%; height: auto; aspect-ratio: 2 / 3; }
-body #list.view-large li.poster:not(:has(img))::before { content: ''; aspect-ratio: 2 / 3; border-radius: 3px; background: #222; }
+body #list.view-large li.poster .art-ph { width: 100%; height: auto; aspect-ratio: 2 / 3; }
+body #list.view-large li.poster .art-ph svg { width: 36%; }
 body #list.view-large li span {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -397,6 +398,17 @@ body.cinema.idle > #tabs { opacity: 0; pointer-events: none; }
 #list li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #list img { width: 40px; height: 28px; object-fit: contain; flex-shrink: 0; }
 #list li.poster img { width: 34px; height: 50px; object-fit: cover; border-radius: 3px; }
+/* Vignette de remplacement : même place que l'image, icône du genre sur fond neutre. */
+.art-ph { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 28px; border-radius: 3px; background: linear-gradient(160deg, #343941, #23272d); color: #7d8591; }
+.art-ph svg { width: 60%; max-height: 80%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.art-ph svg .fill { fill: currentColor; stroke: none; }
+#list li.poster .art-ph { width: 34px; height: 50px; }
+.guide-logo .art-ph { width: 32px; height: 100%; }
+body.no-player .guide-logo .art-ph { width: 44px; }
+.manage li .art-ph { width: 32px; height: 22px; }
+.manage li.removed .art-ph { opacity: 0.45; }
+.fiche-head .cover.ph { display: grid; place-items: center; color: #7d8591; }
+#details .fiche-head .cover.ph svg { width: 50%; height: auto; }
 #list li.empty { cursor: default; white-space: normal; }
 #list li.empty:hover { background: none; }
 .badge { padding: 1px 5px; border-radius: 4px; background: #3a3a3a; color: #bbb; font-size: 0.75em; }
@@ -572,6 +584,7 @@ body.no-player .guide-more .guide-programme strong { color: #d0d0d0; font-weight
 #sync-info { display: grid; grid-template-columns: max-content 1fr; gap: 8px 24px; margin: 0; }
 #sync-info dt { color: #999; }
 #sync-info dd { margin: 0; overflow-wrap: anywhere; }
+#sync-info .secret button { padding: 2px 10px; font-size: 0.85em; }
 .account { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 
 @media (max-width: 700px) {
@@ -1365,3 +1378,11 @@ body #list.view-large li .resume-remove { position: absolute; top: 6px; right: 3
 
 /* Autres versions : retirées dans les réglages, en retrait ; ligne des fiches */
 #versions-list li.hidden-version .name { color: #999; }
+
+/* Avancement de l'import du catalogue et du guide. */
+.import-progress { display: grid; gap: 6px; margin: 12px 0; max-width: 420px; }
+.import-progress .track { position: relative; height: 6px; border-radius: 3px; background: #2a2a2a; overflow: hidden; }
+.import-progress .track span { display: block; height: 100%; width: 0; border-radius: 3px; background: #3c7ee6; transition: width 0.6s ease; }
+/* Reflet qui passe en continu : l'appli travaille même quand une étape dure. */
+.import-progress .track::after { content: ''; position: absolute; inset: 0; width: 30%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent); animation: import-shine 1.4s linear infinite; }
+@keyframes import-shine { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
