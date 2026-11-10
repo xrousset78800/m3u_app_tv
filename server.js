@@ -413,6 +413,7 @@ const routes = [
       start: Math.max(0, Number(params.get('start')) || 0),
       audio: Math.max(0, parseInt(params.get('audio'), 10) || 0),
       codecs: codecsParam(params),
+      range: req.headers.range,
     });
   }],
   ['GET', /^\/live\/(\d+)\.m3u8$/, async (req, res, { match, profile }) => {

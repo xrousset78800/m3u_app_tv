@@ -786,6 +786,29 @@ body.cinema .controls {
 body.cinema.idle { cursor: none; }
 body.cinema.idle .controls { opacity: 0; pointer-events: none; }
 #seek input { flex: 1; padding: 0; accent-color: #2f6fd6; }
+/* Barre de position : bleu jusqu'à la position, gris clair jusqu'où la vidéo est chargée. */
+#seek-bar {
+  --played: 0%;
+  --loaded: 0%;
+  appearance: none;
+  height: 6px;
+  margin: 6px 0;
+  border: 0;
+  border-radius: 3px;
+  cursor: pointer;
+  background: linear-gradient(to right, #2f6fd6 0 var(--played), #8a8a8a var(--played) var(--loaded), #3a3a3a var(--loaded));
+}
+#seek-bar::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 3px #000;
+  transition: transform 0.15s;
+}
+#seek-bar:hover::-webkit-slider-thumb { transform: scale(1.2); }
+#seek-bar:focus-visible { outline: 2px solid #7fa8ee; outline-offset: 4px; }
 #seek { position: relative; }
 
 /* Génériques des séries : petit panneau au-dessus du bouton. */

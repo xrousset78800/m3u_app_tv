@@ -8,6 +8,10 @@ const { autoUpdater } = require('electron-updater');
 // est enregistrée par le navigateur intégré, par origine) ; un port libre sinon.
 const PREFERRED_PORT = 47800;
 
+// Identifiant Windows (barre des tâches, notifications) : distinct en développement, pour que
+// l'icône de l'appli lancée par `npm run app` ne se confonde pas avec celle de l'appli installée.
+const APP_ID = app.isPackaged ? 'fr.xrousset.tv' : 'fr.xrousset.tv.dev';
+
 // Base et accès dans %APPDATA%\TV, à définir avant de charger le serveur.
 process.env.TV_DATA_DIR = app.getPath('userData');
 const server = require('../server');
@@ -60,6 +64,16 @@ function createWindow(port) {
     show: false,
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   });
+  if (!app.isPackaged && process.platform === 'win32') {
+    // En développement, l'exécutable est electron.exe : sans ces détails, rouvrir depuis la barre
+    // des tâches lancerait electron.exe seul, sur sa page d'accueil, au lieu de l'appli.
+    window.setAppDetails({
+      appId: APP_ID,
+      relaunchCommand: `"${process.execPath}" "${app.getAppPath()}"`,
+      relaunchDisplayName: 'TV (dév)',
+      appIconPath: process.execPath,
+    });
+  }
   window.once('ready-to-show', () => window.show());
   window.on('enter-full-screen', () => window.webContents.send('fullscreen', true));
   window.on('leave-full-screen', () => window.webContents.send('fullscreen', false));
@@ -119,7 +133,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
-    app.setAppUserModelId('fr.xrousset.tv'); // nom de l'appli sur les notifications Windows (rappels)
+    app.setAppUserModelId(APP_ID); // nom de l'appli sur les notifications Windows (rappels)
     Menu.setApplicationMenu(null);
     try {
       createWindow(await startServer());

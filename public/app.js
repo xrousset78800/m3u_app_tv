@@ -1299,7 +1299,26 @@ function updateSeek() {
   if (!media || seeking) return;
   seekBar.value = Math.floor(position());
   $('time-current').textContent = formatTime(position());
+  paintSeek();
 }
+
+// Barre de position : partie lue, puis partie déjà chargée devant elle (plus claire).
+function paintSeek() {
+  if (!media) return;
+  const total = Number(seekBar.max) || 1;
+  const played = Number(seekBar.value);
+  let loaded = played;
+  const ranges = video.buffered;
+  for (let i = 0; i < ranges.length; i++) {
+    if (ranges.start(i) <= video.currentTime + 1 && ranges.end(i) >= video.currentTime) loaded = Math.max(loaded, media.start + ranges.end(i));
+  }
+  const percent = (t) => `${Math.max(0, Math.min(100, (t / total) * 100))}%`;
+  seekBar.style.setProperty('--played', percent(played));
+  seekBar.style.setProperty('--loaded', percent(seeking ? played : loaded));
+}
+video.addEventListener('progress', () => {
+  if (!seeking) paintSeek();
+});
 
 video.addEventListener('playing', () => {
   unfreeze();
@@ -1434,6 +1453,7 @@ video.addEventListener('error', () => {
 seekBar.addEventListener('input', () => {
   seeking = true;
   $('time-current').textContent = formatTime(seekBar.value);
+  paintSeek();
 });
 seekBar.addEventListener('change', () => {
   seeking = false;
