@@ -350,6 +350,9 @@ let upNextTimer = null;
 let media = null; // film/épisode en cours : { kind, id, ext, title, key, duration, start, audio }
 let seeking = false;
 let lastSave = 0;
+let liveGuide = null; // programme de la chaîne en direct : { id, programmes }
+let liveGuideTimer;
+let showTotal = false; // durée totale plutôt que temps restant
 
 // Onglet d'où vient la lecture en cours : il garde un repère (▶ / ❚❚) quand on navigue ailleurs.
 let playingTab = null;
@@ -445,10 +448,19 @@ function stopPlayback() {
   hideUpNext();
   video.removeAttribute('src');
   video.load();
-  video.classList.remove('media', 'live');
+  video.classList.remove('media', 'live', 'replay');
   $('seek').hidden = true;
+  audioSelect.hidden = true;
+  subtitleSelect.hidden = true;
+  delayBox.hidden = true;
+  liveGuide = null;
+  setRate(1);
   showSkipButton();
   renderPlaylist();
+  paintTracks();
+  paintLiveBar();
+  paintControls();
+  paintHead();
 }
 
 // Sans lecteur (au lancement, ou fermé par ✕), la colonne prend sa place : la grille s'élargit
@@ -511,7 +523,7 @@ function paintSleep() {
 
 function openSleepMenu() {
   const choice = (label, value, active) =>
-    el('button', { className: active ? 'active' : '', textContent: label, onclick: (e) => { e.stopPropagation(); setSleep(value); } });
+    el('button', { type: 'button', className: `choice${active ? ' active' : ''}`, textContent: label, onclick: (e) => { e.stopPropagation(); setSleep(value); } });
   sleepMenu.replaceChildren(
     choice(t('sleep.off'), null, !sleepAt),
     ...SLEEP_CHOICES.map((m) => choice(t('sleep.minutes', { count: m }), m, false)),
@@ -866,6 +878,9 @@ async function playMedia(item, start = 0) {
   );
   audioSelect.value = media.audio;
   audioSelect.hidden = info.audio.length < 2;
+  paintTracks();
+  paintControls();
+  paintHead();
   media.subtitles = info.subtitles || [];
   media.fps = info.fps;
   const current = media;
@@ -874,7 +889,6 @@ async function playMedia(item, start = 0) {
   media.online = saved;
   fillSubtitles();
   seekBar.max = Math.floor(media.duration);
-  $('time-total').textContent = formatTime(media.duration);
   $('seek').hidden = false;
   video.classList.add('media');
   renderPlaylist();
@@ -991,10 +1005,11 @@ function loadDelay() {
 function showDelay() {
   delayBox.hidden = subtitleSelect.hidden || subtitleSelect.value === '';
   const value = subtitleDelay.toLocaleString(language, { minimumFractionDigits: 1, signDisplay: 'exceptZero' });
-  delayBox.querySelector('span').textContent = `${value} s`;
+  delayBox.querySelector('.value').textContent = `${value} s`;
   speedButton.hidden = !speedUsable();
   if (speedUsable()) speedButton.textContent = `25 → ${(Math.round(videoFps() * 1000) / 1000).toLocaleString(language)}`;
   speedButton.classList.toggle('on', subtitleSpeed !== 1);
+  paintTracks();
 }
 
 function toggleSpeed() {
@@ -1168,6 +1183,7 @@ subtitleSelect.addEventListener('change', () => {
   } catch {}
   loadDelay();
   followSubtitles();
+  paintTracks();
 });
 
 // --- Recherche sur OpenSubtitles ---
@@ -1296,21 +1312,23 @@ function position() {
 }
 
 function updateSeek() {
-  if (!media || seeking) return;
-  seekBar.value = Math.floor(position());
-  $('time-current').textContent = formatTime(position());
+  const state = seekState();
+  if (!state || seeking) return;
+  seekBar.value = Math.floor(state.at);
+  paintTimes(state.at, state.total);
   paintSeek();
 }
 
 // Barre de position : partie lue, puis partie déjà chargée devant elle (plus claire).
 function paintSeek() {
-  if (!media) return;
+  const state = seekState();
+  if (!state) return;
   const total = Number(seekBar.max) || 1;
   const played = Number(seekBar.value);
   let loaded = played;
   const ranges = video.buffered;
   for (let i = 0; i < ranges.length; i++) {
-    if (ranges.start(i) <= video.currentTime + 1 && ranges.end(i) >= video.currentTime) loaded = Math.max(loaded, media.start + ranges.end(i));
+    if (ranges.start(i) <= video.currentTime + 1 && ranges.end(i) >= video.currentTime) loaded = Math.max(loaded, state.offset + ranges.end(i));
   }
   const percent = (t) => `${Math.max(0, Math.min(100, (t / total) * 100))}%`;
   seekBar.style.setProperty('--played', percent(played));
@@ -1353,12 +1371,13 @@ function nearestThumb(time) {
 
 const seekPreview = $('seek-preview');
 seekBar.addEventListener('mousemove', (e) => {
-  if (!media?.duration) return;
+  const total = seekState()?.total;
+  if (!total) return;
   const bar = seekBar.getBoundingClientRect();
   const home = $('seek').getBoundingClientRect();
   const ratio = Math.max(0, Math.min(1, (e.clientX - bar.left) / bar.width));
-  const time = ratio * media.duration;
-  const thumb = nearestThumb(time);
+  const time = ratio * total;
+  const thumb = media && nearestThumb(time);
   const image = seekPreview.querySelector('img');
   if (thumb) image.src = thumb;
   else image.removeAttribute('src');
@@ -1451,13 +1470,15 @@ video.addEventListener('error', () => {
 });
 
 seekBar.addEventListener('input', () => {
+  const total = seekState()?.total;
   seeking = true;
-  $('time-current').textContent = formatTime(seekBar.value);
+  if (total) paintTimes(Number(seekBar.value), total);
   paintSeek();
 });
 seekBar.addEventListener('change', () => {
   seeking = false;
   if (media) startMediaAt(Number(seekBar.value));
+  else if (seekState()) video.currentTime = Number(seekBar.value);
 });
 
 // ±10 s (boutons, flèches ← →). Dans ce qui est déjà chargé, le déplacement est immédiat ; au-delà, le serveur
@@ -1487,7 +1508,7 @@ function jump(delta) {
   }
   seeking = true; // la barre montre la cible en attendant
   seekBar.value = Math.floor(jumpTarget);
-  $('time-current').textContent = formatTime(jumpTarget);
+  paintTimes(jumpTarget, media.duration);
   clearTimeout(jumpTimer);
   jumpTimer = setTimeout(() => {
     const target = jumpTarget;
@@ -1500,6 +1521,7 @@ document.querySelectorAll('.jump').forEach((button) => (button.onclick = () => j
 audioSelect.addEventListener('change', () => {
   if (!media) return;
   media.audio = Number(audioSelect.value);
+  paintTracks();
   startMediaAt(position());
 });
 
@@ -1539,6 +1561,7 @@ function showSkipButton() {
   const skip = skipsFor(media);
   skipButton.classList.toggle('on', Boolean(skip?.intro || skip?.outro));
   if (!skipPanel.hidden) fillSkipPanel();
+  paintMarks();
 }
 
 function fillSkipPanel() {
@@ -1584,7 +1607,7 @@ skipPanel.querySelectorAll('[data-now]').forEach((button) =>
   }),
 );
 document.addEventListener('click', (e) => {
-  if (!skipPanel.hidden && !skipPanel.contains(e.target) && e.target !== skipButton) skipPanel.hidden = true;
+  if (!skipPanel.hidden && !skipPanel.contains(e.target) && !skipButton.contains(e.target)) skipPanel.hidden = true;
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !skipPanel.hidden) skipPanel.hidden = true;
@@ -1682,6 +1705,7 @@ function renderPlaylist() {
     ),
   );
   $('next').hidden = !media || !nextInPlaylist();
+  paintControls();
   document.querySelectorAll('[data-playlist]').forEach((b) => {
     b.textContent = playlistLabel(b.dataset.playlist);
   });
@@ -1733,22 +1757,10 @@ function fullscreenChanged(on) {
   wakeControls();
 }
 
-// Notre bouton plein écran, calé sur le bas de l'image et visible en même temps que les contrôles du lecteur.
-const fullscreenButton = $('fullscreen-button');
-fullscreenButton.addEventListener('click', toggleFullscreen);
+$('fullscreen-button').addEventListener('click', toggleFullscreen);
 
-function placeFullscreenButton() {
-  const box = video.getBoundingClientRect();
-  const home = player.getBoundingClientRect();
-  fullscreenButton.style.right = `${home.right - box.right}px`;
-  fullscreenButton.style.bottom = `${home.bottom - box.bottom}px`;
-  fullscreenButton.classList.toggle('large', box.width > 1440);
-}
-const playerResized = new ResizeObserver(() => {
-  placeFullscreenButton();
-  placeFrozen();
-});
-[player, video, document.querySelector('.controls')].forEach((el) => playerResized.observe(el));
+const playerResized = new ResizeObserver(placeFrozen);
+[player, video].forEach((el) => playerResized.observe(el));
 
 // Les colonnes n'ont qu'un état, qui ne change que par ☰ ou L : entrer en plein écran ou en sortir
 // n'y touche pas, et il est conservé d'une fois sur l'autre.
@@ -1806,15 +1818,13 @@ function wakeControls(e) {
   if (isFullscreen() && ![menu, aside].some((zone) => zone.contains(e?.target))) sleepControls();
 }
 
-// Sur l'image, les clics sont à nous : le lecteur ferait pause puis lecture à chaque double-clic.
-// Sa barre de contrôles, en bas, garde les siens.
+// Sur l'image : un clic met en pause ou relance, un double-clic passe en plein écran.
 // Au doigt, pas de survol ni de mouvement de souris : c'est le toucher qui réveille le lecteur.
 // Un toucher sur un lecteur endormi ne fait que ça : il ne met pas en pause et n'atteint pas
 // les boutons encore invisibles (✕ fermerait le lecteur à l'aveugle).
 let videoClickTimer;
 let touchWoke = false;
-const playerButtonsShown = () =>
-  player.classList.contains('awake') || $('player-buttons').matches(':has(#sleep-menu:not([hidden]), #versions-panel:not([hidden]))');
+const playerButtonsShown = () => player.classList.contains('awake') || video.paused || player.matches(':has(.pop:not([hidden]))');
 player.addEventListener(
   'pointerdown',
   (e) => {
@@ -1827,7 +1837,7 @@ player.addEventListener(
 player.addEventListener(
   'click',
   (e) => {
-    if (!touchWoke || !e.target.closest('#player-buttons, #fullscreen-button')) return;
+    if (!touchWoke || !e.target.closest('#player-head, #capsule')) return;
     touchWoke = false;
     e.preventDefault();
     e.stopPropagation();
@@ -1836,13 +1846,11 @@ player.addEventListener(
 );
 document.addEventListener('pointerdown', (e) => e.pointerType === 'touch' && wakeControls(e)); // plein écran : barre de position et onglets
 video.addEventListener('click', (e) => {
-  const barHeight = video.classList.contains('media') ? 48 : 72; // films : pas de frise sous les boutons
   if (touchWoke) return e.preventDefault();
-  if (e.clientY > video.getBoundingClientRect().bottom - barHeight) return;
   e.preventDefault();
   clearTimeout(videoClickTimer);
   // Un clic n'agit qu'une fois sûr qu'aucun second ne suit.
-  if (e.detail === 1) videoClickTimer = setTimeout(() => (video.paused ? video.play().catch(() => {}) : video.pause()), 250);
+  if (e.detail === 1) videoClickTimer = setTimeout(togglePlay, 250);
   if (e.detail === 2) toggleFullscreen();
 });
 
@@ -1895,7 +1903,7 @@ document.addEventListener('keydown', (e) => {
     arrowright: () => jump(10),
     arrowup: () => changeVolume(0.05),
     arrowdown: () => changeVolume(-0.05),
-    ' ': () => video.currentSrc && (video.paused ? video.play().catch(() => {}) : video.pause()),
+    ' ': togglePlay,
     m: () => {
       video.muted = !video.muted;
       showVolume();
@@ -1944,6 +1952,371 @@ function showOsd(text, ms = 1200) {
   osdTimer = setTimeout(() => (osd.hidden = true), ms);
 }
 
+// --- Commandes du lecteur : titre en haut, capsule en bas, petites fenêtres au-dessus ------------
+// Les fonctions de peinture passent par $() : certaines servent avant que cette partie soit lue.
+
+function togglePlay() {
+  if (!video.currentSrc) return;
+  if (video.paused) video.play().catch(() => {});
+  else video.pause();
+}
+$('play-button').addEventListener('click', togglePlay);
+function paintPlay() {
+  player.classList.toggle('paused', video.paused);
+}
+['play', 'pause', 'emptied'].forEach((type) => video.addEventListener(type, paintPlay));
+paintPlay();
+
+// Volume : l'icône coupe le son, la barre se déplie à son survol.
+const volumeBar = $('volume-bar');
+function paintVolume() {
+  const level = video.muted ? 0 : video.volume;
+  volumeBar.value = level;
+  volumeBar.style.setProperty('--level', `${level * 100}%`);
+  $('volume').classList.toggle('muted', video.muted || !video.volume);
+}
+video.addEventListener('volumechange', paintVolume);
+paintVolume();
+$('mute-button').addEventListener('click', () => {
+  video.muted = !video.muted;
+  if (!video.muted && !video.volume) video.volume = 0.5;
+});
+volumeBar.addEventListener('input', () => {
+  video.volume = Number(volumeBar.value);
+  video.muted = video.volume === 0;
+});
+
+// Vitesse de lecture (films et épisodes) : gardée pendant le film, de retour à 1 au suivant.
+const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+const speedLabel = (rate) => `${rate.toLocaleString(language)}×`;
+function setRate(rate) {
+  video.defaultPlaybackRate = rate; // un déplacement recharge le flux : il garde la vitesse
+  video.playbackRate = rate;
+  paintRate();
+}
+function paintRate() {
+  const rate = video.playbackRate;
+  const button = $('speed-button');
+  button.classList.toggle('on', rate !== 1);
+  button.querySelector('small').textContent = rate !== 1 ? speedLabel(rate) : '';
+  updateSeek(); // l'heure de fin en dépend
+}
+video.addEventListener('ratechange', paintRate);
+function fillSpeedMenu() {
+  $('speed-menu').replaceChildren(
+    ...SPEEDS.map((rate) =>
+      el('button', {
+        type: 'button',
+        className: `choice${rate === video.playbackRate ? ' active' : ''}`,
+        textContent: rate === 1 ? t('player.speedNormal') : speedLabel(rate),
+        onclick: () => {
+          setRate(rate);
+          $('speed-menu').hidden = true;
+        },
+      }),
+    ),
+  );
+}
+
+// Petites fenêtres : une seule à la fois ; un clic ailleurs ou Échap les ferme.
+const ownPops = ['speed-menu', 'tracks-panel', 'episodes-panel'].map($);
+function bindPop(button, pop, fill) {
+  $(button).addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = pop.hidden;
+    if (open) fill();
+    pop.hidden = !open;
+  });
+}
+bindPop('speed-button', $('speed-menu'), fillSpeedMenu);
+bindPop('tracks-button', $('tracks-panel'), paintTracks);
+bindPop('episodes-button', $('episodes-panel'), fillEpisodes);
+$('capsule').addEventListener(
+  'click',
+  (e) => {
+    const anchor = e.target.closest('.anchor');
+    document.querySelectorAll('#capsule .pop:not([hidden])').forEach((pop) => {
+      if (!anchor?.contains(pop)) pop.hidden = true;
+    });
+  },
+  true,
+);
+// Chemin du clic tel qu'il était : une liste redessinée par le clic ne compte pas comme « ailleurs ».
+document.addEventListener('click', (e) => {
+  const path = e.composedPath();
+  ownPops.forEach((pop) => {
+    if (!pop.hidden && !path.includes(pop.parentElement)) pop.hidden = true;
+  });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') ownPops.forEach((pop) => (pop.hidden = true));
+});
+
+// Son et sous-titres : listes tirées des menus cachés, qui gardent l'état et réagissent au choix.
+function paintTracks() {
+  const audio = !audioSelect.hidden;
+  const subtitles = !subtitleSelect.hidden;
+  $('tracks').hidden = !media || (!audio && !subtitles);
+  if ($('tracks').hidden) $('tracks-panel').hidden = true;
+  $('audio-column').hidden = !audio;
+  $('subtitle-column').hidden = !subtitles;
+  const rows = (select) =>
+    [...select.options]
+      .filter((option) => option.value !== 'search')
+      .map((option) =>
+        el('li', {
+          className: option.value === select.value ? 'active' : '',
+          textContent: option.text,
+          title: option.text,
+          onclick: () => {
+            if (select.value === option.value) return;
+            select.value = option.value;
+            select.dispatchEvent(new Event('change'));
+            paintTracks();
+          },
+        }),
+      );
+  $('audio-list').replaceChildren(...rows(audioSelect));
+  $('subtitle-list').replaceChildren(...rows(subtitleSelect));
+  $('subtitle-find').hidden = ![...subtitleSelect.options].some((option) => option.value === 'search');
+}
+$('subtitle-find').addEventListener('click', () => {
+  subtitleChosen = subtitleSelect.value;
+  $('tracks-panel').hidden = true;
+  openSubtitleSearch();
+});
+
+// Épisodes de la série en cours, saison par saison.
+const seriesCache = new Map();
+async function fillEpisodes() {
+  const current = media;
+  const list = $('episodes-list');
+  const season = $('episodes-season');
+  if (!current?.series) return;
+  let episodes = seriesCache.get(current.series);
+  if (!episodes) {
+    season.hidden = true;
+    list.replaceChildren(el('li', { className: 'muted' }, t('list.loading')));
+    try {
+      episodes = seriesEpisodes(await getJson(`/api/series/${current.series}?${languageParam()}`), current.series);
+    } catch (err) {
+      list.replaceChildren(el('li', { className: 'muted' }, err.message));
+      return;
+    }
+    seriesCache.set(current.series, episodes);
+    if (media !== current) return;
+  }
+  const seasons = [...new Set(episodes.map((e) => String(e.season)))];
+  season.replaceChildren(...seasons.map((number) => new Option(t('player.season', { number }), number)));
+  season.hidden = seasons.length < 2;
+  const show = (number) => {
+    list.replaceChildren(
+      ...episodes
+        .filter((e) => String(e.season) === number)
+        .map((e) => {
+          const saved = progress.get(e.item.key);
+          const watched = saved && saved.position >= saved.duration * 0.95;
+          return el(
+            'li',
+            {
+              className: `${e.item.key === current.key ? 'active' : ''}${watched ? ' watched' : ''}`,
+              title: e.item.episodeTitle,
+              onclick: () => {
+                $('episodes-panel').hidden = true;
+                if (e.item.key !== media?.key) playMedia(e.item, resumePosition(e.item));
+              },
+            },
+            el('span', { className: 'num' }, String(e.num)),
+            el('span', { className: 'name' }, e.item.episodeTitle),
+            e.duration && el('span', { className: 'length' }, e.duration),
+          );
+        }),
+    );
+    const active = list.querySelector('.active');
+    if (active) list.scrollTop = active.offsetTop - list.clientHeight / 2;
+  };
+  const playing = episodes.find((e) => e.item.key === current.key);
+  season.value = playing ? String(playing.season) : seasons[0];
+  season.onchange = () => show(season.value);
+  show(season.value);
+}
+
+$('next-episode').addEventListener('click', () => {
+  const next = media?.nextItem;
+  if (next) playMedia(next, resumePosition(next));
+});
+$('zap-prev').addEventListener('click', () => zap(-1));
+$('zap-next').addEventListener('click', () => zap(1));
+
+// Direct : le programme de la chaîne dans la fiche, ou la liste des chaînes.
+$('live-guide').addEventListener('click', async () => {
+  if (!lastChannel) return;
+  if (currentType !== 'live') await selectType('live');
+  if (listClosed) toggleList();
+  showChannel(lastChannel);
+  closeFiche(false);
+});
+$('live-channels').addEventListener('click', async () => {
+  if (currentType === 'live') return toggleList();
+  await selectType('live');
+  if (listClosed) toggleList();
+});
+
+$('pip-button').addEventListener('click', () => {
+  (document.pictureInPictureElement ? document.exitPictureInPicture() : video.requestPictureInPicture()).catch(() => {});
+});
+
+// Temps restant (par défaut) ou durée totale : un clic bascule, le choix est retenu.
+try {
+  showTotal = storage.getItem('timeTotal') === '1';
+} catch {}
+$('time-total').addEventListener('click', () => {
+  showTotal = !showTotal;
+  try {
+    storage.setItem('timeTotal', showTotal ? '1' : '0');
+  } catch {}
+  updateSeek();
+});
+
+// Replay : le lecteur se déplace seul dans l'émission, la barre apparaît dès que sa durée est connue.
+video.addEventListener('durationchange', () => {
+  if (media || !video.classList.contains('replay') || !Number.isFinite(video.duration)) return;
+  seekBar.max = Math.floor(video.duration);
+  $('seek').hidden = false;
+  updateSeek();
+});
+
+// Ce qui change selon ce qu'on regarde : direct (chaînes voisines, programme), film ou épisode.
+function paintControls() {
+  const live = video.classList.contains('live');
+  $('zap-prev').hidden = !live;
+  $('zap-next').hidden = !live;
+  $('live-guide').hidden = !live || !lastChannel;
+  $('live-channels').hidden = !live;
+  $('speed').hidden = !media;
+  if (!media) $('speed-menu').hidden = true;
+  $('episodes').hidden = !media?.series;
+  if (!media?.series) $('episodes-panel').hidden = true;
+  $('next-episode').hidden = !media?.nextItem || !$('next').hidden;
+  $('pip-button').hidden = !document.pictureInPictureEnabled || !(media || liveChannel || rawLive);
+}
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// Titre : affiche et « Série · S01 E06 » au-dessus du nom de l'épisode ; logo, point rouge et
+// émission en cours pour le direct ; chaîne et émission pour un replay.
+function paintHead() {
+  const art = $('head-art');
+  const image = art.querySelector('img');
+  let picture = null;
+  let line = '';
+  let title = '';
+  let live = false;
+  if (media) {
+    picture = media.cover;
+    title = media.title;
+    if (media.kind === 'series') {
+      const number = episodeNumber(media);
+      const code = number ? `S${pad2(number.season)} E${pad2(number.episode)}` : '';
+      // Élément gardé sans détails (playlist) : « Série — S01E06 ».
+      const seriesName = media.seriesName || /^(.*) — S\d+E\d+$/.exec(media.title || '')?.[1];
+      if (media.episodeTitle) {
+        line = [seriesName, code].filter(Boolean).join(' · ');
+        title = media.episodeTitle;
+      } else if (seriesName) {
+        line = code;
+        title = seriesName;
+      }
+    }
+  } else if (liveChannel || rawLive) {
+    const name = liveChannel?.name || rawLive;
+    picture = liveChannel?.logo;
+    if (liveChannel?.programme) {
+      line = name;
+      title = liveChannel.programme.title;
+    } else {
+      live = true;
+      const current = liveNow();
+      line = current ? name : '';
+      title = current?.title || name;
+    }
+  }
+  art.classList.toggle('logo', !media);
+  art.hidden = !picture;
+  if (picture) {
+    image.onerror = () => (art.hidden = true);
+    image.src = picture;
+  } else image.removeAttribute('src');
+  $('head-live').hidden = !live;
+  $('head-line').textContent = line;
+  $('head-title').textContent = title;
+}
+
+// Programme de la chaîne en direct : émission en cours, sa progression et la suivante.
+async function loadLiveGuide(id) {
+  liveGuide = { id, programmes: [] };
+  paintLiveBar();
+  const programmes = await getJson(`/api/epg/${id}`).catch(() => []);
+  if (liveChannel?.id !== id || liveChannel.programme) return;
+  liveGuide = { id, programmes };
+  paintLiveBar();
+  paintHead();
+}
+
+function liveNow() {
+  const now = Date.now() / 1000;
+  const programmes = liveGuide && liveGuide.id === liveChannel?.id ? liveGuide.programmes : [];
+  const index = programmes.findIndex((p) => p.start <= now && p.end > now);
+  return index < 0 ? null : { ...programmes[index], next: programmes[index + 1] };
+}
+
+function paintLiveBar() {
+  clearTimeout(liveGuideTimer);
+  const live = video.classList.contains('live') && liveChannel && !liveChannel.programme;
+  const current = live && liveNow();
+  $('live-bar').hidden = !current;
+  if (!live) return;
+  if (current) {
+    const share = ((Date.now() / 1000 - current.start) / (current.end - current.start)) * 100;
+    $('live-start').textContent = formatHour(current.start);
+    $('live-end').textContent = formatHour(current.end);
+    $('live-bar').querySelector('.bar div').style.width = `${Math.max(0, Math.min(100, share))}%`;
+    $('live-next').textContent = current.next ? `· ${t('player.then', { title: current.next.title })}` : '';
+  }
+  // Toutes les 30 s ; à l'émission suivante, le titre suit.
+  liveGuideTimer = setTimeout(() => {
+    paintLiveBar();
+    paintHead();
+  }, 30000);
+}
+
+// Position et durée de ce qui se lit : film ou épisode (flux converti), ou replay (le lecteur se déplace seul).
+function seekState() {
+  if (media) return { at: position(), total: media.duration, offset: media.start };
+  if (video.classList.contains('replay') && Number.isFinite(video.duration) && video.duration > 0) {
+    return { at: video.currentTime, total: video.duration, offset: 0 };
+  }
+  return null;
+}
+
+// Position, temps restant (ou durée) et heure de fin, à la vitesse de lecture.
+function paintTimes(at, total) {
+  $('time-current').textContent = formatTime(at);
+  $('time-total').textContent = showTotal ? formatTime(total) : `−${formatTime(total - at)}`;
+  const left = (total - at) / (video.playbackRate || 1);
+  $('time-end').textContent = left > 0 ? `· ${t('player.endsAt', { time: formatHour(Date.now() / 1000 + left) })}` : '';
+}
+
+// Génériques réglés pour la série : encadrés sur la barre.
+function paintMarks() {
+  const skip = skipsFor(media);
+  const total = media?.duration;
+  const mark = (from, to) => el('div', { style: `left:${(from / total) * 100}%;width:${((to - from) / total) * 100}%` });
+  $('seek-marks').replaceChildren(
+    ...(skip && total ? [skip.intro && mark(skip.introStart, skip.introEnd), skip.outro && mark(total - skip.outroLength, total)].filter(Boolean) : []),
+  );
+}
+
 // Changement de chaîne au clavier : son nom, ce qui passe et ce qui suit (programmes de la ligne du guide).
 function showChannelOsd(channel) {
   const now = Date.now() / 1000;
@@ -1989,8 +2362,11 @@ function playReplay(channel, programme) {
   const minutes = Math.ceil((programme.stop - programme.start) / 60);
   const query = new URLSearchParams({ start: programme.replayStart, minutes });
   playHls(`/replay/${channel.id}.m3u8?${query}`, `${channel.name} — ${programme.title} (replay)`);
-  liveChannel = { id: String(channel.id), name: channel.name };
+  liveChannel = { id: String(channel.id), name: channel.name, logo: channel.logo, programme };
+  video.classList.add('replay');
   paintVersionsButton();
+  paintControls();
+  paintHead();
 }
 
 // Chaînes dont le fournisseur refuse la playlist HLS (souvent la 4K, qui part sur un autre serveur
@@ -2022,9 +2398,12 @@ async function playLive(channel, { exact = false } = {}) {
   if (chosen) channel = chosen;
   const id = String(channel.id);
   const remember = () => {
-    video.classList.add('live'); // pas de retour en arrière possible : barre native masquée
-    liveChannel = { id, name: channel.name };
+    video.classList.add('live'); // pas de retour en arrière possible : pas de barre de position
+    liveChannel = { id, name: channel.name, logo: channel.logo };
     paintVersionsButton();
+    paintControls();
+    paintHead();
+    loadLiveGuide(id);
   };
   if (rawChannels.has(id)) playRaw(channel);
   else {
@@ -2209,7 +2588,7 @@ async function showMovie(movie, { exact = false } = {}) {
   shownMovie = String(movie.id);
   shownSeries = null;
   const info = await getJson(`/api/vod/${movie.id}?${languageParam()}`).catch(() => ({ name: movie.name, cover: movie.logo }));
-  const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, tmdb: info.tmdbId, title: info.name || movie.name, key: `movie:${movie.id}` };
+  const item = { kind: 'movie', id: movie.id, ext: info.ext || movie.ext, tmdb: info.tmdbId, title: info.name || movie.name, key: `movie:${movie.id}`, cover: info.cover };
   const versions = versionsLine('vod', movie.id, (other) => showMovie(other, { exact: true }));
   details.replaceChildren(infoBlock(info, resumeButtons(item), favoriteStar('vod', movie.id), versions));
 }
@@ -2232,6 +2611,9 @@ function seriesEpisodes(info, seriesId) {
         title: `${info.name} — S${String(s.number).padStart(2, '0')}E${String(e.num).padStart(2, '0')}`,
         key: `episode:${e.id}`,
         series: String(seriesId),
+        seriesName: info.name,
+        episodeTitle: (e.title || '').replace(/^.* - S\d+E\d+ - /, '') || `${e.num}`,
+        cover: info.cover,
       },
     })),
   );

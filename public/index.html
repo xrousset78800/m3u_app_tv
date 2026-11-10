@@ -192,7 +192,7 @@
 
     <main>
       <div id="player" class="player">
-        <video id="video" controls controlslist="nofullscreen" autoplay playsinline></video>
+        <video id="video" autoplay playsinline></video>
         <div id="frozen" hidden><canvas></canvas></div>
         <!-- Volume, chaîne : affiché un instant par-dessus la vidéo. -->
         <div id="osd" hidden></div>
@@ -206,63 +206,137 @@
             <button id="up-next-cancel" type="button" class="secondary" data-i18n="upNext.cancel">Annuler</button>
           </div>
         </div>
-        <div id="fullscreen-button" data-i18n-title="player.fullscreen" title="Plein écran"></div>
-        <div id="player-buttons">
-          <!-- Autres versions (qualité, langue) de la chaîne ou du film en cours. -->
-          <div id="versions" hidden>
-            <button id="versions-button" data-i18n-title="versions.title" title="Autres versions : qualité, langue">⇄</button>
-            <div id="versions-panel" hidden>
-              <input id="versions-search" type="search" data-i18n-placeholder="versions.search" placeholder="Rechercher une version…">
-              <ul id="versions-list"></ul>
-              <p class="muted small" data-i18n="versions.note">Le choix est retenu : cette version se lance à la place des autres, et remplace les autres dans les favoris.</p>
-            </div>
+        <!-- Titre : affiche ou logo, ligne d'info, titre. Masquer et fermer à droite. -->
+        <div id="player-head">
+          <div id="head-art" hidden><img alt=""></div>
+          <div class="head-text">
+            <span class="head-line"><span id="head-live" data-i18n-title="player.live" title="En direct" hidden></span><span id="head-line"></span></span>
+            <strong id="head-title"></strong>
           </div>
-          <div id="sleep">
-            <button id="sleep-button" data-i18n-title="sleep.title" title="Mise en veille : arrêter la lecture au bout d'un moment">☾<small></small></button>
-            <div id="sleep-menu" hidden></div>
+          <div class="head-buttons">
+            <button id="hide-player" type="button" class="icon" data-i18n-title="player.hide" title="Masquer le lecteur (la lecture continue)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+            <button id="close-player" type="button" class="icon" data-i18n-title="player.close" title="Fermer le lecteur"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
           </div>
-          <button id="hide-player" data-i18n-title="player.hide" title="Masquer le lecteur (la lecture continue)">—</button>
-          <button id="close-player" data-i18n-title="player.close" title="Fermer le lecteur">✕</button>
         </div>
-        <div class="controls">
+        <!-- Capsule : barre (position, ou avancement de l'émission en direct) puis une ligne d'icônes. -->
+        <div id="capsule">
           <div id="seek" hidden>
             <div id="seek-preview" hidden><img alt=""><span></span></div>
-            <!-- Génériques à passer, réglés une fois pour toute la série. -->
-            <div id="skip-panel" hidden>
-              <h3 data-i18n="skip.title">Génériques de la série</h3>
-              <label class="skip-switch"><input type="checkbox" id="skip-intro-on"> <span data-i18n="skip.intro">Passer le générique de début</span></label>
-              <div class="skip-times">
-                <span data-i18n="skip.from">de</span>
-                <input id="skip-intro-start" inputmode="numeric" placeholder="0:00">
-                <button type="button" class="secondary" data-now="skip-intro-start" data-i18n-title="skip.now" title="Position actuelle">⏱</button>
-                <span data-i18n="skip.to">à</span>
-                <input id="skip-intro-end" inputmode="numeric" placeholder="1:30">
-                <button type="button" class="secondary" data-now="skip-intro-end" data-i18n-title="skip.now" title="Position actuelle">⏱</button>
-              </div>
-              <label class="skip-switch"><input type="checkbox" id="skip-outro-on"> <span data-i18n="skip.outro">Passer le générique de fin (épisode suivant)</span></label>
-              <div class="skip-times">
-                <span data-i18n="skip.length">durée</span>
-                <input id="skip-outro-length" inputmode="numeric" placeholder="1:30">
-                <button type="button" class="secondary" data-now="skip-outro-length" data-i18n-title="skip.nowLeft" title="Temps restant depuis la position actuelle">⏱</button>
-              </div>
-              <p class="muted" data-i18n="skip.note">Retenu pour toute la série. ⏱ prend la position actuelle. La durée de fin est comptée depuis le bout de chaque épisode, quelle que soit sa longueur.</p>
-            </div>
-            <!-- Barre de lecture sur toute la largeur, menus en dessous. -->
             <div class="timeline">
-              <button id="back-10" type="button" class="jump" data-jump="-10" data-i18n-title="player.back10" title="Reculer de 10 s (←)">−10 s</button>
               <span id="time-current">0:00</span>
-              <input id="seek-bar" type="range" min="0" step="1" value="0">
-              <span id="time-total">0:00</span>
-              <button id="forward-10" type="button" class="jump" data-jump="10" data-i18n-title="player.forward10" title="Avancer de 10 s (→)">+10 s</button>
+              <div class="bar-box">
+                <div id="seek-marks"></div>
+                <input id="seek-bar" type="range" min="0" step="1" value="0" data-i18n-title="player.position" title="Position">
+              </div>
+              <span id="time-total" data-i18n-title="player.timeToggle" title="Temps restant ou durée totale">0:00</span>
+              <span id="time-end"></span>
             </div>
-            <div class="options">
-            <select id="audio-track" data-i18n-title="player.audio" title="Piste audio"></select>
-            <select id="subtitle-track" data-i18n-title="player.subtitles" title="Sous-titres" hidden></select>
-            <span id="subtitle-delay" data-i18n-title="player.subtitleDelay" title="Décalage des sous-titres : 0,1 s par clic, 1 s avec Maj (touches G et H)" hidden>
-              <button type="button" class="secondary" data-step="-0.1">−</button><span></span><button type="button" class="secondary" data-step="0.1">+</button><button type="button" class="secondary speed" data-i18n-title="player.subtitleSpeed" title="Sous-titres prévus pour une version à 25 images par seconde (touche J)"></button>
-            </span>
-            <button id="skip-button" class="icon" data-i18n-title="skip.buttonTitle" title="Passer les génériques de la série" hidden>⏩</button>
-            <button id="next" class="secondary" data-i18n="player.next" data-i18n-title="player.nextTitle" title="Passer à la suite de la playlist" hidden>⏭ Suivant</button>
+          </div>
+          <div id="live-bar" hidden>
+            <span id="live-start"></span>
+            <div class="bar"><div></div></div>
+            <span id="live-end"></span>
+            <span id="live-next"></span>
+          </div>
+          <div class="capsule-row">
+            <div class="capsule-side">
+              <div id="volume">
+                <button id="mute-button" type="button" class="icon" data-i18n-title="player.mute" title="Couper le son (M)">
+                  <svg class="sound-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>
+                  <svg class="sound-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/></svg>
+                </button>
+                <input id="volume-bar" type="range" min="0" max="1" step="0.05" data-i18n-title="player.volume" title="Volume (↑ ↓)">
+              </div>
+              <div id="sleep" class="anchor">
+                <button id="sleep-button" type="button" class="icon" data-i18n-title="sleep.title" title="Mise en veille : arrêter la lecture au bout d'un moment"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><small></small></button>
+                <div id="sleep-menu" class="pop" hidden></div>
+              </div>
+              <!-- Autres versions (qualité, langue) de la chaîne ou du film en cours. -->
+              <div id="versions" class="anchor" hidden>
+                <button id="versions-button" type="button" class="icon" data-i18n-title="versions.title" title="Autres versions : qualité, langue"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="12" height="12" rx="2"/><path d="M8 20h10a2 2 0 0 0 2-2V8"/></svg></button>
+                <div id="versions-panel" class="pop" hidden>
+                  <input id="versions-search" type="search" data-i18n-placeholder="versions.search" placeholder="Rechercher une version…">
+                  <ul id="versions-list"></ul>
+                  <p class="muted small" data-i18n="versions.note">Le choix est retenu : cette version se lance à la place des autres, et remplace les autres dans les favoris.</p>
+                </div>
+              </div>
+              <div id="speed" class="anchor" hidden>
+                <button id="speed-button" type="button" class="icon" data-i18n-title="player.speed" title="Vitesse de lecture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/></svg><small></small></button>
+                <div id="speed-menu" class="pop" hidden></div>
+              </div>
+            </div>
+            <div class="capsule-center">
+              <button id="zap-prev" type="button" class="icon big" data-i18n-title="player.zapPrev" title="Chaîne précédente (Page ↑)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <button id="back-10" type="button" class="icon big jump" data-jump="-10" data-i18n-title="player.back10" title="Reculer de 10 s (←)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4h4"/><text x="12" y="15.5">10</text></svg></button>
+              <button id="play-button" type="button" data-i18n-title="player.playPause" title="Lecture / pause (Espace)">
+                <svg class="when-paused" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>
+                <svg class="when-playing" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+              </button>
+              <button id="forward-10" type="button" class="icon big jump" data-jump="10" data-i18n-title="player.forward10" title="Avancer de 10 s (→)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4h-4"/><text x="12" y="15.5">10</text></svg></button>
+              <button id="zap-next" type="button" class="icon big" data-i18n-title="player.zapNext" title="Chaîne suivante (Page ↓)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+            </div>
+            <div class="capsule-side end">
+              <!-- Son et sous-titres : les deux listes sont tirées des menus cachés, qui gardent l'état. -->
+              <div id="tracks" class="anchor" hidden>
+                <button id="tracks-button" type="button" class="icon" data-i18n-title="player.tracks" title="Son et sous-titres"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h4M13 15h4M7 11h10"/></svg></button>
+                <div id="tracks-panel" class="pop" hidden>
+                  <div class="tracks-columns">
+                    <div id="audio-column">
+                      <h4 data-i18n="player.audio">Piste audio</h4>
+                      <ul id="audio-list"></ul>
+                    </div>
+                    <div id="subtitle-column">
+                      <h4><span data-i18n="player.subtitles">Sous-titres</span><button id="subtitle-find" type="button" class="icon small" data-i18n-title="subtitles.title" title="Sous-titres en ligne" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></button></h4>
+                      <ul id="subtitle-list"></ul>
+                    </div>
+                  </div>
+                  <select id="audio-track" class="model" hidden></select>
+                  <select id="subtitle-track" class="model" hidden></select>
+                  <div id="subtitle-delay" data-i18n-title="player.subtitleDelay" title="Décalage des sous-titres : 0,1 s par clic, 1 s avec Maj (touches G et H)" hidden>
+                    <span class="label" data-i18n="player.delay">Décalage</span>
+                    <button type="button" class="secondary" data-step="-0.1">−</button><span class="value"></span><button type="button" class="secondary" data-step="0.1">+</button><button type="button" class="secondary speed" data-i18n-title="player.subtitleSpeed" title="Sous-titres prévus pour une version à 25 images par seconde (touche J)"></button>
+                  </div>
+                </div>
+              </div>
+              <!-- Génériques à passer, réglés une fois pour toute la série. -->
+              <div id="skip" class="anchor">
+                <button id="skip-button" type="button" class="icon" data-i18n-title="skip.buttonTitle" title="Passer les génériques de la série" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6l7 6-7 6z"/><path d="M12 6l7 6-7 6z"/></svg></button>
+                <div id="skip-panel" class="pop" hidden>
+                  <h3 data-i18n="skip.title">Génériques de la série</h3>
+                  <label class="skip-switch"><input type="checkbox" id="skip-intro-on"> <span data-i18n="skip.intro">Passer le générique de début</span></label>
+                  <div class="skip-times">
+                    <span data-i18n="skip.from">de</span>
+                    <input id="skip-intro-start" inputmode="numeric" placeholder="0:00">
+                    <button type="button" class="secondary" data-now="skip-intro-start" data-i18n-title="skip.now" title="Position actuelle">⏱</button>
+                    <span data-i18n="skip.to">à</span>
+                    <input id="skip-intro-end" inputmode="numeric" placeholder="1:30">
+                    <button type="button" class="secondary" data-now="skip-intro-end" data-i18n-title="skip.now" title="Position actuelle">⏱</button>
+                  </div>
+                  <label class="skip-switch"><input type="checkbox" id="skip-outro-on"> <span data-i18n="skip.outro">Passer le générique de fin (épisode suivant)</span></label>
+                  <div class="skip-times">
+                    <span data-i18n="skip.length">durée</span>
+                    <input id="skip-outro-length" inputmode="numeric" placeholder="1:30">
+                    <button type="button" class="secondary" data-now="skip-outro-length" data-i18n-title="skip.nowLeft" title="Temps restant depuis la position actuelle">⏱</button>
+                  </div>
+                  <p class="muted" data-i18n="skip.note">Retenu pour toute la série. ⏱ prend la position actuelle. La durée de fin est comptée depuis le bout de chaque épisode, quelle que soit sa longueur.</p>
+                </div>
+              </div>
+              <div id="episodes" class="anchor" hidden>
+                <button id="episodes-button" type="button" class="icon" data-i18n-title="player.episodes" title="Épisodes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path class="dots" d="M4 6h.01M4 12h.01M4 18h.01"/></svg></button>
+                <div id="episodes-panel" class="pop" hidden>
+                  <select id="episodes-season"></select>
+                  <ul id="episodes-list"></ul>
+                </div>
+              </div>
+              <button id="next" type="button" class="icon" data-i18n-title="player.nextTitle" title="Passer à la suite de la playlist" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l9 6-9 6z"/><path d="M18 6v12"/></svg></button>
+              <button id="next-episode" type="button" class="icon" data-i18n-title="player.nextEpisode" title="Épisode suivant" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l9 6-9 6z"/><path d="M18 6v12"/></svg></button>
+              <button id="live-guide" type="button" class="icon" data-i18n-title="player.guide" title="Programme de la chaîne" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg></button>
+              <button id="live-channels" type="button" class="icon" data-i18n-title="player.channels" title="Liste des chaînes (L)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path class="dots" d="M4 6h.01M4 12h.01M4 18h.01"/></svg></button>
+              <button id="pip-button" type="button" class="icon" data-i18n-title="player.pip" title="Image dans l'image" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="12" width="7" height="5" rx="1"/></svg></button>
+              <button id="fullscreen-button" type="button" class="icon" data-i18n-title="player.fullscreen" title="Plein écran (F)">
+                <svg class="enter" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+                <svg class="leave" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+              </button>
             </div>
           </div>
         </div>
