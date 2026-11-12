@@ -189,6 +189,8 @@
   "error.noResponse": "Walang sagot na Xtream Codes mula sa {server}: tingnan ang server address",
   "error.badCredentials": "Tinanggihan ng server ang login",
   "error.inactive": "Hindi active ang subscription ({status})",
+  "error.providerPage": "Nagbabalik ng web page ang server ng provider sa halip na mga channel: malamang na hinarangan ng iyong internet provider ang address nito, o nakahinto ang serbisyo. Hindi ito kasalanan ng app.",
+  "error.providerDown": "Hindi tumutugon ang server ng provider: nakahinto ang serbisyo o naputol ang koneksyon sa internet.",
   "error.notConfigured": "Hindi pa naka-set up: patakbuhin ang import",
   "error.providerTimeout": "hindi sumasagot ang provider, subukan ulit mamaya",
   "error.importRunning": "May import na tumatakbo, subukan ulit pagkalipas ng ilang segundo",

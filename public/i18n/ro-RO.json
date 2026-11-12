@@ -189,6 +189,8 @@
   "error.noResponse": "Niciun răspuns Xtream Codes de la {server}: verifică adresa serverului",
   "error.badCredentials": "Date de conectare refuzate de server",
   "error.inactive": "Abonament inactiv ({status})",
+  "error.providerPage": "Serverul furnizorului returnează o pagină web în loc de canale: adresa sa este probabil blocată de operatorul tău de internet sau serviciul este oprit. Aplicația nu este de vină.",
+  "error.providerDown": "Serverul furnizorului nu răspunde: serviciu oprit sau conexiune la internet întreruptă.",
   "error.notConfigured": "Încă neconfigurat: pornește importul",
   "error.providerTimeout": "furnizorul nu răspunde, încearcă din nou imediat",
   "error.importRunning": "Import în curs, încearcă din nou în câteva secunde",

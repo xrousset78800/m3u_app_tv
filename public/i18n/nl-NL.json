@@ -189,6 +189,8 @@
   "error.noResponse": "Geen Xtream Codes-antwoord van {server}: controleer het serveradres",
   "error.badCredentials": "Inloggegevens geweigerd door de server",
   "error.inactive": "Abonnement niet actief ({status})",
+  "error.providerPage": "De server van de aanbieder geeft een webpagina terug in plaats van de zenders: het adres wordt waarschijnlijk geblokkeerd door je internetprovider, of de dienst ligt plat. Het ligt niet aan de app.",
+  "error.providerDown": "De server van de aanbieder reageert niet: dienst ligt plat of internetverbinding verbroken.",
   "error.notConfigured": "Nog niet ingesteld: start de import",
   "error.providerTimeout": "de provider reageert niet, probeer het zo opnieuw",
   "error.importRunning": "Import bezig, probeer het over een paar seconden opnieuw",

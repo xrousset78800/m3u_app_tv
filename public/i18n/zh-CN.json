@@ -189,6 +189,8 @@
   "error.noResponse": "{server} 没有 Xtream Codes 响应：请检查服务器地址",
   "error.badCredentials": "服务器拒绝了登录信息",
   "error.inactive": "订阅未激活（{status}）",
+  "error.providerPage": "提供商的服务器返回的是网页而不是频道：其地址可能已被您的网络运营商屏蔽，或服务已停止。这不是应用的问题。",
+  "error.providerDown": "提供商的服务器没有响应：服务已停止或网络连接已断开。",
   "error.notConfigured": "尚未配置：请先导入",
   "error.providerTimeout": "提供商无响应，请稍后再试",
   "error.importRunning": "正在导入，请几秒后再试",

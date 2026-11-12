@@ -189,6 +189,8 @@
   "error.noResponse": "Babu amsar Xtream Codes daga {server}: duba adireshin sabar",
   "error.badCredentials": "Sabar ta ƙi bayanan shiga",
   "error.inactive": "Biyan kuɗi ba ya aiki ({status})",
+  "error.providerPage": "Sabar mai bayarwa tana dawo da shafin yanar gizo maimakon tashoshi: wataƙila mai ba ku intanet ya toshe adireshinta, ko sabis ɗin ya tsaya. Ba laifin manhajar ba ne.",
+  "error.providerDown": "Sabar mai bayarwa ba ta amsawa: sabis ya tsaya ko haɗin intanet ya yanke.",
   "error.notConfigured": "Ba a saita ba tukuna: fara shigo da bayanai",
   "error.providerTimeout": "mai bada sabis ba ya amsa, sake gwadawa nan ba da jimawa ba",
   "error.importRunning": "Ana shigo da bayanai, sake gwadawa bayan 'yan daƙiƙoƙi",

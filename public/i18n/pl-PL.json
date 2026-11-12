@@ -189,6 +189,8 @@
   "error.noResponse": "Brak odpowiedzi Xtream Codes od {server}: sprawdź adres serwera",
   "error.badCredentials": "Serwer odrzucił dane logowania",
   "error.inactive": "Subskrypcja nieaktywna ({status})",
+  "error.providerPage": "Serwer dostawcy zwraca stronę internetową zamiast kanałów: jego adres jest prawdopodobnie blokowany przez Twojego operatora internetu albo usługa nie działa. To nie wina aplikacji.",
+  "error.providerDown": "Serwer dostawcy nie odpowiada: usługa nie działa lub połączenie z internetem zostało przerwane.",
   "error.notConfigured": "Jeszcze nie skonfigurowano: uruchom import",
   "error.providerTimeout": "dostawca nie odpowiada, spróbuj za chwilę",
   "error.importRunning": "Trwa import, spróbuj za kilka sekund",

@@ -318,6 +318,8 @@ class Server(private val assets: AssetManager, languagesJson: String) : NanoHTTP
             Xtream.readConfig()?.let { Log.secret(java.net.URL(it.server).host) }
             Db.status()
         },
+        // État du fournisseur, demandé par le lecteur après un échec.
+        Route(Method.GET, Regex("^/api/provider$"), "") { _ -> jsonOf("state" to Xtream.checkProvider()) },
         // Avancement de l'import en cours (null s'il n'y en a pas).
         Route(Method.GET, Regex("^/api/sync$"), "admin") { _ -> jsonOf("progress" to Db.syncProgress()) },
         Route(Method.POST, Regex("^/api/sync$"), "admin") { _ ->

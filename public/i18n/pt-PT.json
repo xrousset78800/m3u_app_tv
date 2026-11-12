@@ -189,6 +189,8 @@
   "error.noResponse": "Sem resposta Xtream Codes de {server}: verifica o endereço do servidor",
   "error.badCredentials": "Dados de acesso recusados pelo servidor",
   "error.inactive": "Subscrição não ativa ({status})",
+  "error.providerPage": "O servidor do fornecedor devolve uma página web em vez dos canais: o seu endereço está provavelmente bloqueado pelo seu operador de internet, ou o serviço está em baixo. A aplicação não tem culpa.",
+  "error.providerDown": "O servidor do fornecedor não responde: serviço em baixo ou ligação à internet cortada.",
   "error.notConfigured": "Ainda não configurado: inicia a importação",
   "error.providerTimeout": "o fornecedor não responde, tenta de novo daqui a pouco",
   "error.importRunning": "Importação em curso, tenta de novo daqui a alguns segundos",

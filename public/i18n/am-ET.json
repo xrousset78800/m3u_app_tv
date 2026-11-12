@@ -189,6 +189,8 @@
   "error.noResponse": "ከ{server} የXtream Codes ምላሽ የለም፦ የሰርቨሩን አድራሻ አረጋግጥ",
   "error.badCredentials": "ሰርቨሩ የመግቢያ መረጃውን አልተቀበለም",
   "error.inactive": "ምዝገባው ንቁ አይደለም ({status})",
+  "error.providerPage": "የአቅራቢው አገልጋይ ከቻናሎች ይልቅ ድረ-ገጽ ይመልሳል፦ አድራሻው በኢንተርኔት አቅራቢዎ የታገደ ሊሆን ይችላል፣ ወይም አገልግሎቱ ቆሟል። ችግሩ የመተግበሪያው አይደለም።",
+  "error.providerDown": "የአቅራቢው አገልጋይ ምላሽ አይሰጥም፦ አገልግሎቱ ቆሟል ወይም የኢንተርኔት ግንኙነት ተቋርጧል።",
   "error.notConfigured": "ገና አልተዋቀረም፦ ማስመጣቱን ጀምር",
   "error.providerTimeout": "አቅራቢው ምላሽ እየሰጠ አይደለም፣ ትንሽ ቆይተህ እንደገና ሞክር",
   "error.importRunning": "ማስመጣት በሂደት ላይ ነው፣ ከጥቂት ሰከንዶች በኋላ እንደገና ሞክር",

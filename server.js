@@ -295,6 +295,8 @@ const routes = [
     await xtream.login(await readJson(req));
     sendJson(res, db.status());
   }, 'admin'],
+  // État du fournisseur, demandé par le lecteur après un échec.
+  ['GET', /^\/api\/provider$/, async (req, res) => sendJson(res, { state: await xtream.checkProvider() })],
   // Avancement de l'import en cours (null s'il n'y en a pas).
   ['GET', /^\/api\/sync$/, (req, res) => sendJson(res, { progress: db.syncProgress() }), 'admin'],
   ['POST', /^\/api\/sync$/, async (req, res) => {

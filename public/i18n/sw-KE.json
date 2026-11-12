@@ -189,6 +189,8 @@
   "error.noResponse": "Hakuna jibu la Xtream Codes kutoka {server}: kagua anwani ya seva",
   "error.badCredentials": "Vitambulisho vimekataliwa na seva",
   "error.inactive": "Usajili haufanyi kazi ({status})",
+  "error.providerPage": "Seva ya mtoa huduma inarudisha ukurasa wa wavuti badala ya chaneli: huenda anwani yake imezuiwa na mtoa huduma wako wa intaneti, au huduma imesimama. Si kosa la programu.",
+  "error.providerDown": "Seva ya mtoa huduma haijibu: huduma imesimama au muunganisho wa intaneti umekatika.",
   "error.notConfigured": "Bado haijasanidiwa: anzisha uingizaji",
   "error.providerTimeout": "mtoa huduma hajibu, jaribu tena baada ya muda mfupi",
   "error.importRunning": "Uingizaji unaendelea, jaribu tena baada ya sekunde chache",

@@ -189,6 +189,8 @@
   "error.noResponse": "Xtream Codes yanıtı yok ({server}): sunucu adresini kontrol et",
   "error.badCredentials": "Giriş bilgileri sunucu tarafından reddedildi",
   "error.inactive": "Abonelik etkin değil ({status})",
+  "error.providerPage": "Sağlayıcının sunucusu kanallar yerine bir web sayfası döndürüyor: adresi büyük olasılıkla internet operatörünüz tarafından engelleniyor veya hizmet durdu. Sorun uygulamada değil.",
+  "error.providerDown": "Sağlayıcının sunucusu yanıt vermiyor: hizmet durdu veya internet bağlantısı kesildi.",
   "error.notConfigured": "Henüz yapılandırılmadı: içe aktarmayı başlat",
   "error.providerTimeout": "sağlayıcı yanıt vermiyor, birazdan tekrar dene",
   "error.importRunning": "İçe aktarma sürüyor, birkaç saniye sonra tekrar dene",

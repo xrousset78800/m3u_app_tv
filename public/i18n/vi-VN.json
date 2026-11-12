@@ -189,6 +189,8 @@
   "error.noResponse": "{server} không phản hồi Xtream Codes: kiểm tra lại địa chỉ máy chủ",
   "error.badCredentials": "Máy chủ từ chối thông tin đăng nhập",
   "error.inactive": "Gói đăng ký chưa hoạt động ({status})",
+  "error.providerPage": "Máy chủ của nhà cung cấp trả về một trang web thay vì các kênh: địa chỉ có thể đã bị nhà mạng của bạn chặn, hoặc dịch vụ đã ngừng. Không phải lỗi của ứng dụng.",
+  "error.providerDown": "Máy chủ của nhà cung cấp không phản hồi: dịch vụ đã ngừng hoặc mất kết nối internet.",
   "error.notConfigured": "Chưa được thiết lập: hãy chạy nhập dữ liệu",
   "error.providerTimeout": "nhà cung cấp không phản hồi, thử lại sau giây lát",
   "error.importRunning": "Đang nhập dữ liệu, thử lại sau vài giây",

@@ -189,6 +189,8 @@
   "error.noResponse": "Keine Xtream-Codes-Antwort von {server}: prüfe die Serveradresse",
   "error.badCredentials": "Zugangsdaten vom Server abgelehnt",
   "error.inactive": "Abo nicht aktiv ({status})",
+  "error.providerPage": "Der Server des Anbieters liefert eine Webseite statt der Sender: Seine Adresse wird wahrscheinlich von Ihrem Internetanbieter gesperrt, oder der Dienst ist eingestellt. Die App ist nicht schuld.",
+  "error.providerDown": "Der Server des Anbieters antwortet nicht: Dienst eingestellt oder Internetverbindung unterbrochen.",
   "error.notConfigured": "Noch nicht eingerichtet: Import starten",
   "error.providerTimeout": "der Anbieter antwortet nicht, versuche es gleich nochmal",
   "error.importRunning": "Import läuft, versuche es in ein paar Sekunden nochmal",

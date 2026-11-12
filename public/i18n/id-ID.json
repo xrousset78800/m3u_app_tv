@@ -189,6 +189,8 @@
   "error.noResponse": "Tidak ada respons Xtream Codes dari {server}: periksa alamat server",
   "error.badCredentials": "Data masuk ditolak oleh server",
   "error.inactive": "Langganan tidak aktif ({status})",
+  "error.providerPage": "Server penyedia mengembalikan halaman web, bukan saluran: alamatnya kemungkinan diblokir oleh penyedia internet Anda, atau layanannya mati. Ini bukan kesalahan aplikasi.",
+  "error.providerDown": "Server penyedia tidak merespons: layanan mati atau koneksi internet terputus.",
   "error.notConfigured": "Belum diatur: jalankan impor",
   "error.providerTimeout": "penyedia tidak merespons, coba lagi sebentar lagi",
   "error.importRunning": "Impor sedang berjalan, coba lagi dalam beberapa detik",

@@ -189,6 +189,8 @@
   "error.noResponse": "No Xtream Codes answer from {server}: check the server address",
   "error.badCredentials": "Credentials refused by the server",
   "error.inactive": "Subscription not active ({status})",
+  "error.providerPage": "The provider's server returns a web page instead of the channels: its address is probably blocked by your internet provider, or the service is down. The app is not at fault.",
+  "error.providerDown": "The provider's server is not responding: the service is down or the internet connection is cut.",
   "error.notConfigured": "Not configured yet: run the import",
   "error.providerTimeout": "the provider is not answering, try again in a moment",
   "error.importRunning": "Import in progress, try again in a few seconds",

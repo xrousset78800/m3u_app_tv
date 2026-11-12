@@ -189,6 +189,8 @@
   "error.noResponse": "{server} から Xtream Codes の応答がありません。サーバーアドレスを確認してください",
   "error.badCredentials": "サーバーがログイン情報を拒否しました",
   "error.inactive": "契約が有効ではありません（{status}）",
+  "error.providerPage": "プロバイダーのサーバーがチャンネルではなくウェブページを返しています。アドレスがインターネット事業者にブロックされているか、サービスが停止している可能性があります。アプリの問題ではありません。",
+  "error.providerDown": "プロバイダーのサーバーが応答しません。サービスの停止か、インターネット接続の切断です。",
   "error.notConfigured": "まだ設定されていません。インポートしてください",
   "error.providerTimeout": "プロバイダーが応答しません。しばらくしてから再試行してください",
   "error.importRunning": "インポート中です。数秒後に再試行してください",

@@ -189,6 +189,8 @@
   "error.noResponse": "Ayikho impendulo ye-Xtream Codes evela ku-{server}: hlola ikheli leseva",
   "error.badCredentials": "Iseva yenqabe imininingwane yokungena",
   "error.inactive": "Ukubhalisa akusebenzi ({status})",
+  "error.providerPage": "Iseva yomhlinzeki ibuyisa ikhasi lewebhu esikhundleni seziteshi: kungenzeka ikheli layo livinjwe umhlinzeki wakho we-inthanethi, noma isevisi imile. Akulona iphutha lohlelo lokusebenza.",
+  "error.providerDown": "Iseva yomhlinzeki ayiphenduli: isevisi imile noma uxhumano lwe-inthanethi lunqamukile.",
   "error.notConfigured": "Akukalungiswa: qalisa ukungenisa",
   "error.providerTimeout": "umhlinzeki akaphenduli, zama futhi emzuzwini",
   "error.importRunning": "Ukungenisa kuyaqhubeka, zama futhi emizuzwaneni embalwa",

@@ -58,8 +58,10 @@ object Xtream {
         val candidate = Config(normalizeServer(server), username, password)
         val info = try {
             val res = Http.request("${candidate.server}/player_api.php?${query("username" to username, "password" to password)}", headers = headers(), timeoutMs = 15000)
+            if (isWebPage(res.type)) throw providerPageError()
             if (res.status == 401 || res.status == 403) JSONObject() else JSONObject(res.text())
         } catch (e: Exception) {
+            if (e is ApiError && e.key == "providerPage") throw e
             throw ApiError(502, "Pas de réponse Xtream Codes de ${candidate.server} : vérifie l'adresse du serveur", "noResponse", mapOf("server" to candidate.server))
         }
         val user = info.optJSONObject("user_info") ?: JSONObject()
@@ -88,10 +90,31 @@ object Xtream {
         return "${c.server}/player_api.php?${query(*pairs.toTypedArray())}"
     }
 
+    // Une page web à la place des données : adresse bloquée par l'opérateur internet, ou serveur hors service.
+    private fun isWebPage(type: String?) = type?.contains("text/html", ignoreCase = true) == true
+    private fun providerPageError() = ApiError(502, "Le fournisseur renvoie une page web au lieu de ses données : adresse bloquée par l'opérateur internet, ou serveur hors service", "providerPage")
+
+    // Après un échec de lecture : le fournisseur répond-il encore normalement ?
+    // "ok", "page" (page web à la place des données) ou "down" (pas de réponse). Aucun flux n'est ouvert.
+    fun checkProvider(): String {
+        val c = requireConfig()
+        return try {
+            val res = Http.request("${c.server}/player_api.php?${query("username" to c.username, "password" to c.password)}", headers = headers(), timeoutMs = 10000)
+            when {
+                isWebPage(res.type) -> "page"
+                res.ok -> "ok"
+                else -> "down"
+            }
+        } catch (e: Exception) {
+            "down"
+        }
+    }
+
     // Réponse JSON (objet ou tableau) ; les fournisseurs renvoient parfois [] au lieu de {}.
     fun api(action: String, params: Map<String, String> = emptyMap()): Any? {
         val res = Http.request(apiUrl(action, params), headers = headers(), timeoutMs = 60000)
         if (!res.ok) throw Exception("API $action : HTTP ${res.status}")
+        if (isWebPage(res.type)) throw providerPageError()
         val text = res.text().trim()
         if (text.isEmpty()) return null
         return JSONTokener(text).nextValue()
@@ -104,6 +127,7 @@ object Xtream {
         val c = Http.open(apiUrl(action, emptyMap()), headers = headers(), timeoutMs = 120000)
         try {
             if (c.responseCode !in 200..299) throw Exception("API $action : HTTP ${c.responseCode}")
+            if (isWebPage(c.contentType)) throw providerPageError()
             c.inputStream.use { input -> file.outputStream().use { input.copyTo(it) } }
         } finally {
             c.disconnect()
@@ -117,6 +141,10 @@ object Xtream {
         if (conn.responseCode !in 200..299) {
             conn.disconnect()
             throw Exception("XMLTV : HTTP ${conn.responseCode}")
+        }
+        if (isWebPage(conn.contentType)) {
+            conn.disconnect()
+            throw providerPageError()
         }
         return conn
     }

@@ -72,6 +72,20 @@ function setStatus(text, isError = false) {
 function say(key, vars, isError = false) {
   setStatus(t(key, vars), isError);
   statusMessage = { key, vars, isError };
+  if (isError && key.startsWith('player.')) checkProvider();
+}
+
+// Une lecture échoue : si le fournisseur ne répond plus normalement (adresse bloquée par l'opérateur internet,
+// serveur arrêté), on le dit plutôt que « flux interrompu ». Réponse gardée 30 s.
+let provider = { state: 'ok', at: 0 };
+async function checkProvider() {
+  if (Date.now() - provider.at > 30000) {
+    provider = { state: 'ok', at: Date.now() };
+    provider.state = await getJson('/api/provider').then((r) => r.state, () => 'ok');
+  }
+  if (provider.state !== 'ok' && statusMessage?.key.startsWith('player.') && statusMessage.isError) {
+    say(provider.state === 'page' ? 'error.providerPage' : 'error.providerDown', {}, true);
+  }
 }
 
 // --- Langue de l'interface ------------------------------------------------------

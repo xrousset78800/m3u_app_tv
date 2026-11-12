@@ -189,6 +189,8 @@
   "error.noResponse": "{server}에서 Xtream Codes 응답이 없습니다. 서버 주소를 확인하세요",
   "error.badCredentials": "서버가 로그인 정보를 거부했습니다",
   "error.inactive": "구독이 활성 상태가 아닙니다 ({status})",
+  "error.providerPage": "제공업체 서버가 채널 대신 웹 페이지를 반환합니다. 인터넷 사업자가 주소를 차단했거나 서비스가 중단된 것 같습니다. 앱 문제는 아닙니다.",
+  "error.providerDown": "제공업체 서버가 응답하지 않습니다. 서비스가 중단되었거나 인터넷 연결이 끊겼습니다.",
   "error.notConfigured": "아직 설정되지 않았습니다. 가져오기를 실행하세요",
   "error.providerTimeout": "제공업체가 응답하지 않습니다. 잠시 후 다시 시도하세요",
   "error.importRunning": "가져오는 중입니다. 몇 초 후 다시 시도하세요",

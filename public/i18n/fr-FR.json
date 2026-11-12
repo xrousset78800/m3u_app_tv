@@ -189,6 +189,8 @@
   "error.noResponse": "Pas de réponse Xtream Codes de {server} : vérifie l'adresse du serveur",
   "error.badCredentials": "Identifiants refusés par le serveur",
   "error.inactive": "Abonnement non actif ({status})",
+  "error.providerPage": "Le serveur du fournisseur renvoie une page web au lieu des chaînes : son adresse est probablement bloquée par votre opérateur internet, ou le service est arrêté. L'appli n'y est pour rien.",
+  "error.providerDown": "Le serveur du fournisseur ne répond pas : service arrêté ou connexion internet coupée.",
   "error.notConfigured": "Pas encore configuré : lancer l'import",
   "error.providerTimeout": "le fournisseur ne répond pas, réessaie dans un instant",
   "error.importRunning": "Import en cours, réessaie dans quelques secondes",
